@@ -1,0 +1,164 @@
+/* ============================================================================
+   MOTION & INTERACTION POLISH
+   Subtle enhancements for responsiveness and perceived quality
+   Purpose: Make the experience feel responsive, modern, and intuitive
+   ============================================================================ */
+
+/* ============================================================================
+   MICRO-INTERACTIONS
+   Subtle feedback on user actions
+   ============================================================================ */
+
+/* Button press feedback - Light scale on active */
+.btn-press:active {
+  transform: scale(0.98);
+  opacity: 0.92;
+}
+
+/* Card hover elevation - Soft lift effect */
+.card-lift {
+  transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1),
+              box-shadow 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.card-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Link hover - Smooth color transition */
+.link-smooth {
+  transition: color 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* Icon hover - Subtle scale */
+.icon-hover {
+  transition: transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.icon-hover:hover {
+  transform: scale(1.05);
+}
+
+/* ============================================================================
+   SMOOTH TRANSITIONS
+   Base transition utilities
+   ============================================================================ */
+
+.transition-smooth {
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.transition-smooth-fast {
+  transition: all 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.transition-smooth-slow {
+  transition: all 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* ============================================================================
+   ENTRANCE ANIMATIONS
+   Triggered on viewport entry - once per session
+   ============================================================================ */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.3s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+/* Stagger animation delays for lists */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+
+/* ============================================================================
+   FOCUS STATES
+   Enhanced keyboard navigation
+   ============================================================================ */
+
+:focus-visible {
+  outline: 2px solid #009FE3;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ============================================================================
+   ACCESSIBILITY
+   Respect user preferences for reduced motion
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  /* Disable entrance animations */
+  .animate-fadeInUp {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* ============================================================================
+   SMOOTH SCROLLING
+   Only when motion is preferred
+   ============================================================================ */
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ============================================================================
+   PERFORMANCE OPTIMIZATIONS
+   Use GPU acceleration for transforms
+   ============================================================================ */
+
+.card-lift,
+.icon-hover,
+.btn-press {
+  will-change: transform;
+}
+
+.link-smooth {
+  will-change: color;
+}

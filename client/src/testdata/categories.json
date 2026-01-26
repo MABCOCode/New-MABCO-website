@@ -1,0 +1,56 @@
+[
+  {
+    "name": "هواتف ذكية",
+    "nameEn": "Mobile Phones",
+    "iconName": "Smartphone",
+    "brands": ["Samsung","iPhone (Apple)","Huawei","Xiaomi","Oppo","Realme","Infinix","Tecno","Honor","Nokia"]
+  },
+  {
+    "name": "إكسسوارات إلكترونية",
+    "nameEn": "Electronic Accessories",
+    "iconName": "Headphones",
+    "brands": ["Power Banks","Wired Headphones","Wireless Headphones","Smart Watches","Speakers","Chargers & Cables","Phone Cases","Screen Protectors","iPhone Accessories","Memory Cards & Flash Drives","Other Accessories"]
+  },
+  {
+    "name": "أجهزة لوحية",
+    "nameEn": "Tablets & iPads",
+    "iconName": "Watch",
+    "brands": ["Android Tablets","iPad","Accessories"]
+  },
+  {
+    "name": "كاميرات",
+    "nameEn": "Cameras & Photography",
+    "iconName": "Camera",
+    "brands": ["Digital Cameras","Action Cameras","Security Cameras","Camera Accessories"]
+  },
+  {
+    "name": "سكوترات كهربائية",
+    "nameEn": "Electric Scooters",
+    "iconName": "Bike",
+    "brands": ["Electric Scooters","Scooter Accessories"]
+  },
+  {
+    "name": "محطات الطاقة",
+    "nameEn": "Power Stations & Solar",
+    "iconName": "Battery",
+    "brands": ["Portable Power Units","Solar Generators","Power Stations","Accessories"]
+  },
+  {
+    "name": "ألعاب إلكترونية",
+    "nameEn": "Gaming & Entertainment",
+    "iconName": "Gamepad2",
+    "brands": ["Game Consoles","Game Accessories","Game Library","Subscriptions"]
+  },
+  {
+    "name": "الإصلاح وقطع الغيار",
+    "nameEn": "Repair & Spare Parts",
+    "iconName": "Settings",
+    "brands": ["Mobile Repair Parts (Samsung, iPhone, Huawei, Xiaomi, Oppo, Realme, Infinix, Tecno, Honor, Nokia)"]
+  },
+  {
+    "name": "الطباعة والخدمات الرقمية",
+    "nameEn": "Printing & Digital Services",
+    "iconName": "CreditCard",
+    "brands": ["Printing Services","Product Comparison","Apps","Online Payment","Offers & Promotions","Maintenance & Technical Support"]
+  }
+]

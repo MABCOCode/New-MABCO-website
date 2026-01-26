@@ -1,0 +1,1 @@
+export function updateMeta(meta: Record<string,string>) { Object.entries(meta).forEach(([k,v]) => { const el = document.querySelector(`meta[name="${k}"]`); if (el) el.setAttribute('content', v); }); }
