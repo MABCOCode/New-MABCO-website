@@ -14,6 +14,7 @@ import {
   Building2,
   Briefcase
 } from 'lucide-react';
+import { translations } from '../../i18n/translations';
 
 interface ModernFooterProps {
   language: 'ar' | 'en';
@@ -33,54 +34,31 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
   onMaintenanceClick
 }) => {
   const t = (key: string): string => {
-    const translations = {
-      ar: {
-        home: "الرئيسية",
-        categories: "الأقسام",
-        products: "المنتجات",
-        services: "الخدمات",
-        showrooms: "المعارض",
-        aboutUs: "من نحن",
-        career: "الوظائف",
-        contact: "اتصل بنا",
-        brands: "العلامات التجارية",
-        warranty: "الضمان",
-        allRightsReserved: "جميع الحقوق محفوظة"
-      },
-      en: {
-        home: "Home",
-        categories: "Categories",
-        products: "Products",
-        services: "Services",
-        showrooms: "Showrooms",
-        aboutUs: "About Us",
-        career: "Career",
-        contact: "Contact Us",
-        brands: "Brands",
-        warranty: "Warranty",
-        allRightsReserved: "All Rights Reserved"
-      }
-    };
     return translations[language][key] || key;
   };
 
+  const isRTL = language === 'ar';
+  const textDirection = isRTL ? 'rtl' : 'ltr';
+  const textAlign = isRTL ? 'text-right' : 'text-left';
+  const flexDirection = isRTL ? 'flex-row-reverse' : 'flex-row';
+
   const brands = [
-    { name: "Samsung", category: language === 'ar' ? "هواتف" : "Phones" },
-    { name: "iPhone (Apple)", category: language === 'ar' ? "هواتف" : "Phones" },
-    { name: "Xiaomi", category: language === 'ar' ? "هواتف" : "Phones" },
-    { name: "Sony", category: language === 'ar' ? "إلكترونيات" : "Electronics" },
-    { name: "Honor", category: language === 'ar' ? "هواتف" : "Phones" },
-    { name: "EcoFlow", category: language === 'ar' ? "طاقة" : "Power" },
-    { name: "Deye", category: language === 'ar' ? "طاقة شمسية" : "Solar Power" }
+    { name: "Samsung", category: t('phones'), categoryEn: "Phones" },
+    { name: "iPhone (Apple)", category: t('phones'), categoryEn: "Phones" },
+    { name: "Xiaomi", category: t('phones'), categoryEn: "Phones" },
+    { name: "Sony", category: t('electronics'), categoryEn: "Electronics" },
+    { name: "Honor", category: t('phones'), categoryEn: "Phones" },
+    { name: "EcoFlow", category: t('power'), categoryEn: "Power" },
+    { name: "Deye", category: t('solarPower'), categoryEn: "Solar Power" }
   ];
 
   const categories = [
-    { name: language === 'ar' ? "الهواتف" : "Phones", count: 150 },
-    { name: language === 'ar' ? "اللابتوبات" : "Laptops", count: 85 },
-    { name: language === 'ar' ? "التلفزيونات" : "TVs", count: 45 },
-    { name: language === 'ar' ? "السماعات" : "Headphones", count: 120 },
-    { name: language === 'ar' ? "الأجهزة المنزلية" : "Home Appliances", count: 75 },
-    { name: language === 'ar' ? "أجهزة الألعاب" : "Gaming", count: 60 }
+    { name: t('phones'), count: 150 },
+    { name: t('laptops'), count: 85 },
+    { name: t('tvs'), count: 45 },
+    { name: t('headphones'), count: 120 },
+    { name: t('homeAppliances'), count: 75 },
+    { name: t('gamingDevices'), count: 60 }
   ];
 
   const quickLinks = [
@@ -96,26 +74,29 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
 
   const services = [
     { label: t('warranty'), icon: Shield, action: onWarrantyClick },
-    { label: language === 'ar' ? "خدمة الصيانة" : "Maintenance Service", icon: Wrench, action: onMaintenanceClick },
-    { label: language === 'ar' ? "تحميل التطبيق" : "Download App", icon: Download },
-    { label: language === 'ar' ? "عن الشركة" : "About Company", icon: Building2, action: onAboutClick },
-    { label: language === 'ar' ? "الوظائف" : "Careers", icon: Briefcase }
+    { label: t('maintenanceService'), icon: Wrench, action: onMaintenanceClick },
+    { label: t('downloadApp'), icon: Download },
+    { label: t('aboutCompany'), icon: Building2, action: onAboutClick },
+    { label: t('careers'), icon: Briefcase }
   ];
 
   const contactInfo = [
     { icon: Phone, text: "+963 11 123 4567" },
     { icon: Mail, text: "info@mabcoonline.com" },
-    { icon: MapPin, text: language === 'ar' ? "دمشق، شارع الحمرا" : "Damascus, Al Hamra Street" }
+    { icon: MapPin, text: t('address') }
   ];
 
   return (
-    <footer className="bg-gray-900 text-white mt-auto pt-16 pb-8 border-t border-gray-800">
-      <div className="container mx-auto p-8">
+    <footer 
+      className="bg-gray-900 text-white mt-auto pt-16 pb-8 border-t border-gray-800"
+      dir={textDirection}
+    >
+      <div className={`container mx-auto p-8 ${textAlign}`}>
         {/* Top Section - Fixed gradient */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
           {/* Company Info */}
           <div>
-            <div className="flex items-center gap-3 mb-6">
+            <div className={`flex items-center gap-3 mb-6 ${flexDirection}`}>
               <img
                 src="https://mabcoonline.com/images/Mabco%20100x100.jpg"
                 alt="MABCO Logo"
@@ -124,18 +105,16 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
               <div>
                 <h3 className="text-2xl font-bold text-white">MABCO</h3>
                 <p className="text-gray-300 text-sm">
-                  {language === 'ar' ? 'أكبر متجر إلكتروني في سوريا' : 'Largest Electronics Store in Syria'}
+                  {t('largestStore')}
                 </p>
               </div>
             </div>
             <p className="text-gray-300 mb-6">
-              {language === 'ar' 
-                ? 'متخصصون في بيع الأجهزة الإلكترونية والكهربائية الأصلية بضمان معتمد منذ عام 2008'
-                : 'Specialized in selling original electronic and electrical devices with certified warranty since 2008'}
+              {t('companyDescription')}
             </p>
             
             {/* Social Media */}
-            <div className="flex gap-4">
+            <div className={`flex gap-4 ${isRTL ? 'justify-end' : 'justify-start'}`}>
               <a href="https://www.facebook.com/mabco" className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform hover:bg-blue-700">
                 <Facebook className="w-5 h-5 text-white" />
               </a>
@@ -158,8 +137,8 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
             </h4>
             <ul className="space-y-3">
               {categories.map((category, index) => (
-                <li key={index} className="flex justify-between items-center hover:text-[#009FE3] transition-colors cursor-pointer group">
-                  <span className="text-gray-300 group-hover:text-[#009FE3] group-hover:translate-x-2 transition-all duration-300">
+                <li key={index} className={`flex justify-between items-center hover:text-[#009FE3] transition-colors cursor-pointer group ${flexDirection}`}>
+                  <span className={`text-gray-300 group-hover:text-[#009FE3] ${isRTL ? 'group-hover:translate-x-2' : 'group-hover:translate-x-2'} transition-all duration-300`}>
                     {category.name}
                   </span>
                   <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-sm">
@@ -179,7 +158,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
               {brands.map((brand, index) => (
                 <button
                   key={index}
-                  onClick={() => onBrandClick && onBrandClick(brand.name, brand.category, brand.category)}
+                  onClick={() => onBrandClick && onBrandClick(brand.name, brand.category, brand.categoryEn)}
                   className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg p-3 text-center transition-all hover:scale-105 group"
                 >
                   <div className="font-medium group-hover:text-[#009FE3] transition-colors">
@@ -196,13 +175,13 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
           {/* Contact & Services */}
           <div>
             <h4 className="text-xl font-bold text-white mb-6 pb-3 border-b border-gray-700">
-              {language === 'ar' ? 'تواصل معنا' : 'Contact Us'}
+              {t('contactUs')}
             </h4>
             
             {/* Contact Info */}
             <div className="space-y-4 mb-6">
               {contactInfo.map((info, index) => (
-                <div key={index} className="flex items-center gap-3">
+                <div key={index} className={`flex items-center gap-3 ${flexDirection}`}>
                   <div className="w-10 h-10 bg-[#009FE3] rounded-lg flex items-center justify-center flex-shrink-0">
                     <info.icon className="w-5 h-5 text-white" />
                   </div>
@@ -217,7 +196,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
                 <button
                   key={index}
                   onClick={service.action}
-                  className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg p-2 text-sm flex items-center justify-center gap-2 transition-colors"
+                  className={`bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg p-2 text-sm flex items-center justify-center gap-2 transition-colors ${flexDirection}`}
                 >
                   <service.icon className="w-4 h-4" />
                   {service.label}
@@ -244,8 +223,8 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
 
         {/* Bottom Section */}
         <div className="border-t border-gray-700 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-center md:text-left">
+          <div className={`flex flex-col md:flex-row justify-between items-center gap-4 ${isRTL ? 'md:flex-row-reverse' : ''}`}>
+            <div className={`text-center ${isRTL ? 'md:text-right' : 'md:text-left'}`}>
               <p className="text-gray-400">
                 © {new Date().getFullYear()} MABCO. {t('allRightsReserved')}
               </p>
@@ -253,16 +232,16 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
             
             <div className="flex flex-wrap justify-center gap-6">
               <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
-                {language === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy'}
+                {t('privacyPolicy')}
               </a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
-                {language === 'ar' ? 'شروط الاستخدام' : 'Terms of Service'}
+                {t('termsOfService')}
               </a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
-                {language === 'ar' ? 'سياسة الإرجاع' : 'Return Policy'}
+                {t('returnPolicy')}
               </a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
-                {language === 'ar' ? 'الأسئلة الشائعة' : 'FAQ'}
+                {t('faq')}
               </a>
             </div>
           </div>
@@ -270,9 +249,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
           {/* SEO: Additional company info */}
           <div className="mt-6 text-center text-gray-500 text-sm">
             <p>
-              {language === 'ar' 
-                ? 'متجر MABCO الإلكتروني - رقم 1 في سوريا لبيع الأجهزة الإلكترونية، الهواتف الذكية، اللابتوبات، التلفزيونات، الأجهزة المنزلية، والألعاب الإلكترونية'
-                : 'MABCO Online Store - #1 in Syria for Electronics, Smartphones, Laptops, TVs, Home Appliances, and Gaming Devices'}
+              {t('seoDescription')}
             </p>
           </div>
         </div>

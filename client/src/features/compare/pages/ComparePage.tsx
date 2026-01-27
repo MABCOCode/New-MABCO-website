@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { X, Check, Star, ShoppingCart, Filter } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
-import { CompareProduct, ComparePageProps, translations, Product } from "../types";
+import { Product } from "../../../types/product";
+import { CompareProduct, ComparePageProps  } from "../../../types/compare";
+
 import { compareUtils } from "../sync";
 import productsData from '../../../testdata/products.json';
+import translations from '../../../i18n/translations';
+
 
 export function ComparePage(props: ComparePageProps) {
   const { compareItems, onClose, onRemoveItem, onAddItem, language } = props;

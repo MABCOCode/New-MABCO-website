@@ -96,7 +96,7 @@ const AppContent: React.FC = () => {
           
         </main>
         <ModernFooter 
-          language="ar"
+          language={language}
           onBrandClick={handleBrandClick}
           onAboutClick={handleAboutClick}
           onShowroomsClick={handleShowroomsClick}
