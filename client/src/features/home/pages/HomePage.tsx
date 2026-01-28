@@ -6,8 +6,9 @@ import HeroCarousel from "../components/HeroCarousel";
 import SearchSection from "../components/SearchSection";
 import SpecialOffers from "../components/OffersSlider";
 import CategorySection from "../components/CategorySection";
-import MostBoughtProducts from "../components/MostBoughtSlider";
-import NewProductsSlider from "../components/NewProductsSlider";
+import ProductsSlider from "../components/ProductsSlider";
+import productsData from "../../../testdata/products.json";
+import { Star, Flame } from 'lucide-react';
 import BrandShowcase from "../components/BrandShowcase";
 import ServicesSection from "../components/ServicesSection";
 import CompanyStrength from "../components/CompanyStrength";
@@ -172,16 +173,20 @@ const HomePage: React.FC = () => {
           />
         </section>
         {/* Special Offers Slider */}
-        <section className="container mx-auto px-4 py-8">
+       <section id="special-offers-carousel" className="special-offers-carousel container mx-auto px-4 py-8">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6 text-center">
             {t("specialOffers") || "Special Offers"}
           </h2>
           <SpecialOffers language={language} />
         </section>
-
         {/* Most Bought Products */}
-        <MostBoughtProducts
+        <ProductsSlider
           language={language}
+          title={t("mostSold") || "Most Sold"}
+          icon={
+            <Star className="w-6 h-6 md:w-8 md:h-8 text-yellow-500 fill-yellow-500" />
+          }
+          products={(productsData as any)?.mostBought ?? []}
           onProductClick={handleProductClick}
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}
@@ -189,8 +194,11 @@ const HomePage: React.FC = () => {
         />
 
         {/* New Products Slider */}
-        <NewProductsSlider
+        <ProductsSlider
           language={language}
+          title={t("newProducts") || "New Products"}
+          icon={<Flame className="w-6 h-6 md:w-8 md:h-8 text-red-500" />}
+          products={(productsData as any)?.newProducts ?? []}
           onProductClick={handleProductClick}
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}

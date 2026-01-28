@@ -131,7 +131,7 @@ const Navbar: React.FC = () => {
                 activeSection === 'categories' ? 'text-[#009FE3] font-semibold' : ''
               }`}
             >
-              {t('categories')}
+              {t('products')}
             </button>
             <button
               onClick={() => handleNavClick('products')}
@@ -139,14 +139,14 @@ const Navbar: React.FC = () => {
                 activeSection === 'products' ? 'text-[#009FE3] font-semibold' : ''
               }`}
             >
-              {t('products')}
+              {/* {t('products')}
             </button>
             <button
               onClick={() => handleNavClick('services')}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
                 activeSection === 'services' ? 'text-[#009FE3] font-semibold' : ''
               }`}
-            >
+            > */}
               {t('services')}
             </button>
 

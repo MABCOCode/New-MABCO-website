@@ -114,10 +114,10 @@ const OfferSlider: React.FC<OfferSliderProps> = ({ language }) => {
           ))}
         </CarouselContent>
         <CarouselPrevious
-          className={`${language === 'ar' ? 'translate-x-1/2' : '-translate-x-1/2'} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-50`}
+          className={`${language === 'ar' ? 'translate-x-1/2' : '-translate-x-1/2'} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-30`}
         />
         <CarouselNext
-          className={`${language === 'ar' ? '-translate-x-1/2' : 'translate-x-1/2'} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-50`}
+          className={`${language === 'ar' ? '-translate-x-1/2' : 'translate-x-1/2'} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-30`}
         />
       </Carousel>
     </section>
