@@ -16,6 +16,7 @@ import {
   ChevronUp,GitCompare 
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useCart } from '../../context/CartContext';
 import categoriesData from '../../testdata/categories.json';
 import { iconsMap } from '../../utils/iconMap'; 
 import { useCompareStore } from "../../features/compare/state";
@@ -33,7 +34,7 @@ const Navbar: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
-  const [cartCount, setCartCount] = useState(0); // You should replace with actual cart state
+  const { cartCount, openCart } = useCart();
   const [isLoggedIn] = useState(false);
   const [activeSection, setActiveSection] = useState('');
 
@@ -133,20 +134,20 @@ const Navbar: React.FC = () => {
             >
               {t('products')}
             </button>
-            <button
+            {/* <button
               onClick={() => handleNavClick('products')}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
                 activeSection === 'products' ? 'text-[#009FE3] font-semibold' : ''
               }`}
             >
-              {/* {t('products')}
-            </button>
+              {t('products')}
+            </button> */}
             <button
               onClick={() => handleNavClick('services')}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
                 activeSection === 'services' ? 'text-[#009FE3] font-semibold' : ''
               }`}
-            > */}
+            > {/* {t('services')} */}
               {t('services')}
             </button>
 
@@ -203,7 +204,7 @@ const Navbar: React.FC = () => {
 
             {/* Shopping Cart Button */}
             <button
-              onClick={() => navigateTo('/cart')}
+              onClick={() => openCart()}
               className="relative bg-gradient-to-br from-[#009FE3] to-[#007BC7] text-white px-4 py-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2"
             >
               <ShoppingCart className="w-5 h-5" />
@@ -254,7 +255,7 @@ const Navbar: React.FC = () => {
 
             {/* Shopping Cart Button - Mobile */}
             <button
-              onClick={() => navigateTo('/cart')}
+              onClick={() => openCart()}
               className="relative bg-gradient-to-br from-[#009FE3] to-[#007BC7] text-white w-10 h-10 rounded-full shadow-lg flex items-center justify-center"
             >
               <ShoppingCart className="w-5 h-5" />

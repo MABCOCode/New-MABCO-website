@@ -1,18 +1,20 @@
 // App.tsx
 import  { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import Navbar from './components/layout/Navbar';
 import ModernFooter from './components/layout/Footer'; // Make sure this is the correct import
 
 import ScrollToTop from './components/ui/ScrollToTop';
+import { CheckoutPage } from './features/checkout/pages/CheckoutPage';
 import HomePage from './features/home/pages/HomePage';
 import SearchResultsPage from './features/products/pages/SearchResultsPage';
 import ProductDetailPage from './features/products/pages/ProductDetailPage';
 import BrandPage from './features/products/pages/BrandPage';
 import ShowroomsPage from './features/showrooms/pages/ShowroomsPage';
 import LoginPage from './features/account/pages/LoginPage';
-import ShoppingCart from './features/cart/components/ShoppingCart';
+import {ShoppingCart} from './features/cart/components/ShoppingCart';
+import { CartProvider, useCart } from './context/CartContext';
 import SearchPage from './features/search/pages/SearchPage';
 import './styles/globals.css';
 import { ComparePage } from "./features/compare/pages/ComparePage";
@@ -52,13 +54,20 @@ const AppContent: React.FC = () => {
   const removeCompareItem = useCompareStore((s) => s.removeItem);
   const openCompare = useCompareStore((s) => s.openCompare);
   const closeCompare = useCompareStore((s) => s.closeCompare);
-
   // Read current language from LanguageContext instead of hardcoding
   const { language } = useLanguage();
+  const { cartItems, cartCount, cartOpen, closeCart, updateQuantity, removeFromCart, openCart } = useCart();
+  const { clearCart } = useCart();
+  const navigate = useNavigate();
+
+  const handleProceedToCheckout = () => {
+    closeCart();
+    navigate('/checkout');
+  };
 
 
   return (
-    <BrowserRouter>
+    <>
       <ScrollToTop />
       <div className="min-h-screen flex flex-col bg-white">
         <Navbar />
@@ -73,16 +82,26 @@ const AppContent: React.FC = () => {
             language={language}
           />
         )}
-
+        <ShoppingCart
+          isOpen={cartOpen}
+          onClose={() => closeCart()}
+          cartItems={cartItems}
+          onUpdateQuantity={(id:number, qty:number) => updateQuantity(id, qty)}
+          onRemoveItem={(id:number) => removeFromCart(id)}
+          onProceedToCheckout={handleProceedToCheckout}
+          language={language}
+        />
+        {/* Checkout is now a route at /checkout */}
         <main className="flex-grow pt-20">
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/products" element={<SearchResultsPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/brand/:id" element={<BrandPage />} />
             <Route path="/showrooms" element={<ShowroomsPage />} />
             <Route path="/account/login" element={<LoginPage />} />
-            <Route path="/cart" element={<ShoppingCart />} />
+            
             <Route path="/search" element={<SearchPage />} />
             <Route path="*" element={
               <div className="min-h-screen flex items-center justify-center p-4">
@@ -104,15 +123,19 @@ const AppContent: React.FC = () => {
           onMaintenanceClick={handleMaintenanceClick}
         />
       </div>
-    </BrowserRouter>
+    </>
   );
 };
 
 function App() {
   return (
-    <LanguageProvider>
-      <AppContent />
-    </LanguageProvider>
+    <BrowserRouter>
+      <LanguageProvider>
+        <CartProvider>
+          <AppContent />
+        </CartProvider>
+      </LanguageProvider>
+    </BrowserRouter>
   );
 };
 

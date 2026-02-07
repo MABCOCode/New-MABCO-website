@@ -98,7 +98,7 @@ const SearchSection: React.FC<Props> = ({ language }) => {
         </button>
       </div>
 
-      {/* Secondary Search Button */}
+      {/* Secondary Search Button
       <div className="flex justify-center gap-4 mt-6">
         <button
           onClick={handleSearch}
@@ -107,7 +107,7 @@ const SearchSection: React.FC<Props> = ({ language }) => {
         >
           Search
         </button>
-      </div>
+      </div> */}
 
       {/* CSS for sparkle animation */}
       <style>{`

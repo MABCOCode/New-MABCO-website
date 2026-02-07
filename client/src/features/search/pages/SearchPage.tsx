@@ -1,7 +1,10 @@
 // pages/SearchPage.tsx
 import React, { useEffect, useState } from "react";
+import { useCart } from "../../../context/CartContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Search, XCircle, Filter } from "lucide-react";
+import translations from "../../../i18n/translations";
+import { useLanguage } from "../../../context/LanguageContext";
 
 const SearchPage: React.FC = () => {
   const location = useLocation();
@@ -13,6 +16,10 @@ const SearchPage: React.FC = () => {
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  // Language + translations
+  const { language } = useLanguage();
+  const t = translations[language];
 
   // Mock data - replace with your actual data
   const allProducts = [
@@ -70,6 +77,8 @@ const SearchPage: React.FC = () => {
     setSelectedCategories([]);
   };
 
+  const { addToCart, openCart } = useCart();
+
   return (
     <main className="min-h-screen bg-white">
       {/* Sticky Search Bar */}
@@ -91,14 +100,14 @@ const SearchPage: React.FC = () => {
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Search for products..."
+                  placeholder={t.searchPlaceholder}
                   className="flex-1 py-3 px-2 bg-transparent outline-none text-gray-700"
                 />
               </div>
             </div>
           </div>
         </div>
-      </div>searchPlaceholder
+      </div>
 
       <div className="container mx-auto px-4 py-8">
         {/* Filters Section */}
@@ -107,14 +116,14 @@ const SearchPage: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <Filter className="w-5 h-5 text-[#009FE3]" />
-                <h3 className="text-xl font-bold text-gray-900">Filters</h3>
+                <h3 className="text-xl font-bold text-gray-900">{t.filters}</h3>
               </div>
               {(selectedBrands.length > 0 || selectedCategories.length > 0) && (
                 <button
                   onClick={clearFilters}
                   className="text-sm text-[#009FE3] hover:underline"
                 >
-                  Clear Filters
+                  {t.clearFilters}
                 </button>
               )}
             </div>
@@ -122,7 +131,7 @@ const SearchPage: React.FC = () => {
             <div className="grid md:grid-cols-2 gap-6">
               {/* Brands Filter */}
               <div>
-                <h4 className="font-semibold text-gray-700 mb-3">Brands</h4>
+                <h4 className="font-semibold text-gray-700 mb-3">{t.brands}</h4>
                 <div className="flex flex-wrap gap-2">
                   {allBrands.map((brand) => (
                     <button
@@ -142,7 +151,7 @@ const SearchPage: React.FC = () => {
 
               {/* Categories Filter */}
               <div>
-                <h4 className="font-semibold text-gray-700 mb-3">Categories</h4>
+                <h4 className="font-semibold text-gray-700 mb-3">{t.categories}</h4>
                 <div className="flex flex-wrap gap-2">
                   {allCategories.map((category) => (
                     <button
@@ -166,14 +175,14 @@ const SearchPage: React.FC = () => {
         {/* Results Header */}
         <div className="mb-6">
           <h3 className="text-2xl font-bold text-gray-900">
-            Search Results
+            {t.searchResults}
             <span className="text-[#009FE3] mr-2">
               ({filteredProducts.length})
             </span>
           </h3>
           {searchQuery && (
             <p className="text-gray-600 mt-2">
-              Showing results for: <span className="font-semibold">"{searchQuery}"</span>
+              {t.showingResultsFor} <span className="font-semibold">"{searchQuery}"</span>
             </p>
           )}
         </div>
@@ -196,12 +205,12 @@ const SearchPage: React.FC = () => {
                       <span className="text-2xl font-bold text-[#009FE3]">
                         {product.price}
                       </span>
-                      <span className="text-sm text-gray-500">SYP</span>
+                      <span className="text-sm text-gray-500">{t.syp}</span>
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <button className="w-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white py-3 rounded-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2">
-                      Add to Cart
+                    <button onClick={() => { addToCart(product); openCart(); }} className="w-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white py-3 rounded-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2">
+                      {t.addToCart}
                     </button>
                   </div>
                 </div>
@@ -214,16 +223,16 @@ const SearchPage: React.FC = () => {
               <Search className="w-10 h-10 text-gray-400" />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              No results found
+              {t.noResults}
             </h3>
             <p className="text-gray-600 mb-6">
-              Try using different keywords or removing filters
+              {t.noResultsMessageExtended}
             </p>
             <button
               onClick={clearFilters}
               className="px-6 py-3 bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white rounded-full hover:shadow-lg transition-all duration-300"
             >
-              Clear Filters
+              {t.clearFilters}
             </button>
           </div>
         )}

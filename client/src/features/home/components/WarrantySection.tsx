@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, Shield, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import translations from '../../../i18n/translations';
 
 interface WarrantySectionProps {
   language: "ar" | "en";
@@ -9,116 +10,35 @@ export function WarrantySection({ language }: WarrantySectionProps) {
   const isRTL = language === "ar";
   const [openSection, setOpenSection] = useState<number | null>(0);
 
-  const t = {
-    ar: {
-      title: "الضمان والسياسات",
-      subtitle: "التزامنا بحماية استثمارك",
-      basicCoverage: "التغطية الأساسية للضمان",
-      extendedProtection: "الحماية الموسعة",
-      generalTerms: "الشروط والأحكام العامة",
-      nonCovered: "الحالات غير المشمولة بالضمان",
-      
-      basicContent: [
-        "ضمان البرمجيات لمدة <strong>24 شهراً</strong> كاملة من تاريخ الشراء",
-        "صيانة التصنيع لمدة <strong>12 شهراً</strong> شاملة قطع الغيار والعمالة",
-        "<strong>15 يوماً</strong> لاستبدال المنتج في حالة عيوب التصنيع",
-        "خدمة الدعم الفني المجانية طوال فترة الضمان",
-        "مراكز خدمة معتمدة في 6 مدن سورية"
-      ],
-      
-      extendedContent: [
-        "حماية سوء الاستخدام لمدة <strong>100 يوم</strong>",
-        "تغطية كسر الشاشة والأضرار الناتجة عن السواقل",
-        "حماية اللوحة الأم والبطارية من الأضرار العرضية",
-        "استبدال سريع في حالات الأعطال المشمولة",
-        "فنيون معتمدون وقطع غيار أصلية 100%"
-      ],
-      
-      generalContent: [
-        "يجب الاحتفاظ بفاتورة الشراء الأصلية",
-        "الضمان ساري في جميع فروعنا ومراكز الخدمة المعتمدة",
-        "يتم فحص المنتج من قبل مهندسين معتمدين",
-        "مدة الإصلاح القياسية: 3-7 أيام عمل",
-        "الضمان قابل للتحويل مع المنتج في حالة البيع"
-      ],
-      
-      nonCoveredContent: [
-        "الأضرار المتعمدة أو سوء الاستخدام المتعمد",
-        "التلف الناتج عن الكوارث الطبيعية",
-        "التعديلات غير المصرح بها أو الصيانة من جهات غير معتمدة",
-        "الخدش والتآكل الطبيعي للأسطح الخارجية",
-        "المنتجات المستخدمة لأغراض تجارية"
-      ]
-    },
-    en: {
-      title: "Warranty & Policies",
-      subtitle: "Our commitment to protecting your investment",
-      basicCoverage: "Basic Warranty Coverage",
-      extendedProtection: "Extended Protection",
-      generalTerms: "General Terms & Conditions",
-      nonCovered: "Non-Covered Cases",
-      
-      basicContent: [
-        "Software warranty for <strong>24 months</strong> from date of purchase",
-        "Manufacturing maintenance for <strong>12 months</strong> including parts and labor",
-        "<strong>15 days</strong> product replacement for manufacturing defects",
-        "Free technical support throughout warranty period",
-        "Authorized service centers in 6 Syrian cities"
-      ],
-      
-      extendedContent: [
-        "Misuse protection for <strong>100 days</strong>",
-        "Coverage for screen breaks and liquid damage",
-        "Motherboard and battery accidental damage protection",
-        "Quick replacement for covered failures",
-        "Certified technicians and 100% genuine spare parts"
-      ],
-      
-      generalContent: [
-        "Original purchase invoice must be retained",
-        "Warranty valid at all our branches and authorized service centers",
-        "Products inspected by certified engineers",
-        "Standard repair time: 3-7 business days",
-        "Warranty transferable with product in case of resale"
-      ],
-      
-      nonCoveredContent: [
-        "Intentional damage or deliberate misuse",
-        "Damage from natural disasters",
-        "Unauthorized modifications or non-authorized repairs",
-        "Normal wear and tear of external surfaces",
-        "Products used for commercial purposes"
-      ]
-    }
-  };
+  const t = translations[language];
 
   const sections = [
     {
       id: 0,
-      title: t[language].basicCoverage,
+      title: t.basicCoverage,
       icon: Shield,
-      content: t[language].basicContent,
+      content: t.basicContent,
       color: "text-blue-600"
     },
     {
       id: 1,
-      title: t[language].extendedProtection,
+      title: t.extendedProtection,
       icon: CheckCircle,
-      content: t[language].extendedContent,
+      content: t.extendedContent,
       color: "text-green-600"
     },
     {
       id: 2,
-      title: t[language].generalTerms,
+      title: t.generalTerms,
       icon: AlertCircle,
-      content: t[language].generalContent,
+      content: t.generalContent,
       color: "text-orange-600"
     },
     {
       id: 3,
-      title: t[language].nonCovered,
+      title: t.nonCovered,
       icon: XCircle,
-      content: t[language].nonCoveredContent,
+      content: t.nonCoveredContent,
       color: "text-red-600"
     }
   ];
@@ -134,8 +54,8 @@ export function WarrantySection({ language }: WarrantySectionProps) {
         <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
           <Shield className="w-8 h-8 text-[#009FE3]" />
         </div>
-        <h2 className="text-4xl text-gray-900 mb-3">{t[language].title}</h2>
-        <p className="text-lg text-gray-600">{t[language].subtitle}</p>
+        <h2 className="text-4xl text-gray-900 mb-3">{t.title}</h2>
+        <p className="text-lg text-gray-600">{t.subtitle}</p>
       </div>
 
       {/* Accordion Sections */}

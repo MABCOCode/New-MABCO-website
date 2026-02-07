@@ -93,7 +93,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
     >
       <div className={`container mx-auto p-8 ${textAlign}`}>
         {/* Top Section - Fixed gradient */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12  ">
           {/* Company Info */}
           <div>
             <div className={`flex items-center gap-3 mb-6 ${flexDirection}`}>

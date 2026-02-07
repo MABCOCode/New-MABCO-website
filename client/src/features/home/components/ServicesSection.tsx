@@ -11,6 +11,7 @@ import {
   Star,
   Building2
 } from 'lucide-react';
+import translations from '../../../i18n/translations';
 
 interface ServicesSectionProps {
   language: 'ar' | 'en';
@@ -62,13 +63,7 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({ language }) => {
     },
   ];
 
-  const translations = {
-    ourServices: language === 'ar' ? "خدماتنا المميزة" : "Our Services",
-    discoverMore: language === 'ar' ? "اكتشف المزيد:" : "Discover more:",
-    warrantyPolicies: language === 'ar' ? "الضمان والسياسات" : "Warranty & Policies",
-    companyStrength: language === 'ar' ? "قوة الشركة" : "Company Strength",
-    showrooms: language === 'ar' ? "صالات العرض" : "Showrooms"
-  };
+  const t = translations[language];
 
   return (
     <section
@@ -76,8 +71,8 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({ language }) => {
       className="container mx-auto px-4 py-16 bg-white/50"
       aria-labelledby="services-heading"
     >
-      <h2 id="services-heading" className="text-4xl font-bold text-gray-900 mb-6 text-center">
-        {translations.ourServices}
+        <h2 id="services-heading" className="text-4xl font-bold text-gray-900 mb-6 text-center">
+        {t.ourServices}
       </h2>
       
       {/* SEO: Introductory text with keywords */}
@@ -116,16 +111,16 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({ language }) => {
       {/* SEO: Internal linking to related sections */}
       <nav className="mt-12 text-center" aria-label={language === 'ar' ? "روابط الخدمات ذات الصلة" : "Related service links"}>
         <p className="text-gray-600 mb-4 font-medium">
-          {translations.discoverMore}
+          {t.discoverMore}
         </p>
         <ul className="flex flex-wrap justify-center gap-6">
           <li>
             <a 
-              href="#warranty" 
+              href="#warranty-section" 
               className="text-[#009FE3] hover:text-[#007BC7] hover:underline transition-colors inline-flex items-center gap-1"
             >
               <Shield className="w-4 h-4" aria-hidden="true" />
-              <span>{translations.warrantyPolicies}</span>
+              <span>{t.warrantyPolicies}</span>
             </a>
           </li>
           <li>
@@ -134,7 +129,7 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({ language }) => {
               className="text-[#009FE3] hover:text-[#007BC7] hover:underline transition-colors inline-flex items-center gap-1"
             >
               <Star className="w-4 h-4" aria-hidden="true" />
-              <span>{translations.companyStrength}</span>
+              <span>{t.companyStrength}</span>
             </a>
           </li>
           <li>
@@ -143,7 +138,7 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({ language }) => {
               className="text-[#009FE3] hover:text-[#007BC7] hover:underline transition-colors inline-flex items-center gap-1"
             >
               <MapPin className="w-4 h-4" aria-hidden="true" />
-              <span>{translations.showrooms}</span>
+              <span>{t.showrooms}</span>
             </a>
           </li>
         </ul>

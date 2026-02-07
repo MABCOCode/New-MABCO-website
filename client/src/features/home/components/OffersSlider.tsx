@@ -1,5 +1,6 @@
 import React from 'react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '../../../components/ui/carousel';
+import translations from '../../../i18n/translations';
 
 interface Offer {
   id: number;
@@ -59,10 +60,7 @@ const OfferSlider: React.FC<OfferSliderProps> = ({ language }) => {
     }
   ];
 
-  const translations = {
-    specialOffers: language === 'ar' ? 'عروض خاصة' : 'Special Offers',
-    shopNow: language === 'ar' ? 'تسوق الآن' : 'Shop Now'
-  };
+  const t = translations[language];
 
   return (
     <section className="container mx-auto px-4 py-8">
@@ -104,7 +102,7 @@ const OfferSlider: React.FC<OfferSliderProps> = ({ language }) => {
                         {offer.description}
                       </p>
                       <button className="mt-4 bg-white text-gray-900 px-6 py-2 rounded-lg hover:bg-gray-100 transition-colors font-semibold">
-                        {translations.shopNow}
+                        {t.shopNow}
                       </button>
                     </div>
                   </div>

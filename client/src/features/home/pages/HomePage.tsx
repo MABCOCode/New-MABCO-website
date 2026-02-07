@@ -15,6 +15,7 @@ import CompanyStrength from "../components/CompanyStrength";
 import WarrantySection from "../components/WarrantySection";
 import SEOSection from "../components/SEOSection";
 import { useCompareStore } from "../../../features/compare/state";
+import { useCart } from "../../../context/CartContext";
 
 const HomePage: React.FC = () => {
   const { t, language, navigateToSection } = useLanguage();
@@ -22,9 +23,7 @@ const HomePage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const compareItems = useCompareStore((s: any) => s.items) as number[];
   const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: number) => void;
-  const [cartItems, setCartItems] = useState<any[]>([]);
-  const [cartCount, setCartCount] = useState(0);
-  const [cartOpen, setCartOpen] = useState(false);
+  const { addToCart, openCart, closeCart, updateQuantity: cartUpdateQuantity, removeFromCart: cartRemoveFromCart } = useCart();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderConfirmationOpen, setOrderConfirmationOpen] = useState(false);
   const [confirmedOrderData, setConfirmedOrderData] = useState<any>(null);
@@ -59,22 +58,8 @@ const HomePage: React.FC = () => {
   };
 
   const handleAddToCart = (product: any) => {
-    const existingItem = cartItems.find((item) => item.id === product.id);
-
-    if (existingItem) {
-      setCartItems(
-        cartItems.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item,
-        ),
-      );
-    } else {
-      setCartItems([...cartItems, { ...product, quantity: 1 }]);
-    }
-
-    setCartCount((prev) => prev + 1);
-    setCartOpen(true);
+    addToCart(product);
+    openCart();
   };
 
   const handleToggleCompare = (productId: number) => {
@@ -93,34 +78,15 @@ const HomePage: React.FC = () => {
   };
 
   const updateCartQuantity = (id: number, quantity: number) => {
-    if (quantity === 0) {
-      const item = cartItems.find((item) => item.id === id);
-      if (item) {
-        setCartCount((prev) => prev - item.quantity);
-        setCartItems(cartItems.filter((item) => item.id !== id));
-      }
-      return;
-    }
-
-    const oldItem = cartItems.find((item) => item.id === id);
-    const diff = quantity - (oldItem?.quantity || 0);
-
-    setCartItems(
-      cartItems.map((item) => (item.id === id ? { ...item, quantity } : item)),
-    );
-    setCartCount((prev) => prev + diff);
+    cartUpdateQuantity(id, quantity);
   };
 
   const removeFromCart = (id: number) => {
-    const item = cartItems.find((item) => item.id === id);
-    if (item) {
-      setCartCount((prev) => prev - item.quantity);
-      setCartItems(cartItems.filter((item) => item.id !== id));
-    }
+    cartRemoveFromCart(id);
   };
 
   const handleProceedToCheckout = () => {
-    setCartOpen(false);
+    closeCart();
     setCheckoutOpen(true);
   };
 
@@ -129,9 +95,7 @@ const HomePage: React.FC = () => {
     setCheckoutOpen(false);
     setOrderConfirmationOpen(true);
 
-    // Clear cart
-    setCartItems([]);
-    setCartCount(0);
+    // Clearing cart is handled by CartContext consumer if needed; not done here
   };
 
   const handleCloseOrderConfirmation = () => {

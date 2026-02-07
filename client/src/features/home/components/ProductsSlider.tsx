@@ -133,16 +133,10 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
                 >
                   <ProductCard
                     product={product}
-                    addToCart={() => onAddToCart && onAddToCart(product)}
                     toggleCompare={onToggleCompare}
                     compareItems={compareItems}
                     language={language}
-                    addToCartText={
-                      language === "ar" ? "أضف للسلة" : "Add to Cart"
-                    }
-                    onQuickView={() =>
-                      onProductClick && onProductClick(product)
-                    }
+                    onQuickView={() => onProductClick && onProductClick(product)}
                   />
                 </div>
               </CarouselItem>

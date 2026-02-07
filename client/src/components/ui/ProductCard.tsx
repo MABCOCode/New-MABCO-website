@@ -1,6 +1,7 @@
 import React from "react";
 import { Star, ShoppingCart, Tag, Flame, CreditCard } from "lucide-react";
 import { Product } from "../../types/product";
+import { useCart } from "../../context/CartContext";
 import { useState } from "react";
 import { ColorSwatch } from "./ColorSwatch";
 import { ChargeOptionSlider } from "./ChargeOptionSlider";
@@ -8,21 +9,19 @@ import { ImageWithFallback } from "../figma/ImageWithFallback";
 
 export interface ProductCardProps {
   product: Product;
-  addToCart: (selectedColor?: string, chargeOptionId?: string | null) => void;
   toggleCompare: (productId: number) => void;
   compareItems: number[];
   language: "ar" | "en";
-  addToCartText: string;
   onQuickView?: () => void;
 }
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
-  addToCart,
   toggleCompare,
   compareItems,
   language,
   onQuickView,
 }) => {
+  const { addToCart } = useCart();
   const [selectedColor, setSelectedColor] = useState(
     product.colorVariants?.[0]?.name || "",
   );
@@ -52,7 +51,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
   );
 
   const handleAddToCart = () => {
-    addToCart(hasColors ? selectedColor : undefined, selectedChargeOption);
+    const chosenColor = hasColors ? selectedColor : undefined;
+    const chosenColorHex = product.colorVariants?.find((v) => v.name === chosenColor)?.hexCode || null;
+    const chosenVariantImage = product.colorVariants?.find((v) => v.name === chosenColor)?.image || null;
+    const chargeLabel = currentChargeOption?.value || currentChargeOption?.valueAr || null;
+    addToCart(product, {
+      color: chosenColor,
+      variantColorHex: chosenColorHex,
+      variantImage: chosenVariantImage,
+      chargeOptionId: selectedChargeOption,
+      chargeOptionLabel: chargeLabel,
+    });
   };
 
   const handleColorChange = (colorName: string) => {
@@ -65,6 +74,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   const displayPrice = currentChargeOption
     ? currentChargeOption.price.toLocaleString("en-US")
+    : typeof product.basePrice === "number"
+    ? product.basePrice.toLocaleString("en-US")
     : product.price;
   return (
     <div className="h-full relative">

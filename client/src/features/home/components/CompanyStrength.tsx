@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Building2, MapPin, Award, Users, TrendingUp } from "lucide-react";
+import translations from '../../../i18n/translations';
 
 interface CompanyStrengthProps {
   language: "ar" | "en";
@@ -16,48 +17,7 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
   });
   const sectionRef = useRef<HTMLDivElement>(null);
 
-  const t = {
-    ar: {
-      title: "قوة وموثوقية MABCO",
-      subtitle: "أكثر من ربع قرن من التميز في خدمة العملاء",
-      years: "سنة من الخبرة",
-      established: "تأسست عام 1999",
-      countries: "دول في المنطقة",
-      countriesList: "سوريا، العراق، السودان",
-      cities: "مدن سورية",
-      citiesList: "دمشق، حلب، طرطوس، حمص، حماة، اللاذقية",
-      brands: "+ علامة تجارية عالمية",
-      brandsDesc: "موزع معتمد لكبرى العلامات",
-      genuine: "منتجات أصلية 100%",
-      genuineDesc: "جميع منتجاتنا مستوردة من المصانع الأصلية مباشرة",
-      certified: "مراكز خدمة معتمدة",
-      certifiedDesc: "مهندسون معتمدون ومراكز إصلاح موثقة",
-      network: "شبكة توزيع إقليمية",
-      networkDesc: "تغطية واسعة ضمن المنطقة لخدمة أفضل",
-      warranty: "ضمان رسمي معتمد",
-      warrantyDesc: "حماية كاملة بضمانات رسمية من الشركات المصنعة"
-    },
-    en: {
-      title: "MABCO Strength & Reliability",
-      subtitle: "Over a quarter century of excellence in customer service",
-      years: "Years of Experience",
-      established: "Established in 1999",
-      countries: "Countries in the Region",
-      countriesList: "Syria, Iraq, Sudan",
-      cities: "Syrian Cities",
-      citiesList: "Damascus, Aleppo, Tartus, Homs, Hama, Latakia",
-      brands: "+ Global Brands",
-      brandsDesc: "Authorized distributor for major brands",
-      genuine: "100% Genuine Products",
-      genuineDesc: "All our products imported directly from original manufacturers",
-      certified: "Authorized Service Centers",
-      certifiedDesc: "Certified engineers and approved repair centers",
-      network: "Regional Distribution Network",
-      networkDesc: "Wide coverage across the region for better service",
-      warranty: "Official Authorized Warranty",
-      warrantyDesc: "Complete protection with official manufacturer warranties"
-    }
-  };
+  const t = translations[language];
 
   // Intersection Observer for scroll trigger
   useEffect(() => {
@@ -93,7 +53,7 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
     const stepDuration = duration / steps;
 
     const targets = {
-      years: 25,
+      years: new Date().getFullYear() - 1999, // Calculate years based on current year
       cities: 6,
       brands: 10
     };
@@ -125,24 +85,24 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
       icon: Award,
       number: counts.years,
       suffix: "+",
-      label: t[language].years,
-      description: t[language].established,
+      label: t.years,
+      description: t.established,
       color: "from-blue-500 to-blue-600"
     },
     {
       icon: MapPin,
       number: counts.cities,
       suffix: "",
-      label: t[language].cities,
-      description: t[language].citiesList,
+      label: t.cities,
+      description: t.citiesList,
       color: "from-purple-500 to-purple-600"
     },
     {
       icon: Building2,
       number: counts.brands,
       suffix: "+",
-      label: t[language].brands,
-      description: t[language].brandsDesc,
+      label: t.brands,
+      description: t.brandsDesc,
       color: "from-orange-500 to-orange-600"
     }
   ];
@@ -150,23 +110,23 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
   const values = [
     {
       icon: Award,
-      title: t[language].genuine,
-      description: t[language].genuineDesc
+      title: t.genuine,
+      description: t.genuineDesc
     },
     {
       icon: Users,
-      title: t[language].certified,
-      description: t[language].certifiedDesc
+      title: t.certified,
+      description: t.certifiedDesc
     },
     {
       icon: TrendingUp,
-      title: t[language].network,
-      description: t[language].networkDesc
+      title: t.network,
+      description: t.networkDesc
     },
     {
       icon: Building2,
-      title: t[language].warranty,
-      description: t[language].warrantyDesc
+      title: t.warranty,
+      description: t.warrantyDesc
     }
   ];
 
@@ -175,8 +135,8 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
-          <h2 className="text-4xl text-gray-900 mb-3">{t[language].title}</h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">{t[language].subtitle}</p>
+          <h2 className="text-4xl text-gray-900 mb-3">{t.title}</h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">{t.subtitle}</p>
         </div>
 
         {/* Stats Grid */}
