@@ -107,6 +107,8 @@ export function CheckoutPage() {
   const isArabic = language === "ar";
   const navigate = useNavigate();
   const { cartItems, clearCart } = useCart();
+  const asText = (value: string | string[] | undefined) =>
+    Array.isArray(value) ? value.join(" ") : value ?? "";
 
   // State
   const [fulfillmentType, setFulfillmentType] = useState<"delivery" | "pickup" | null>(null);
@@ -268,25 +270,25 @@ export function CheckoutPage() {
     const newErrors: Record<string, string> = {};
 
     if (!fulfillmentType) {
-      newErrors.fulfillmentType = t.selectFulfillment;
+      newErrors.fulfillmentType = asText(t.selectFulfillment);
       setErrors(newErrors);
       return false;
     }
 
     if (fulfillmentType === "delivery") {
-      if (!formData.fullName.trim()) newErrors.fullName = t.required;
-      if (!formData.phone.trim()) newErrors.phone = t.required;
-      if (!locationData) newErrors.location = t.required;
-      if (!formData.area.trim()) newErrors.area = t.required;
-      if (!formData.street.trim()) newErrors.street = t.required;
-      if (!formData.building.trim()) newErrors.building = t.required;
+      if (!formData.fullName.trim()) newErrors.fullName = asText(t.required);
+      if (!formData.phone.trim()) newErrors.phone = asText(t.required);
+      if (!locationData) newErrors.location = asText(t.required);
+      if (!formData.area.trim()) newErrors.area = asText(t.required);
+      if (!formData.street.trim()) newErrors.street = asText(t.required);
+      if (!formData.building.trim()) newErrors.building = asText(t.required);
     }
 
     if (fulfillmentType === "pickup") {
-      if (!formData.fullName.trim()) newErrors.fullName = t.required;
-      if (!formData.phone.trim()) newErrors.phone = t.required;
+      if (!formData.fullName.trim()) newErrors.fullName = asText(t.required);
+      if (!formData.phone.trim()) newErrors.phone = asText(t.required);
       if (!selectedShowroom) {
-        newErrors.showroom = t.selectShowroom;
+        newErrors.showroom = asText(t.selectShowroom);
       }
     }
 
@@ -449,7 +451,7 @@ export function CheckoutPage() {
                         type="text"
                         value={formData.fullName}
                         onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                        placeholder={t.enterFullName}
+                        placeholder={asText(t.enterFullName)}
                         className={`w-full px-4 py-3 rounded-xl border-2 ${
                           errors.fullName ? "border-red-500" : "border-gray-200"
                         } focus:border-[#009FE3] focus:outline-none transition-all`}
@@ -468,7 +470,7 @@ export function CheckoutPage() {
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder={t.enterPhone}
+                        placeholder={asText(t.enterPhone)}
                         className={`w-full px-4 py-3 rounded-xl border-2 ${
                           errors.phone ? "border-red-500" : "border-gray-200"
                         } focus:border-[#009FE3] focus:outline-none transition-all`}
@@ -581,7 +583,7 @@ export function CheckoutPage() {
                         type="text"
                         value={formData.area}
                         onChange={(e) => setFormData({ ...formData, area: e.target.value })}
-                        placeholder={locationData?.area || t.enterArea}
+                        placeholder={asText(locationData?.area ?? t.enterArea)}
                         className={`w-full px-4 py-3 rounded-xl border-2 ${
                           errors.area ? "border-red-500" : "border-gray-200"
                         } focus:border-[#009FE3] focus:outline-none transition-all`}
@@ -600,7 +602,7 @@ export function CheckoutPage() {
                         type="text"
                         value={formData.street}
                         onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-                        placeholder={t.enterStreet}
+                        placeholder={asText(t.enterStreet)}
                         className={`w-full px-4 py-3 rounded-xl border-2 ${
                           errors.street ? "border-red-500" : "border-gray-200"
                         } focus:border-[#009FE3] focus:outline-none transition-all`}
@@ -619,7 +621,7 @@ export function CheckoutPage() {
                         type="text"
                         value={formData.building}
                         onChange={(e) => setFormData({ ...formData, building: e.target.value })}
-                        placeholder={t.enterBuilding}
+                        placeholder={asText(t.enterBuilding)}
                         className={`w-full px-4 py-3 rounded-xl border-2 ${
                           errors.building ? "border-red-500" : "border-gray-200"
                         } focus:border-[#009FE3] focus:outline-none transition-all`}
@@ -731,7 +733,7 @@ export function CheckoutPage() {
                         type="text"
                         value={formData.fullName}
                         onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                        placeholder={t.enterFullName}
+                        placeholder={asText(t.enterFullName)}
                         className={`w-full px-4 py-3 rounded-xl border-2 ${
                           errors.fullName ? "border-red-500" : "border-gray-200"
                         } focus:border-[#009FE3] focus:outline-none transition-all`}
@@ -750,7 +752,7 @@ export function CheckoutPage() {
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder={t.enterPhone}
+                        placeholder={asText(t.enterPhone)}
                         className={`w-full px-4 py-3 rounded-xl border-2 ${
                           errors.phone ? "border-red-500" : "border-gray-200"
                         } focus:border-[#009FE3] focus:outline-none transition-all`}
@@ -811,7 +813,7 @@ export function CheckoutPage() {
                       type="text"
                       value={showroomSearch}
                       onChange={(e) => setShowroomSearch(e.target.value)}
-                      placeholder={t.searchShowroom}
+                      placeholder={asText(t.searchShowroom)}
                       className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#009FE3] focus:outline-none transition-all"
                     />
                   </div>
@@ -935,7 +937,9 @@ export function CheckoutPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600 font-medium">{t.quantity}</span>
                         <span className="inline-block px-2 py-0.5 bg-gray-100 text-sm font-semibold rounded-md">{item.quantity}</span>
-                        <span className="text-xs text-gray-500">{item.quantity > 1 ? `${item.quantity} ${t.items}` : t.item}</span>
+                        <span className="text-xs text-gray-500">
+                          {item.quantity > 1 ? `${item.quantity} ${asText(t.items)}` : asText(t.item)}
+                        </span>
                       </div>
                       {item.oldPrice ? (
                         (() => {

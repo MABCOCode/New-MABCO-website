@@ -212,7 +212,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                         onClick={() => {
                           if (onBrandClick) {
                             onBrandClick(
-                              brand.name,
+                              // `brand` here is a string in testdata, pass it directly
+                              brand,
                               categories[selectedCategory].name,
                               categories[selectedCategory].nameEn
                             );

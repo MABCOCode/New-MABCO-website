@@ -100,7 +100,7 @@ const SearchPage: React.FC = () => {
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={t.searchPlaceholder}
+                  placeholder={Array.isArray(t.searchPlaceholder) ? t.searchPlaceholder[0] : t.searchPlaceholder}
                   className="flex-1 py-3 px-2 bg-transparent outline-none text-gray-700"
                 />
               </div>

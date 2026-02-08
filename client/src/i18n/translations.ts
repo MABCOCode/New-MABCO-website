@@ -2,7 +2,7 @@ import CompanyStrength from "@/features/home/components/CompanyStrength";
 
 export type Lang = "ar" | "en";
 
-export const translations: Record<Lang, Record<string, string>> = {
+export const translations: Record<Lang, Record<string, string | string[]>> = {
   ar: {
     home: "الرئيسية",
     products: "المنتجات",
@@ -27,6 +27,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     allRightsReserved: "جميع الحقوق محفوظة",
     shopNow: "تسوق الآن",
     brands: "العلامات التجارية",
+    brandsGlobal: "+ علامة تجارية عالمية",
     itemsInCart: "عناصر في السلة",
     itemsToCompare: "منتجات للمقارنة",
     addedToCompare: "تمت الإضافة للمقارنة",
@@ -167,7 +168,6 @@ export const translations: Record<Lang, Record<string, string>> = {
     countriesList: "سوريا، العراق، السودان",
     cities: "مدن سورية",
     citiesList: "دمشق، حلب، طرطوس، حمص، حماة، اللاذقية",
-    brands: "+ علامة تجارية عالمية",
     brandsDesc: "موزع معتمد لكبرى العلامات",
     genuine: "منتجات أصلية 100%",
     genuineDesc: "جميع منتجاتنا مستوردة من المصانع الأصلية مباشرة",
@@ -376,7 +376,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     countriesList: "Syria, Iraq, Sudan",
     cities: "Syrian Cities",
     citiesList: "Damascus, Aleppo, Tartus, Homs, Hama, Latakia",
-    brands: "+ Global Brands",
+    brandsGlobal: "+ Global Brands",
     brandsDesc: "Authorized distributor for major brands",
     genuine: "100% Genuine Products",
     genuineDesc: "All our products imported directly from original manufacturers",

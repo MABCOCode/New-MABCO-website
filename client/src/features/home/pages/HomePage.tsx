@@ -1,6 +1,6 @@
 // features/home/pages/HomePage.tsx
 import React, { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import HeroCarousel from "../components/HeroCarousel";
 import SearchSection from "../components/SearchSection";
@@ -20,6 +20,7 @@ import { useCart } from "../../../context/CartContext";
 const HomePage: React.FC = () => {
   const { t, language, navigateToSection } = useLanguage();
   const location = useLocation();
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const compareItems = useCompareStore((s: any) => s.items) as number[];
   const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: number) => void;
@@ -129,7 +130,9 @@ const HomePage: React.FC = () => {
     categoryNameEn: string,
   ) => {
     console.log("Brand clicked:", brandName, categoryName);
-    // Implement brand page navigation
+    // Navigate to brand page with encoded brand name
+    const encoded = encodeURIComponent(brandName);
+    navigate(`/brand/${encoded}`);
   };
 
   const handleProductClick = (product: any) => {

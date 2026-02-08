@@ -11,6 +11,7 @@ import HomePage from './features/home/pages/HomePage';
 import SearchResultsPage from './features/products/pages/SearchResultsPage';
 import ProductDetailPage from './features/products/pages/ProductDetailPage';
 import BrandPage from './features/products/pages/BrandPage';
+import CategoryPage from './features/products/pages/CategoryPage';
 import ShowroomsPage from './features/showrooms/pages/ShowroomsPage';
 import LoginPage from './features/account/pages/LoginPage';
 import {ShoppingCart} from './features/cart/components/ShoppingCart';
@@ -100,6 +101,7 @@ const AppContent: React.FC = () => {
             <Route path="/products" element={<SearchResultsPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/brand/:id" element={<BrandPage />} />
+            <Route path="/category/:id" element={<CategoryPage />} />
             <Route path="/showrooms" element={<ShowroomsPage />} />
             <Route path="/account/login" element={<LoginPage />} />
             

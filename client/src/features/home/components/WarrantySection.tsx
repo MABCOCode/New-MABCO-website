@@ -97,7 +97,7 @@ export function WarrantySection({ language }: WarrantySectionProps) {
               >
                 <div className="p-6 pt-2 bg-gray-50 border-t border-gray-200">
                   <ul className={`space-y-3 ${isRTL ? 'text-right' : 'text-left'}`}>
-                    {section.content.map((item, index) => (
+                    {(Array.isArray(section.content) ? section.content : [section.content]).map((item, index) => (
                       <li
                         key={index}
                         className="flex items-start gap-3 text-gray-700"

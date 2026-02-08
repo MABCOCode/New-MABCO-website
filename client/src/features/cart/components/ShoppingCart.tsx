@@ -61,8 +61,12 @@ export function ShoppingCart({
     return price.toLocaleString();
   };
 
+  const asText = (value: string | string[]) => {
+    return Array.isArray(value) ? value.join(" ") : value;
+  };
+
   const handleRemove = (id: number | string) => {
-    if (window.confirm(t.confirmRemove)) {
+    if (window.confirm(asText(t.confirmRemove))) {
       setRemovingItemId(id);
       setTimeout(() => {
         onRemoveItem(id);
