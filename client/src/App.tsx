@@ -17,6 +17,7 @@ import {ShoppingCart} from './features/cart/components/ShoppingCart';
 import { CartProvider, useCart } from './context/CartContext';
 import SearchPage from './features/search/pages/SearchPage';
 import './styles/globals.css';
+import './styles/enhanced-ux.css';
 import { ComparePage } from "./features/compare/pages/ComparePage";
 import { useCompareStore } from "./features/compare/state";
 import { compareStorage } from "./features/compare/storage";

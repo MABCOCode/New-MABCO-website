@@ -24,5 +24,14 @@
   "brands": "Brands",
   "warranty": "Warranty",
   "downloadApp": "Download App",
-  "followUs": "Follow Us"
+  "followUs": "Follow Us",
+  "currency": "$",
+  "addToCart": "Add to Cart",
+  "description": "Description",
+  "specifications": "Specifications",
+  "offers": "Offers",
+  "availableColors": "Available Colors",
+  "chargeOptions": "Charge Options",
+  "fastDelivery": "Fast Delivery",
+  "freeReturns": "Free Returns"
 }

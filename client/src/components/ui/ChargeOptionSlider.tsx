@@ -54,8 +54,8 @@ export function ChargeOptionSlider({
   const currentOption = options[currentIndex];
 
   return (
-    <div className="space-y-1.5">
-      <div className={`text-xs font-medium text-gray-600 ${language === "ar" ? "text-right" : "text-left"}`}>
+    <div className="space-y-1.5 w-full  ">
+      <div className={`text-l font-medium text-gray-600 ${language === "ar" ? "text-right" : "text-left"}`}>
         {language === "ar" ? "قيمة الشحن:" : "Charge Amount:"}
       </div>
       

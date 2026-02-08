@@ -1,5 +1,5 @@
 // features/home/pages/HomePage.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import HeroCarousel from "../components/HeroCarousel";
@@ -29,6 +29,10 @@ const HomePage: React.FC = () => {
   const [confirmedOrderData, setConfirmedOrderData] = useState<any>(null);
   const [compareAnimation, setCompareAnimation] = useState(false);
   const [compareAnimationCount, setCompareAnimationCount] = useState(0);
+  
+  // Add resize/zoom detection state
+  const [refreshKey, setRefreshKey] = useState(0);
+  const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Handle hash navigation when page loads
   useEffect(() => {
@@ -42,6 +46,82 @@ const HomePage: React.FC = () => {
       }, 100);
     }
   }, [location]);
+
+  // Effect to handle window resize and zoom for re-rendering
+  useEffect(() => {
+    let lastZoomLevel = window.devicePixelRatio;
+    let lastWidth = window.innerWidth;
+    let lastHeight = window.innerHeight;
+
+    const handleResize = () => {
+      const currentZoomLevel = window.devicePixelRatio;
+      const currentWidth = window.innerWidth;
+      const currentHeight = window.innerHeight;
+
+      // Check if zoom level changed significantly (more than 0.1)
+      const zoomChanged = Math.abs(currentZoomLevel - lastZoomLevel) > 0.1;
+      
+      // Check if window size changed significantly (more than 50px)
+      const sizeChanged = 
+        Math.abs(currentWidth - lastWidth) > 50 || 
+        Math.abs(currentHeight - lastHeight) > 50;
+
+      if (zoomChanged || sizeChanged) {
+        console.log(`[HomePage] Recalculating due to:`, {
+          zoomChanged,
+          sizeChanged,
+          oldZoom: lastZoomLevel,
+          newZoom: currentZoomLevel,
+          oldWidth: lastWidth,
+          newWidth: currentWidth,
+          oldHeight: lastHeight,
+          newHeight: currentHeight
+        });
+
+        // Update last values
+        lastZoomLevel = currentZoomLevel;
+        lastWidth = currentWidth;
+        lastHeight = currentHeight;
+
+        // Force refresh of components
+        setRefreshKey(prev => prev + 1);
+        
+        // Clear existing timeout
+        if (resizeTimeoutRef.current) {
+          clearTimeout(resizeTimeoutRef.current);
+        }
+
+        // Set a new timeout to update after a short delay
+        resizeTimeoutRef.current = setTimeout(() => {
+          // Force a state update to trigger re-render of child components
+          setRefreshKey(prev => prev + 0.0001); // Small change to trigger re-render
+        }, 150);
+      }
+    };
+
+    // Add window resize event listener
+    window.addEventListener('resize', handleResize);
+    
+    // Also listen for orientation changes on mobile devices
+    window.addEventListener('orientationchange', () => {
+      setTimeout(handleResize, 200);
+    });
+
+    // Initial check after a short delay to ensure all components are mounted
+    const initialTimeout = setTimeout(() => {
+      handleResize();
+    }, 500);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+      clearTimeout(initialTimeout);
+    };
+  }, []);
 
   const handleBrandClick = (
     brandName: string,
@@ -105,7 +185,11 @@ const HomePage: React.FC = () => {
 
   return (
     <>
-      <main dir={language === "ar" ? "rtl" : "ltr"} className="pb-12">
+      <main 
+        dir={language === "ar" ? "rtl" : "ltr"} 
+        className="pb-12"
+        key={`homepage-${refreshKey}`}
+      >
         {/* Hidden H1 for SEO */}
         <h1 className="sr-only">
           {language === "ar"
@@ -115,13 +199,13 @@ const HomePage: React.FC = () => {
 
         {/* Hero Carousel */}
         <section id="home" className="relative">
-          <HeroCarousel language={language} />
+          <HeroCarousel language={language} key={`hero-${refreshKey}`} />
         </section>
 
         {/* Search Section */}
         <section id="search-section" className="container mx-auto px-4 py-12">
           <div className="max-w-4xl mx-auto">
-            <SearchSection language={language} />
+            <SearchSection language={language} key={`search-${refreshKey}`} />
           </div>
         </section>
         {/* Categories Section */}
@@ -134,6 +218,7 @@ const HomePage: React.FC = () => {
             onBrandClick={handleBrandClick}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
+            key={`category-${refreshKey}`}
           />
         </section>
         {/* Special Offers Slider */}
@@ -141,7 +226,7 @@ const HomePage: React.FC = () => {
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6 text-center">
             {t("specialOffers") || "Special Offers"}
           </h2>
-          <SpecialOffers language={language} />
+          <SpecialOffers language={language} key={`offers-${refreshKey}`} />
         </section>
         {/* Most Bought Products */}
         <ProductsSlider
@@ -155,6 +240,7 @@ const HomePage: React.FC = () => {
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}
           compareItems={compareItems}
+          key={`most-bought-${refreshKey}`}
         />
 
         {/* New Products Slider */}
@@ -167,19 +253,20 @@ const HomePage: React.FC = () => {
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}
           compareItems={compareItems}
+          key={`new-products-${refreshKey}`}
         />
 
         {/* Services Section */}
-        <ServicesSection language={language} />
+        <ServicesSection language={language} key={`services-${refreshKey}`} />
 
         {/* Company Strength Section */}
-        <CompanyStrength language={language} />
+        <CompanyStrength language={language} key={`strength-${refreshKey}`} />
 
         {/* Warranty & Policy Section */}
-        <WarrantySection language={language} />
+        <WarrantySection language={language} key={`warranty-${refreshKey}`} />
 
         {/* SEO Structured Data */}
-        <SEOSection language={language} />
+        <SEOSection language={language} key={`seo-${refreshKey}`} />
 
         {/* Geometric Background Pattern */}
         <div className="fixed inset-0 opacity-5 pointer-events-none z-0">

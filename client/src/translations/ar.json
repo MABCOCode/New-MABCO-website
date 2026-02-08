@@ -24,5 +24,14 @@
   "brands": "العلامات التجارية",
   "warranty": "الضمان",
   "downloadApp": "حمّل التطبيق",
-  "followUs": "تابعنا"
+  "followUs": "تابعنا",
+  "currency": "$",
+  "addToCart": "أضف إلى السلة",
+  "description": "الوصف",
+  "specifications": "المواصفات",
+  "offers": "العروض",
+  "availableColors": "الألوان المتاحة",
+  "chargeOptions": "خيارات الشحن",
+  "fastDelivery": "توصيل سريع",
+  "freeReturns": "إرجاع مجاني"
 }

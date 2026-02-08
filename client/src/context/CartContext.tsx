@@ -16,7 +16,7 @@ type CartItem = {
 
 type AddToCartFn = (
   product: Product | any,
-  options?: { color?: string; variantColorHex?: string | null; variantImage?: string | null; chargeOptionId?: string | null; chargeOptionLabel?: string | null },
+  options?: { color?: string; variantColorHex?: string | null; variantImage?: string | null; chargeOptionId?: string | null; chargeOptionLabel?: string | null; quantity?: number },
 ) => void;
 
 type CartContextType = {
@@ -55,6 +55,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const variantImage = options?.variantImage ?? null;
     const chargeOptionId = options?.chargeOptionId ?? null;
     const chargeOptionLabel = options?.chargeOptionLabel ?? null;
+    const qty = options?.quantity ?? 1;
 
     const existing = cartItems.find(
       (it) =>
@@ -64,7 +65,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     if (existing) {
-      setCartItems((prev) => prev.map((it) => (it === existing ? { ...it, quantity: it.quantity + 1 } : it)));
+      setCartItems((prev) => prev.map((it) => (it === existing ? { ...it, quantity: it.quantity + qty } : it)));
     } else {
       // If a charge option was selected, prefer its numeric price
       const selectedCharge = chargeOptionId
@@ -83,7 +84,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           price: itemPrice,
           oldPrice: product.oldPrice,
           image: variantImage ?? product.image ?? product.thumbnail ?? "",
-          quantity: 1,
+          quantity: qty,
           variant: variant,
           variantColor: variantColorHex ?? variant,
           chargeOption: chargeOptionId ? { optionId: chargeOptionId, value: chargeOptionLabel ?? chargeOptionId } : null,

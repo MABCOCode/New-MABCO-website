@@ -3,6 +3,7 @@ import { Star, ShoppingCart, Tag, Flame, CreditCard } from "lucide-react";
 import { Product } from "../../types/product";
 import { useCart } from "../../context/CartContext";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ColorSwatch } from "./ColorSwatch";
 import { ChargeOptionSlider } from "./ChargeOptionSlider";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
@@ -22,6 +23,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onQuickView,
 }) => {
   const { addToCart } = useCart();
+  const navigate = useNavigate();
   const [selectedColor, setSelectedColor] = useState(
     product.colorVariants?.[0]?.name || "",
   );
@@ -92,7 +94,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           position: "relative",
         }}
       >
-        <div className="relative cursor-pointer flex-shrink-0">
+        <div className="relative cursor-pointer flex-shrink-0" onClick={() => navigate(`/product/${product.id}`, { state: { product } })}>
           {(() => {
             const badgeSide = language === "ar" ? "right-4" : "left-4";
             const compareSide = badgeSide === "right-4" ? "left-4" : "right-4";
@@ -213,7 +215,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             className={`font-bold text-gray-900 mb-2 text-sm cursor-pointer hover:text-[#009FE3] transition-colors line-clamp-2 min-h-[2.8rem] ${
               language === "ar" ? "text-right" : "text-left"
             }`}
-            onClick={() => onQuickView && onQuickView()}
+            onClick={() => navigate(`/product/${product.id}`, { state: { product } })}
           >
             {product.name}
           </h3>
@@ -251,14 +253,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   <span className="font-bold text-[#009FE3] text-xl">
                     {displayPrice}
                   </span>
-                  <span className="text-xs text-gray-500">
-                    {language === "ar" ? "ل.س" : "SYP"}
-                  </span>
+                  <span className="text-xs text-gray-500">$</span>
                 </div>
 
                 {product.oldPrice && (
                   <div className="text-xs text-gray-400 line-through">
-                    {product.oldPrice} {language === "ar" ? "ل.س" : "SYP"}
+                    {product.oldPrice} $
                   </div>
                 )}
               </div>

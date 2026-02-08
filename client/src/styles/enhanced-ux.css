@@ -1,0 +1,470 @@
+/* Enhanced E-Commerce UX Styles */
+
+/* ============================================================================
+   Color Variant Animations
+   ============================================================================ */
+
+.color-swatch-container {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  position: relative;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+  border-color: rgba(0, 159, 227, 0.3);
+}
+
+.color-swatch.selected {
+  border-color: #009FE3;
+  box-shadow: 0 0 0 3px rgba(0, 159, 227, 0.2);
+  transform: scale(1.15);
+}
+
+.color-swatch.out-of-stock {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.color-swatch.out-of-stock::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120%;
+  height: 2px;
+  background-color: #EF4444;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* Color Swatch Tooltip */
+.color-swatch-tooltip {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 10;
+}
+
+.color-swatch:hover .color-swatch-tooltip {
+  opacity: 1;
+}
+
+/* ============================================================================
+   Product Card Enhancements
+   ============================================================================ */
+
+.enhanced-product-card {
+  position: relative;
+  background: white;
+  border-radius: 1rem;
+  border: 2px solid rgba(229, 231, 235, 1);
+  overflow: hidden;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.enhanced-product-card:hover {
+  transform: scale(1.02);
+  border-color: rgba(0, 159, 227, 0.4);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+              0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Product Image Crossfade */
+.product-image-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.product-image {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.enhanced-product-card:hover .product-image {
+  transform: scale(1.1);
+}
+
+.product-image.crossfade-exit {
+  opacity: 0;
+}
+
+.product-image.crossfade-enter {
+  opacity: 1;
+}
+
+/* Quick View Overlay */
+.quick-view-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.enhanced-product-card:hover .quick-view-overlay {
+  opacity: 1;
+}
+
+.quick-view-button {
+  background: white;
+  color: #1F2937;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transform: translateY(0.5rem);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.enhanced-product-card:hover .quick-view-button {
+  transform: translateY(0);
+}
+
+.quick-view-button:hover {
+  background: #009FE3;
+  color: white;
+}
+
+/* ============================================================================
+   Subscription Toggle Animations
+   ============================================================================ */
+
+.subscription-option {
+  position: relative;
+  padding: 1rem;
+  border: 2px solid rgba(229, 231, 235, 1);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.subscription-option:hover {
+  border-color: rgba(156, 163, 175, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.subscription-option.selected {
+  border-color: #009FE3;
+  background: linear-gradient(
+    to bottom right,
+    rgba(0, 159, 227, 0.05),
+    rgba(0, 123, 199, 0.05)
+  );
+  box-shadow: 0 10px 15px -3px rgba(0, 159, 227, 0.2);
+}
+
+.subscription-option.subscription-type {
+  background: linear-gradient(
+    to bottom right,
+    rgba(168, 85, 247, 0.1),
+    rgba(147, 51, 234, 0.1)
+  );
+}
+
+/* Best Value Badge */
+.best-value-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: linear-gradient(to right, #10B981, #059669);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.375rem 0.75rem;
+  border-bottom-left-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* RTL Support for Best Value Badge */
+[dir="rtl"] .best-value-badge {
+  right: auto;
+  left: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0.75rem;
+}
+
+/* Subscription Slide Down Animation */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 10rem;
+  }
+}
+
+.subscription-toggle-compact {
+  animation: slideDown 0.3s ease forwards;
+}
+
+/* Savings Display */
+.savings-badge {
+  background: linear-gradient(to right, #10B981, #059669);
+  color: white;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ============================================================================
+   Variant Selector (Product Detail)
+   ============================================================================ */
+
+.variant-gallery {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 0.5rem;
+}
+
+.variant-gallery::-webkit-scrollbar {
+  display: none;
+}
+
+.variant-item {
+  flex-shrink: 0;
+  width: 6rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.variant-item:hover {
+  transform: translateY(-0.25rem);
+}
+
+.variant-image-container {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.variant-item:hover .variant-image-container {
+  border-color: rgba(156, 163, 175, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.variant-item.selected .variant-image-container {
+  border-color: #009FE3;
+  box-shadow: 0 0 0 3px rgba(0, 159, 227, 0.2);
+  transform: scale(1.05);
+}
+
+/* Stock Indicator */
+.stock-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.stock-indicator.in-stock {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #065F46;
+}
+
+.stock-indicator.out-of-stock {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #991B1B;
+}
+
+.stock-indicator.low-stock {
+  background: rgba(251, 146, 60, 0.1);
+  border: 1px solid rgba(251, 146, 60, 0.2);
+  color: #9A3412;
+}
+
+/* ============================================================================
+   Shopping Cart Enhancements
+   ============================================================================ */
+
+.cart-item-variant {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #6B7280;
+  margin-top: 0.25rem;
+}
+
+.cart-item-variant-swatch {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(209, 213, 219, 1);
+}
+
+.cart-item-subscription {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #7C3AED;
+  margin-top: 0.25rem;
+}
+
+.cart-item-subscription-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.cart-item-subscription-discount {
+  color: #10B981;
+  font-weight: 600;
+}
+
+/* ============================================================================
+   Mobile Optimizations
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .color-swatch {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .variant-item {
+    width: 5rem;
+  }
+
+  .subscription-option {
+    padding: 0.75rem;
+  }
+
+  .enhanced-product-card:hover {
+    transform: scale(1.01);
+  }
+}
+
+/* ============================================================================
+   RTL Support
+   ============================================================================ */
+
+[dir="rtl"] .variant-gallery {
+  direction: rtl;
+}
+
+[dir="rtl"] .color-swatch-tooltip {
+  left: auto;
+  right: 0;
+}
+
+[dir="rtl"] .best-value-badge {
+  right: auto;
+  left: 0;
+}
+
+/* ============================================================================
+   Loading States
+   ============================================================================ */
+
+.variant-loading {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ============================================================================
+   Accessibility Improvements
+   ============================================================================ */
+
+.color-swatch:focus-visible,
+.variant-item:focus-visible,
+.subscription-option:focus-visible {
+  outline: 2px solid #009FE3;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .color-swatch {
+    border-width: 3px;
+  }
+  
+  .color-swatch.selected {
+    border-width: 4px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .color-swatch,
+  .enhanced-product-card,
+  .subscription-option,
+  .variant-item,
+  .product-image,
+  .quick-view-overlay,
+  .quick-view-button {
+    transition: none;
+    animation: none;
+  }
+  
+  .enhanced-product-card:hover,
+  .variant-item:hover {
+    transform: none;
+  }
+}
+
+/* ============================================================================
+   Print Styles
+   ============================================================================ */
+
+@media print {
+  .quick-view-overlay,
+  .color-swatch-tooltip {
+    display: none;
+  }
+  
+  .enhanced-product-card {
+    border: 1px solid #000;
+    box-shadow: none;
+  }
+}

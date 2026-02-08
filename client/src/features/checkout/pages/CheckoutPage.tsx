@@ -35,6 +35,9 @@ interface CartItem {
   oldPrice?: string;
   image?: string;
   quantity: number;
+  variant?: string;
+  variantColor?: string;
+  chargeOption?: { optionId: string; value: string } | null;
 }
 
 interface Showroom {
@@ -238,6 +241,12 @@ export function CheckoutPage() {
     return parseInt(price.replace(/,/g, "")) || 0;
   };
   const subtotal = cartItems.reduce((sum, item) => sum + parsePrice(item.price) * item.quantity, 0);
+  // original subtotal before discounts (uses oldPrice when available)
+  const originalSubtotal = cartItems.reduce((sum, item) => {
+    const unit = item.oldPrice ? parsePrice(item.oldPrice) : parsePrice(item.price);
+    return sum + unit * item.quantity;
+  }, 0);
+  const totalSavings = Math.max(0, originalSubtotal - subtotal);
   
   let deliveryFee = 0;
   if (fulfillmentType === "delivery" && locationData) {
@@ -315,7 +324,7 @@ export function CheckoutPage() {
 
 
   return (
-    <div className="fixed inset-0 z-[110] bg-white overflow-y-auto">
+    <div dir={language === "ar" ? "rtl" : "ltr"} className="fixed inset-0 z-[110] bg-white overflow-y-auto">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white shadow-lg">
         <div className="container mx-auto px-4 py-4">
@@ -900,12 +909,64 @@ export function CheckoutPage() {
                       <h4 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">
                         {item.name}
                       </h4>
-                      <p className="text-sm text-gray-600">
-                        {t.quantity}: {item.quantity}
-                      </p>
-                      <p className="text-sm font-bold text-[#009FE3]">
-                        {formatPrice(parsePrice(item.price) * item.quantity)} {t.currency}
-                      </p>
+
+                      {/* Variant / Color info */}
+                      {item.variant && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                          {item.variantColor && (
+                            <div
+                              className="w-3 h-3 rounded-full border border-gray-300"
+                              style={{ backgroundColor: item.variantColor }}
+                            />
+                          )}
+                          <span>
+                            {isArabic ? "اللون:" : "Color:"} {item.variant}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Charge option info */}
+                      {item.chargeOption && (
+                        <div className="flex items-center gap-2 text-sm text-purple-600 mb-1">
+                          <span className="font-medium">{item.chargeOption.value}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600 font-medium">{t.quantity}</span>
+                        <span className="inline-block px-2 py-0.5 bg-gray-100 text-sm font-semibold rounded-md">{item.quantity}</span>
+                        <span className="text-xs text-gray-500">{item.quantity > 1 ? `${item.quantity} ${t.items}` : t.item}</span>
+                      </div>
+                      {item.oldPrice ? (
+                        (() => {
+                          const itemPrice = parsePrice(item.price);
+                          const oldPrice = parsePrice(item.oldPrice);
+                          const saved = Math.max(0, oldPrice - itemPrice);
+                          const percent = oldPrice > 0 ? Math.round((saved / oldPrice) * 100) : 0;
+                          return (
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm text-gray-400 line-through">
+                                  {formatPrice(oldPrice)} {t.currency}
+                                </span>
+                                <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
+                                  {isArabic ? `${percent}% خصم` : `${percent}% OFF`}
+                                </span>
+                                <span className="text-xs text-gray-600 ml-2">
+                                  {isArabic ? `وفّر ${formatPrice(saved)} ${t.currency}` : `Save ${formatPrice(saved)} ${t.currency}`}
+                                </span>
+                              </div>
+                              <p className="text-sm font-bold text-[#009FE3]">
+                                {formatPrice(itemPrice * item.quantity)} {t.currency}
+                              </p>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <p className="text-sm font-bold text-[#009FE3]">
+                          {formatPrice(parsePrice(item.price) * item.quantity)} {t.currency}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -913,10 +974,22 @@ export function CheckoutPage() {
 
               {/* Price Summary */}
               <div className="space-y-3 mb-6">
+                {totalSavings > 0 && (
+                  <div className="flex justify-between text-gray-500">
+                    <span className="line-through">{isArabic ? "المجموع قبل الخصم" : "Original Subtotal"}</span>
+                    <span className="line-through">{formatPrice(originalSubtotal)} {t.currency}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-700">
                   <span>{t.subtotal}</span>
                   <span className="font-semibold">{formatPrice(subtotal)} {t.currency}</span>
                 </div>
+                {totalSavings > 0 && (
+                  <div className="flex justify-between text-red-600">
+                    <span className="font-medium">{isArabic ? "الخصم" : "Discount"}</span>
+                    <span className="font-semibold">- {formatPrice(totalSavings)} {t.currency}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-700">
                   <span>{t.deliveryFee}</span>
                   <span className="font-semibold">
