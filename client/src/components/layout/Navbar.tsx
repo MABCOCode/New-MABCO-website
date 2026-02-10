@@ -1,6 +1,6 @@
 // components/layout/Navbar.tsx
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Menu,
   X,
@@ -13,39 +13,79 @@ import {
   User,
   LogIn,
   ChevronDown,
-  ChevronUp,GitCompare 
-} from 'lucide-react';
-import { useLanguage } from '../../context/LanguageContext';
-import { useCart } from '../../context/CartContext';
-import categoriesData from '../../testdata/categories.json';
-import { iconsMap } from '../../utils/iconMap'; 
+  ChevronUp,
+  GitCompare,
+} from "lucide-react";
+import { useLanguage } from "../../context/LanguageContext";
+import { useCart } from "../../context/CartContext";
+import categoriesData from "../../testdata/categories.json";
+import { iconsMap } from "../../utils/iconMap";
 import { useCompareStore } from "../../features/compare/state";
-import MobileMenu from './MobileMenu';
-
+import MobileMenu from "./MobileMenu";
+import { loadSession } from "../../features/account/storage";
 
 const Navbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { language, toggleLanguage, t, direction, navigateToSection } = useLanguage();
+  const { language, toggleLanguage, t, direction, navigateToSection } =
+    useLanguage();
   const compareItems = useCompareStore((s) => s.items);
   const compareCount = useCompareStore((s) => s.items.length);
   const openCompareModal = useCompareStore((s) => s.openCompare);
-  
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const { cartCount, openCart } = useCart();
-  const [isLoggedIn] = useState(false);
-  const [activeSection, setActiveSection] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState("");
+
+  const readSession = () => {
+    const session = loadSession() as any;
+    if (session?.user) {
+      setIsLoggedIn(true);
+      const name = language === "ar" ? session.user.name : session.user.nameEn || session.user.name;
+      setCurrentUserName(name ?? null);
+    } else {
+      setIsLoggedIn(false);
+      setCurrentUserName(null);
+    }
+  };
+
+  const session = loadSession() as any;
+  const isAuthed = !!session?.user;
+
+  useEffect(() => {
+    readSession();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "session") {
+        readSession();
+      }
+    };
+    const onFocus = () => readSession();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [language, location.key]);
 
   // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
-      
+
       // Only update active section if we're on the home page
-      if (location.pathname === '/') {
-        const sections = ['home', 'search-section', 'categories', 'products', 'services'];
+      if (location.pathname === "/") {
+        const sections = [
+          "home",
+          "search-section",
+          "categories",
+          "products",
+          "services",
+        ];
         for (const section of sections) {
           const element = document.getElementById(section);
           if (element) {
@@ -58,14 +98,14 @@ const Navbar: React.FC = () => {
         }
       }
     };
-    
+
     // Also update active section based on current route
-    if (location.pathname !== '/') {
-      setActiveSection(location.pathname.replace('/', ''));
+    if (location.pathname !== "/") {
+      setActiveSection(location.pathname.replace("/", ""));
     }
-    
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [location.pathname]);
 
   // Map icons for categories
@@ -90,24 +130,28 @@ const Navbar: React.FC = () => {
 
   // Log compare state changes for debugging mobile/desktop differences
   React.useEffect(() => {
-    console.log('[Navbar] compareCount', compareCount, 'compareItems', compareItems);
+    console.log(
+      "[Navbar] compareCount",
+      compareCount,
+      "compareItems",
+      compareItems,
+    );
   }, [compareCount, compareItems]);
 
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-white shadow-lg"
-          : "bg-white/95 backdrop-blur-sm"
+        scrolled ? "bg-white shadow-lg" : "bg-white/95 backdrop-blur-sm"
       }`}
       dir={direction}
+      style={{ zIndex: 1000 }}
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <button
-            onClick={() => navigateTo('/')}
-            className={`flex items-center cursor-pointer ${direction === 'rtl' ? 'lg:ml-6' : 'lg:mr-6'}`}
+            onClick={() => navigateTo("/")}
+            className={`flex items-center cursor-pointer ${direction === "rtl" ? "lg:ml-6" : "lg:mr-6"}`}
           >
             <img
               src="https://mabcoonline.com/images/Mabco%20100x100.jpg"
@@ -119,20 +163,32 @@ const Navbar: React.FC = () => {
           {/* Desktop Menu */}
           <div className="hidden lg:flex items-center gap-6">
             <button
-              onClick={() => handleNavClick('home')}
+              onClick={() => handleNavClick("home")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
-                activeSection === 'home' ? 'text-[#009FE3] font-semibold' : ''
+                activeSection === "home" ? "text-[#009FE3] font-semibold" : ""
               }`}
             >
-              {t('home')}
+              {t("home")}
             </button>
             <button
-              onClick={() => handleNavClick('categories')}
+              onClick={() => handleNavClick("categories")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
-                activeSection === 'categories' ? 'text-[#009FE3] font-semibold' : ''
+                activeSection === "categories"
+                  ? "text-[#009FE3] font-semibold"
+                  : ""
               }`}
             >
-              {t('products')}
+              {t("products")}
+            </button>
+            <button
+              onClick={() => handleNavClick("special-offers-carousel")}
+              className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
+                activeSection === "special-offers-carousel"
+                  ? "text-[#009FE3] font-semibold"
+                  : ""
+              }`}
+            >
+              {t("specialOffers")}
             </button>
             {/* <button
               onClick={() => handleNavClick('products')}
@@ -143,61 +199,71 @@ const Navbar: React.FC = () => {
               {t('products')}
             </button> */}
             <button
-              onClick={() => handleNavClick('services')}
+              onClick={() => handleNavClick("services")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
-                activeSection === 'services' ? 'text-[#009FE3] font-semibold' : ''
+                activeSection === "services"
+                  ? "text-[#009FE3] font-semibold"
+                  : ""
               }`}
-            > {/* {t('services')} */}
-              {t('services')}
+            >
+              {" "}
+              {/* {t('services')} */}
+              {t("services")}
             </button>
 
             {/* Showrooms Link */}
             <button
-              onClick={() => navigateTo('/showrooms')}
+              onClick={() => navigateTo("/showrooms")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors flex items-center gap-1 ${
-                location.pathname === '/showrooms' ? 'text-[#009FE3] font-semibold' : ''
+                location.pathname === "/showrooms"
+                  ? "text-[#009FE3] font-semibold"
+                  : ""
               }`}
             >
               <MapPin className="w-4 h-4" />
-              {t('showrooms')}
+              {t("showrooms")}
             </button>
 
             <button
-              onClick={() => navigateTo('/career')}
+              onClick={() => navigateTo("/career")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
-                location.pathname === '/career' ? 'text-[#009FE3] font-semibold' : ''
+                location.pathname === "/career"
+                  ? "text-[#009FE3] font-semibold"
+                  : ""
               }`}
             >
-              {t('career')}
+              {t("career")}
             </button>
             <button
-              onClick={() => navigateTo('/contact')}
+              onClick={() => navigateTo("/contact")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
-                location.pathname === '/contact' ? 'text-[#009FE3] font-semibold' : ''
+                location.pathname === "/contact"
+                  ? "text-[#009FE3] font-semibold"
+                  : ""
               }`}
             >
-              {t('contact')}
+              {t("contact")}
             </button>
 
             {/* Login / My Account Button */}
-            {!isLoggedIn ? (
+            {!isAuthed ? (
               <button
-                onClick={() => navigateTo('/login')}
+                onClick={() => {
+                  navigateTo(isAuthed ? "/account/dashboard" : "/account/login");
+                }}
                 className="flex items-center gap-2 text-gray-700 hover:text-[#009FE3] transition-colors"
               >
                 <LogIn className="w-5 h-5" />
-                <span className="hidden xl:inline">
-                  {t('login')}
-                </span>
+                <span className="hidden xl:inline">{t("login")}</span>
               </button>
             ) : (
               <button
-                onClick={() => navigateTo('/dashboard')}
+                onClick={() => navigateTo("/account/dashboard")}
                 className="flex items-center gap-2 text-gray-700 hover:text-[#009FE3] transition-colors"
               >
                 <User className="w-5 h-5" />
                 <span className="hidden xl:inline">
-                  {t('myAccount')}
+                  {currentUserName ? currentUserName : t("myAccount")}
                 </span>
               </button>
             )}
@@ -208,9 +274,7 @@ const Navbar: React.FC = () => {
               className="relative bg-gradient-to-br from-[#009FE3] to-[#007BC7] text-white px-4 py-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2"
             >
               <ShoppingCart className="w-5 h-5" />
-              <span className="hidden xl:inline">
-                {t('cart')}
-              </span>
+              <span className="hidden xl:inline">{t("cart")}</span>
               {cartCount > 0 && (
                 <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
                   {cartCount}
@@ -220,15 +284,14 @@ const Navbar: React.FC = () => {
 
             {/* Small Search Icon */}
             <button
-              onClick={() => handleNavClick('search-section')}
+              onClick={() => handleNavClick("search-section")}
               className="p-2 rounded-full bg-gray-100 hover:bg-[#009FE3] hover:text-white transition-all duration-300"
-              title={t('searchButton')}
+              title={t("searchButton")}
             >
               <Search className="w-5 h-5" />
             </button>
 
             {/* Compare Button - Desktop (only show when there are items) */}
-           
 
             {/* Language Toggle */}
             <button
@@ -237,7 +300,7 @@ const Navbar: React.FC = () => {
             >
               <Globe className="w-4 h-4" />
               <span className="text-sm font-medium">
-                {language === 'ar' ? 'EN' : 'ع'}
+                {language === "ar" ? "EN" : "ع"}
               </span>
             </button>
           </div>
@@ -246,9 +309,9 @@ const Navbar: React.FC = () => {
           <div className="lg:hidden flex items-center gap-3">
             {/* Small Search Icon - Mobile */}
             <button
-              onClick={() => handleNavClick('search-section')}
+              onClick={() => handleNavClick("search-section")}
               className="w-10 h-10 rounded-full bg-gray-100 hover:bg-[#009FE3] hover:text-white transition-all duration-300 flex items-center justify-center"
-              title={t('searchButton')}
+              title={t("searchButton")}
             >
               <Search className="w-5 h-5" />
             </button>

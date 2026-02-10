@@ -24,12 +24,18 @@ import {
   Banknote,
   Navigation,
   Locate,
+  Gift,
+  Sparkles,
 } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import translations from "../../../i18n/translations";
+import { AppliedOffersSection } from "../../offer/components/AppliedOffersSection";
+import { getProductOffers, products } from "../../../data/products";
+import type { BundleDiscountOffer, CouponOffer } from "../../../types/product";
 
 interface CartItem {
   id: number | string;
+  productId?: number;
   name: string;
   price: string | undefined;
   oldPrice?: string;
@@ -38,6 +44,10 @@ interface CartItem {
   variant?: string;
   variantColor?: string;
   chargeOption?: { optionId: string; value: string } | null;
+  isFreeGift?: boolean;
+  isBundleItem?: boolean;
+  linkedToProductId?: number;
+  bundleDiscount?: number;
 }
 
 interface Showroom {
@@ -106,7 +116,7 @@ export function CheckoutPage() {
   const t = translations[language];
   const isArabic = language === "ar";
   const navigate = useNavigate();
-  const { cartItems, clearCart } = useCart();
+  const { cartItems, clearCart, addToCart } = useCart();
   const asText = (value: string | string[] | undefined) =>
     Array.isArray(value) ? value.join(" ") : value ?? "";
 
@@ -130,6 +140,9 @@ export function CheckoutPage() {
   const [showroomSearch, setShowroomSearch] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [appliedCoupons, setAppliedCoupons] = useState<Map<number, CouponOffer>>(new Map());
+  const [freeProductsAdded, setFreeProductsAdded] = useState<Map<number, number>>(new Map());
+  const [bundleProductsAdded, setBundleProductsAdded] = useState<Map<number, number[]>>(new Map());
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any | null>(null);
@@ -243,12 +256,41 @@ export function CheckoutPage() {
     return parseInt(price.replace(/,/g, "")) || 0;
   };
   const subtotal = cartItems.reduce((sum, item) => sum + parsePrice(item.price) * item.quantity, 0);
-  // original subtotal before discounts (uses oldPrice when available)
-  const originalSubtotal = cartItems.reduce((sum, item) => {
-    const unit = item.oldPrice ? parsePrice(item.oldPrice) : parsePrice(item.price);
-    return sum + unit * item.quantity;
-  }, 0);
-  const totalSavings = Math.max(0, originalSubtotal - subtotal);
+
+  const calculateTotalSavings = () => {
+    let savings = 0;
+
+    cartItems.forEach((item) => {
+      if (item.isFreeGift) {
+        const giftValue = item.oldPrice ? parsePrice(item.oldPrice) : parsePrice(item.price);
+        savings += giftValue * item.quantity;
+        return;
+      }
+
+      if (item.isBundleItem && item.oldPrice) {
+        const bundleSavings = Math.max(0, parsePrice(item.oldPrice) - parsePrice(item.price));
+        savings += bundleSavings * item.quantity;
+      }
+
+      const productId = item.productId ?? Number(item.id);
+      if (!productId) return;
+      const offers = getProductOffers(productId);
+      offers.forEach((offer) => {
+        if (offer.type === "direct_discount") {
+          const itemPrice = parsePrice(item.price);
+          if (offer.discountType === "percentage") {
+            savings += (itemPrice * offer.discountValue / 100) * item.quantity;
+          } else {
+            savings += offer.discountValue * item.quantity;
+          }
+        }
+      });
+    });
+
+    return Math.max(0, savings);
+  };
+
+  const totalSavings = calculateTotalSavings();
   
   let deliveryFee = 0;
   if (fulfillmentType === "delivery" && locationData) {
@@ -264,6 +306,68 @@ export function CheckoutPage() {
     showroom.name.toLowerCase().includes(showroomSearch.toLowerCase()) ||
     showroom.city.toLowerCase().includes(showroomSearch.toLowerCase())
   );
+
+  const handleApplyCoupon = (productId: number, coupon: CouponOffer) => {
+    setAppliedCoupons((prev) => {
+      const next = new Map(prev);
+      next.set(productId, coupon);
+      return next;
+    });
+  };
+
+  const handleAddFreeProduct = (productId: number, freeProductId: number) => {
+    if (freeProductsAdded.has(productId)) return;
+    const freeProduct = products.find((p) => p.id === freeProductId);
+    if (!freeProduct) return;
+
+    const basePrice = freeProduct.basePrice ?? parsePrice(freeProduct.price);
+    addToCart(freeProduct, {
+      customId: `free-${productId}-${freeProductId}`,
+      quantity: 1,
+      overridePrice: 0,
+      overrideOldPrice: basePrice,
+      isFreeGift: true,
+      linkedToProductId: productId,
+    });
+
+    setFreeProductsAdded((prev) => {
+      const next = new Map(prev);
+      next.set(productId, freeProductId);
+      return next;
+    });
+  };
+
+  const handleAddBundleProduct = (productId: number, bundleProductId: number) => {
+    const existing = bundleProductsAdded.get(productId) || [];
+    if (existing.includes(bundleProductId)) return;
+    const bundleProduct = products.find((p) => p.id === bundleProductId);
+    if (!bundleProduct) return;
+
+    const offers = getProductOffers(productId);
+    const bundleOffer = offers.find((offer) => offer.type === "bundle_discount") as BundleDiscountOffer | undefined;
+    const discountPercentage = bundleOffer?.discountPercentage ?? 0;
+    const basePrice = bundleProduct.basePrice ?? parsePrice(bundleProduct.price);
+    const discountedPrice = Math.max(0, Math.round(basePrice * (1 - discountPercentage / 100)));
+
+    addToCart(bundleProduct, {
+      customId: `bundle-${productId}-${bundleProductId}`,
+      quantity: 1,
+      overridePrice: discountedPrice,
+      overrideOldPrice: basePrice,
+      isBundleItem: true,
+      linkedToProductId: productId,
+      bundleDiscount: discountPercentage,
+    });
+
+    setBundleProductsAdded((prev) => {
+      const next = new Map(prev);
+      const updated = next.get(productId) ?? [];
+      if (!updated.includes(bundleProductId)) {
+        next.set(productId, [...updated, bundleProductId]);
+      }
+      return next;
+    });
+  };
 
   // Validation
   const validate = () => {
@@ -891,6 +995,18 @@ export function CheckoutPage() {
                 </div>
               </div>
             )}
+
+            <AppliedOffersSection
+              cartItems={cartItems}
+              language={language}
+              currencyLabel={asText(t.currency)}
+              onApplyCoupon={handleApplyCoupon}
+              onAddFreeProduct={handleAddFreeProduct}
+              onAddBundleProduct={handleAddBundleProduct}
+              appliedCoupons={appliedCoupons}
+              freeProductsAdded={freeProductsAdded}
+              bundleProductsAdded={bundleProductsAdded}
+            />
           </div>
 
           {/* Order Summary - Right Sidebar */}
@@ -911,6 +1027,19 @@ export function CheckoutPage() {
                       <h4 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">
                         {item.name}
                       </h4>
+
+                      {item.isFreeGift && (
+                        <div className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-bold mb-1">
+                          <Gift className="w-3 h-3" />
+                          {isArabic ? "هدية مجانية" : "Free Gift"}
+                        </div>
+                      )}
+                      {item.isBundleItem && item.bundleDiscount && (
+                        <div className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs font-bold mb-1">
+                          <Sparkles className="w-3 h-3" />
+                          {item.bundleDiscount}% {isArabic ? "خصم" : "Off"}
+                        </div>
+                      )}
 
                       {/* Variant / Color info */}
                       {item.variant && (
@@ -941,7 +1070,16 @@ export function CheckoutPage() {
                           {item.quantity > 1 ? `${item.quantity} ${asText(t.items)}` : asText(t.item)}
                         </span>
                       </div>
-                      {item.oldPrice ? (
+                      {item.isFreeGift ? (
+                        <div>
+                          {item.oldPrice && (
+                            <p className="text-xs text-gray-400 line-through">
+                              {formatPrice(parsePrice(item.oldPrice) * item.quantity)} {t.currency}
+                            </p>
+                          )}
+                          <p className="text-sm font-bold text-green-600">{t.free}</p>
+                        </div>
+                      ) : item.oldPrice ? (
                         (() => {
                           const itemPrice = parsePrice(item.price);
                           const oldPrice = parsePrice(item.oldPrice);
@@ -976,24 +1114,31 @@ export function CheckoutPage() {
                 ))}
               </div>
 
+              {totalSavings > 0 && (
+                <div className="mb-6 overflow-hidden rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 p-4 shadow-lg animate-fadeInUp">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <Sparkles className="w-6 h-6 text-white animate-pulse" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-white/90 uppercase tracking-wide">
+                        {isArabic ? "إجمالي التوفير" : "Total Savings"}
+                      </p>
+                      <p className="text-xl font-bold text-white">
+                        {formatPrice(totalSavings)} {t.currency}
+                      </p>
+                    </div>
+                    <Gift className="w-8 h-8 text-white/30" />
+                  </div>
+                </div>
+              )}
+
               {/* Price Summary */}
               <div className="space-y-3 mb-6">
-                {totalSavings > 0 && (
-                  <div className="flex justify-between text-gray-500">
-                    <span className="line-through">{isArabic ? "المجموع قبل الخصم" : "Original Subtotal"}</span>
-                    <span className="line-through">{formatPrice(originalSubtotal)} {t.currency}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-gray-700">
                   <span>{t.subtotal}</span>
                   <span className="font-semibold">{formatPrice(subtotal)} {t.currency}</span>
                 </div>
-                {totalSavings > 0 && (
-                  <div className="flex justify-between text-red-600">
-                    <span className="font-medium">{isArabic ? "الخصم" : "Discount"}</span>
-                    <span className="font-semibold">- {formatPrice(totalSavings)} {t.currency}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-gray-700">
                   <span>{t.deliveryFee}</span>
                   <span className="font-semibold">

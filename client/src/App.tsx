@@ -1,6 +1,6 @@
 // App.tsx
 import  { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import Navbar from './components/layout/Navbar';
 import ModernFooter from './components/layout/Footer'; // Make sure this is the correct import
@@ -13,7 +13,8 @@ import ProductDetailPage from './features/products/pages/ProductDetailPage';
 import BrandPage from './features/products/pages/BrandPage';
 import CategoryPage from './features/products/pages/CategoryPage';
 import ShowroomsPage from './features/showrooms/pages/ShowroomsPage';
-import LoginPage from './features/account/pages/LoginPage';
+import AccountRoutes from './features/account/AccountRoutes';
+import { OfferTypeRoute } from './features/offer/pages/OfferTypePage';
 import {ShoppingCart} from './features/cart/components/ShoppingCart';
 import { CartProvider, useCart } from './context/CartContext';
 import SearchPage from './features/search/pages/SearchPage';
@@ -27,8 +28,11 @@ import FloatingCompare from './components/layout/FloatingCompare';
 // Create a wrapper component that can use the LanguageContext
 const AppContent: React.FC = () => {
   const handleBrandClick = (brandName: string, categoryName: string, categoryNameEn: string) => {
-    console.log('Brand clicked:', brandName);
-    // Navigate to brand page
+    console.log('Brand clicked:', brandName, categoryName);
+    const categoryForRoute = categoryNameEn || categoryName || '';
+    const encodedCategory = encodeURIComponent(categoryForRoute);
+    const encodedBrand = encodeURIComponent(brandName);
+    navigate(`/brand/${encodedCategory}/${encodedBrand}`);
   };
 
   const handleAboutClick = () => {
@@ -61,6 +65,8 @@ const AppContent: React.FC = () => {
   const { cartItems, cartCount, cartOpen, closeCart, updateQuantity, removeFromCart, openCart } = useCart();
   const { clearCart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAccountRoute = location.pathname.startsWith("/account");
 
   const handleProceedToCheckout = () => {
     closeCart();
@@ -72,9 +78,9 @@ const AppContent: React.FC = () => {
     <>
       <ScrollToTop />
       <div className="min-h-screen flex flex-col bg-white">
-        <Navbar />
-        <FloatingCompare />
-        {compareMode && (
+        {!isAccountRoute && <Navbar />}
+        {!isAccountRoute && <FloatingCompare />}
+        {!isAccountRoute && compareMode && (
           <ComparePage
             compareItems={compareItems}
             allProducts={[]}
@@ -84,26 +90,32 @@ const AppContent: React.FC = () => {
             language={language}
           />
         )}
-        <ShoppingCart
-          isOpen={cartOpen}
-          onClose={() => closeCart()}
-          cartItems={cartItems}
-          onUpdateQuantity={(id:number, qty:number) => updateQuantity(id, qty)}
-          onRemoveItem={(id:number) => removeFromCart(id)}
-          onProceedToCheckout={handleProceedToCheckout}
-          language={language}
-        />
+        {!isAccountRoute && (
+          <ShoppingCart
+            isOpen={cartOpen}
+            onClose={() => closeCart()}
+            cartItems={cartItems}
+            onUpdateQuantity={(id:number, qty:number) => updateQuantity(id, qty)}
+            onRemoveItem={(id:number) => removeFromCart(id)}
+            onProceedToCheckout={handleProceedToCheckout}
+            language={language}
+          />
+        )}
         {/* Checkout is now a route at /checkout */}
-        <main className="flex-grow pt-20">
+        <main className={`flex-grow ${isAccountRoute ? "" : "pt-20"}`}>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/products" element={<SearchResultsPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/brand/:category/:id" element={<BrandPage />} />
             <Route path="/brand/:id" element={<BrandPage />} />
             <Route path="/category/:id" element={<CategoryPage />} />
+            <Route path="/offers/:offerType" element={<OfferTypeRoute />} />
             <Route path="/showrooms" element={<ShowroomsPage />} />
-            <Route path="/account/login" element={<LoginPage />} />
+            <Route path="/account/*" element={<AccountRoutes />} />
+            <Route path="/login" element={<Navigate to="/account/login" replace />} />
+            <Route path="/dashboard" element={<Navigate to="/account/dashboard" replace />} />
             
             <Route path="/search" element={<SearchPage />} />
             <Route path="*" element={
@@ -117,14 +129,16 @@ const AppContent: React.FC = () => {
           </Routes>
           
         </main>
-        <ModernFooter 
-          language={language}
-          onBrandClick={handleBrandClick}
-          onAboutClick={handleAboutClick}
-          onShowroomsClick={handleShowroomsClick}
-          onWarrantyClick={handleWarrantyClick}
-          onMaintenanceClick={handleMaintenanceClick}
-        />
+        {!isAccountRoute && (
+          <ModernFooter 
+            language={language}
+            onBrandClick={handleBrandClick}
+            onAboutClick={handleAboutClick}
+            onShowroomsClick={handleShowroomsClick}
+            onWarrantyClick={handleWarrantyClick}
+            onMaintenanceClick={handleMaintenanceClick}
+          />
+        )}
       </div>
     </>
   );

@@ -7,7 +7,7 @@ import SearchSection from "../components/SearchSection";
 import SpecialOffers from "../components/OffersSlider";
 import CategorySection from "../components/CategorySection";
 import ProductsSlider from "../components/ProductsSlider";
-import productsData from "../../../testdata/products.json";
+import { productsBySection } from "../../../data/products";
 import { Star, Flame } from 'lucide-react';
 import BrandShowcase from "../components/BrandShowcase";
 import ServicesSection from "../components/ServicesSection";
@@ -16,6 +16,7 @@ import WarrantySection from "../components/WarrantySection";
 import SEOSection from "../components/SEOSection";
 import { useCompareStore } from "../../../features/compare/state";
 import { useCart } from "../../../context/CartContext";
+import { OfferTypeSlider } from "../components/OfferTypeSlider";
 
 const HomePage: React.FC = () => {
   const { t, language, navigateToSection } = useLanguage();
@@ -30,7 +31,11 @@ const HomePage: React.FC = () => {
   const [confirmedOrderData, setConfirmedOrderData] = useState<any>(null);
   const [compareAnimation, setCompareAnimation] = useState(false);
   const [compareAnimationCount, setCompareAnimationCount] = useState(0);
-  
+  const navigateToOfferType = (
+    offerType: "direct_discount" | "coupon" | "free_product" | "bundle_discount"
+  ) => {
+    navigate(`/offers/${offerType}`);
+  };
   // Add resize/zoom detection state
   const [refreshKey, setRefreshKey] = useState(0);
   const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -130,9 +135,10 @@ const HomePage: React.FC = () => {
     categoryNameEn: string,
   ) => {
     console.log("Brand clicked:", brandName, categoryName);
-    // Navigate to brand page with encoded brand name
-    const encoded = encodeURIComponent(brandName);
-    navigate(`/brand/${encoded}`);
+    const categoryForRoute = categoryNameEn || categoryName || '';
+    const encodedCategory = encodeURIComponent(categoryForRoute);
+    const encodedBrand = encodeURIComponent(brandName);
+    navigate(`/brand/${encodedCategory}/${encodedBrand}`);
   };
 
   const handleProductClick = (product: any) => {
@@ -206,13 +212,13 @@ const HomePage: React.FC = () => {
         </section>
 
         {/* Search Section */}
-        <section id="search-section" className="container mx-auto px-4 py-12">
+        <section id="search-section" className="container mx-auto px-4 py-16">
           <div className="max-w-4xl mx-auto">
             <SearchSection language={language} key={`search-${refreshKey}`} />
           </div>
         </section>
         {/* Categories Section */}
-        <section id="categories" className="container mx-auto px-4 py-8">
+        <section id="categories" className="container mx-auto px-4 py-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center">
             {t("productCategories") || "Product Categories"}
           </h2>
@@ -225,20 +231,29 @@ const HomePage: React.FC = () => {
           />
         </section>
         {/* Special Offers Slider */}
-       <section id="special-offers-carousel" className="special-offers-carousel container mx-auto px-4 py-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6 text-center">
+       <section id="special-offers-carousel" className="special-offers-carousel container mx-auto px-4 py-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center">
             {t("specialOffers") || "Special Offers"}
           </h2>
-          <SpecialOffers language={language} key={`offers-${refreshKey}`} />
+          <OfferTypeSlider
+            language={language}
+            onOfferTypeClick={(offerType) => {
+              navigateToOfferType(offerType as any);
+            }}
+          />
         </section>
         {/* Most Bought Products */}
         <ProductsSlider
           language={language}
+          
           title={t("mostSold") || "Most Sold"}
           icon={
             <Star className="w-6 h-6 md:w-8 md:h-8 text-yellow-500 fill-yellow-500" />
           }
-          products={(productsData as any)?.mostBought ?? []}
+          products={productsBySection.mostBought.map((product) => ({
+            ...product,
+            isMostSold: true,
+          }))}
           onProductClick={handleProductClick}
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}
@@ -251,7 +266,7 @@ const HomePage: React.FC = () => {
           language={language}
           title={t("newProducts") || "New Products"}
           icon={<Flame className="w-6 h-6 md:w-8 md:h-8 text-red-500" />}
-          products={(productsData as any)?.newProducts ?? []}
+          products={productsBySection.newProducts}
           onProductClick={handleProductClick}
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}

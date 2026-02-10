@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import baseProductsData from '../../../testdata/products.json';
 import categoriesData from '../../../testdata/categories.json';
-import ProductCard from '../../../components/ui/ProductCard';
+import ProductCard from "../components/ProductCard";
 import { useLanguage } from '../../../context/LanguageContext';
 import { ChevronRight } from 'lucide-react';
 import { useCompareStore } from '../../compare/state';
+import { products as allProducts } from "../../../data/products";
 
 const CategoryPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,16 +40,15 @@ const CategoryPage: React.FC = () => {
     ? (language === 'ar' ? matchedCategory.name : matchedCategory.nameEn)
     : term;
 
-  const [productsData, setProductsData] = useState<any>(baseProductsData);
+  const categoryRouteName = matchedCategory
+    ? matchedCategory.nameEn || matchedCategory.name
+    : term;
 
-  useEffect(() => {
-    import('../../../testdata/products.expanded.json')
-      .then((m) => setProductsData(m.default || m))
-      .catch(() => {});
-  }, []);
-
-  const allProducts = Object.values(productsData).flat() as any[];
-  const products = allProducts.filter((p) => p?.category && String(p.category).toLowerCase().includes(String(term).toLowerCase()));
+  const products = (allProducts as any[]).filter(
+    (p) =>
+      p?.category &&
+      String(p.category).toLowerCase().includes(String(term).toLowerCase()),
+  );
 
   const compareItems = useCompareStore((s: any) => s.items) as number[];
   const toggleCompare = useCompareStore((s: any) => s.toggleCompare) as (id: number) => void;
@@ -86,6 +85,19 @@ const CategoryPage: React.FC = () => {
                 toggleCompare={toggleCompare}
                 compareItems={compareItems}
                 language={language === 'ar' ? 'ar' : 'en'}
+                onProductClick={(product) =>
+                  navigate(`/product/${product.id}`, {
+                    state: {
+                      product,
+                      breadcrumbs: [
+                        {
+                          label: displayCategoryName,
+                          href: `/category/${encodeURIComponent(categoryRouteName)}`,
+                        },
+                      ],
+                    },
+                  })
+                }
               />
             ))}
           </div>

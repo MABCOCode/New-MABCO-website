@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ShoppingCart,
 } from 'lucide-react';
+import { loadSession } from '../../features/account/storage';
 
 interface MobileMenuProps {
   menuOpen: boolean;
@@ -129,7 +130,8 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
             {!isLoggedIn ? (
               <button
                 onClick={() => {
-                  navigateTo('/login');
+                  const session = loadSession() as any;
+                  navigateTo(session?.user ? '/account/dashboard' : '/account/login');
                   setMenuOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
@@ -145,7 +147,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
             ) : (
               <button
                 onClick={() => {
-                  navigateTo('/dashboard');
+                  navigateTo('/account/dashboard');
                   setMenuOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
@@ -256,17 +258,39 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                             key={brandIndex}
                             className="bg-white rounded-2xl p-5 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 group hover:border-[#009FE3]/30 cursor-pointer"
                             onClick={() => {
-                              navigateTo(`/brand/${brand.name.toLowerCase()}`);
+                              const brandName =
+                                typeof brand === "string" ? brand : brand.name;
+                              const categoryName =
+                                typeof category.nameEn === "string" && category.nameEn
+                                  ? category.nameEn
+                                  : category.name;
+                              navigateTo(
+                                `/brand/${encodeURIComponent(categoryName)}/${encodeURIComponent(brandName)}`,
+                              );
                               setMenuOpen(false);
                             }}
                           >
                             <div className="flex flex-col items-center text-center">
                               <div className="w-full aspect-square bg-gray-50 rounded-2xl flex items-center justify-center mb-4 p-6 group-hover:bg-gray-100 transition-colors">
-                                <img src={brand.image || 'https://via.placeholder.com/150'} alt={`${brand.name} Logo`} className="w-full h-full object-contain" />
+                                <img
+                                  src={
+                                    typeof brand === "string"
+                                      ? "https://via.placeholder.com/150"
+                                      : brand.image || "https://via.placeholder.com/150"
+                                  }
+                                  alt={`${typeof brand === "string" ? brand : brand.name} Logo`}
+                                  className="w-full h-full object-contain"
+                                />
                               </div>
-                              <h4 className="Text-gray-900 mb-1.5 text-lg">{brand.name}</h4>
-                              {brand.englishName && <p className="text-sm text-gray-500 mb-2">{brand.englishName}</p>}
-                              {brand.description && <p className="text-sm text-gray-600 leading-relaxed">{brand.description}</p>}
+                              <h4 className="Text-gray-900 mb-1.5 text-lg">
+                                {typeof brand === "string" ? brand : brand.name}
+                              </h4>
+                              {typeof brand !== "string" && brand.englishName && (
+                                <p className="text-sm text-gray-500 mb-2">{brand.englishName}</p>
+                              )}
+                              {typeof brand !== "string" && brand.description && (
+                                <p className="text-sm text-gray-600 leading-relaxed">{brand.description}</p>
+                              )}
                             </div>
                           </div>
                         ))}

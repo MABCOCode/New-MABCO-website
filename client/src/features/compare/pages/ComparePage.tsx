@@ -1,22 +1,15 @@
 import { useState } from "react";
-import { X, Check, Star, ShoppingCart, Filter } from "lucide-react";
+import { X, Check, ShoppingCart, Filter } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { Product } from "../../../types/product";
 import { ComparePageProps } from "../../../types/compare";
-import productsData from '../../../testdata/products.json';
+import { products } from "../../../data/products";
 import translations from '../../../i18n/translations';
 
 export function ComparePage(props: ComparePageProps) {
   const { compareItems, onClose, onRemoveItem, onAddItem, language } = props;
 
-  // Build allProducts from local testdata
-  const pd: any = productsData || {};
-  
-  // Use the correct type - Product with specifications
-  const allProducts: Product[] = [
-    ...(pd.mostBought || []),
-    ...(pd.newProducts || []),
-  ];
+  const [allProducts] = useState<Product[]>(products);
   
   const t = translations[language];
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -95,20 +88,11 @@ export function ComparePage(props: ComparePageProps) {
     return prices.map((p) => p === minPrice);
   };
 
-  // Helper function to get best rating
-  const getBestRating = () => {
-    const ratings = comparedProducts.map((p) => p.rating || 0);
-    const maxRating = Math.max(...ratings);
-    return ratings.map((r) => r === maxRating && maxRating > 0);
-  };
-
-  const bestPrices = getBestPrice();
-  const bestRatings = getBestRating();
-
   return (
     <div
       className="fixed inset-0 bg-black/50 z-50 overflow-y-auto"
       dir={language === "ar" ? "rtl" : "ltr"}
+       style={{ zIndex: 2000 }}
     >
       <div className="min-h-screen p-4 md:p-8">
         <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
@@ -126,7 +110,7 @@ export function ComparePage(props: ComparePageProps) {
           </div>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="p-6 pb-10">
             {comparedProducts.length === 0 ? (
               // No products to compare
               <div className="text-center py-20">
@@ -154,7 +138,7 @@ export function ComparePage(props: ComparePageProps) {
               </div>
             ) : (
               // Comparison Table
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto mb-8">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr>
@@ -221,50 +205,6 @@ export function ComparePage(props: ComparePageProps) {
                             )}
                             {bestPrices[index] && (
                               <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-                                <Check className="w-3 h-3" />
-                                {t.best || "Best"}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      ))}
-                      {comparedProducts.length < 4 && (
-                        <td className="p-4 border-b"></td>
-                      )}
-                    </tr>
-
-                    {/* Rating Row */}
-                    <tr className="bg-white hover:bg-gray-50 transition-colors">
-                      <td className="sticky left-0 bg-gray-50 p-4 font-semibold text-gray-700 border-b">
-                        {t.rating || "Rating"}
-                      </td>
-                      {comparedProducts.map((product, index) => (
-                        <td
-                          key={product.id}
-                          className={`p-4 border-b text-center ${
-                            bestRatings[index]
-                              ? "bg-yellow-50 border-l-4 border-yellow-500"
-                              : ""
-                          }`}
-                        >
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="flex gap-1">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`w-5 h-5 ${
-                                    i < (product.rating || 0)
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-gray-300"
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <span className="text-sm text-gray-600">
-                              {product.rating?.toFixed(1) || "0.0"}
-                            </span>
-                            {bestRatings[index] && (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-500 text-white text-xs font-bold rounded-full">
                                 <Check className="w-3 h-3" />
                                 {t.best || "Best"}
                               </span>
@@ -360,7 +300,7 @@ export function ComparePage(props: ComparePageProps) {
 
             {/* Product Selection Section */}
             {comparedProducts.length < 4 && (
-              <div className="mt-8 border-t pt-8">
+              <div className="mt-8 border-t pt-8 pb-4">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">
                   {t.addProducts || "Add Products to Compare"}
                 </h2>
@@ -409,7 +349,7 @@ export function ComparePage(props: ComparePageProps) {
                 </div>
 
                 {/* Available Products Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
                   {availableProducts.slice(0, 8).map((product) => (
                     <div
                       key={product.id}

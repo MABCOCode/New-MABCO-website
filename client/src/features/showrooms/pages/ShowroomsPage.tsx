@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MapPin, Phone, Clock, Calendar, X, Home, ChevronRight } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { useNavigate } from 'react-router-dom';
+import translations from "../../../i18n/translations";
 
 interface Showroom {
   Loc_code: string;
@@ -63,35 +64,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
   const isRTL = language === "ar";
   const [selectedMap, setSelectedMap] = useState<{ lat: string; lng: string; name: string } | null>(null);
   const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
-  
-  const t = {
-    ar: {
-      title: "معارضنا",
-      subtitle: "تجد MABCO في خدمتك في جميع أنحاء سوريا",
-      home: "الرئيسية",
-      showrooms: "المعارض",
-      address: "العنوان",
-      phone: "الهاتف",
-      workingHours: "ساعات العمل",
-      weekend: "عطلة نهاية الأسبوع",
-      viewOnMap: "عرض على الخريطة",
-      closeMap: "إغلاق",
-      showroomCount: "معرض",
-    },
-    en: {
-      title: "Our Showrooms",
-      subtitle: "Find MABCO at your service across Syria",
-      home: "Home",
-      showrooms: "Showrooms",
-      address: "Address",
-      phone: "Phone",
-      workingHours: "Working Hours",
-      weekend: "Weekend",
-      viewOnMap: "View on Map",
-      closeMap: "Close",
-      showroomCount: "Showrooms",
-    },
-  };
+  const t = translations[language];
 
   // Group showrooms by city
   const showroomsByCity = showroomsData.reduce((acc, showroom) => {
@@ -124,10 +97,10 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                 className="flex items-center gap-1 text-gray-600 hover:text-[#009FE3] transition-colors"
               >
                 <Home className="w-4 h-4" />
-                <span>{t[language].home}</span>
+                <span>{t.home}</span>
               </button>
               <ChevronRight className={`w-4 h-4 text-gray-400 ${isRTL ? 'rotate-180' : ''}`} />
-              <span className="text-[#009FE3]">{t[language].showrooms}</span>
+              <span className="text-[#009FE3]">{t.showrooms}</span>
             </div>
           </div>
         </div>
@@ -142,7 +115,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
               <h2 className="text-3xl text-gray-800">
                 {city}
                 <span className={`text-lg text-gray-500 ${isRTL ? 'mr-3' : 'ml-3'}`}>
-                  ({showroomsByCity[city].length} {t[language].showroomCount})
+                  ({showroomsByCity[city].length} {t.showrooms_count_label})
                 </span>
               </h2>
             </div>
@@ -182,7 +155,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                     <div className="flex gap-3">
                       <MapPin className="w-5 h-5 text-[#009FE3] flex-shrink-0 mt-1" />
                       <div>
-                        <p className="text-sm text-gray-500 mb-1">{t[language].address}</p>
+                        <p className="text-sm text-gray-500 mb-1">{t.showrooms_address}</p>
                         <p className="text-gray-800">{showroom.Address}</p>
                       </div>
                     </div>
@@ -191,7 +164,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                     <div className="flex gap-3">
                       <Phone className="w-5 h-5 text-[#009FE3] flex-shrink-0 mt-1" />
                       <div>
-                        <p className="text-sm text-gray-500 mb-1">{t[language].phone}</p>
+                        <p className="text-sm text-gray-500 mb-1">{t.showrooms_phone}</p>
                         <a
                           href={`tel:${showroom.Phone}`}
                           className="text-gray-800 hover:text-[#009FE3] transition-colors"
@@ -206,7 +179,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                     <div className="flex gap-3">
                       <Clock className="w-5 h-5 text-[#009FE3] flex-shrink-0 mt-1" />
                       <div>
-                        <p className="text-sm text-gray-500 mb-1">{t[language].workingHours}</p>
+                        <p className="text-sm text-gray-500 mb-1">{t.showrooms_working_hours}</p>
                         <p className="text-gray-800 text-sm">
                           {showroom.Winter_from_date}
                         </p>
@@ -221,7 +194,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                       <div className="flex gap-3">
                         <Calendar className="w-5 h-5 text-[#009FE3] flex-shrink-0 mt-1" />
                         <div>
-                          <p className="text-sm text-gray-500 mb-1">{t[language].weekend}</p>
+                          <p className="text-sm text-gray-500 mb-1">{t.showrooms_weekend}</p>
                           <p className="text-gray-800">{showroom.week_end}</p>
                         </div>
                       </div>
@@ -233,7 +206,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                       className="w-full mt-4 bg-[#009FE3] text-white py-2.5 rounded-lg hover:bg-[#0080b8] transition-colors flex items-center justify-center gap-2"
                     >
                       <MapPin className="w-4 h-4" />
-                      {t[language].viewOnMap}
+                      {t.showrooms_view_on_map}
                     </button>
                   </div>
                 </div>
@@ -245,7 +218,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
 
       {/* Map Dialog */}
       {selectedMap && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"  style={{ zIndex: 2000 }}>
           <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-fadeIn">
             {/* Dialog Header */}
             <div className="bg-gradient-to-r from-[#009FE3] to-[#0080b8] text-white p-4 flex items-center justify-between">
@@ -277,7 +250,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                 onClick={() => setSelectedMap(null)}
                 className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors"
               >
-                {t[language].closeMap}
+                {t.showrooms_close}
               </button>
               <a
                 href={`https://www.google.com/maps?q=${selectedMap.lat},${selectedMap.lng}`}
@@ -296,7 +269,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
       {/* Image Dialog */}
       {selectedImage && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"  style={{ zIndex: 2000 }}
           onClick={() => setSelectedImage(null)}
         >
           <div 
@@ -331,7 +304,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                 onClick={() => setSelectedImage(null)}
                 className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors"
               >
-                {t[language].closeMap}
+                {t.showrooms_close}
               </button>
             </div>
           </div>

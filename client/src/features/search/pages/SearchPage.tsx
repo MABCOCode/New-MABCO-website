@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Search, XCircle, Filter } from "lucide-react";
 import translations from "../../../i18n/translations";
 import { useLanguage } from "../../../context/LanguageContext";
+import { products } from "../../../data/products";
 
 const SearchPage: React.FC = () => {
   const location = useLocation();
@@ -21,20 +22,20 @@ const SearchPage: React.FC = () => {
   const { language } = useLanguage();
   const t = translations[language];
 
-  // Mock data - replace with your actual data
-  const allProducts = [
-    { id: 1, name: "Product 1", price: "100,000", brand: "Samsung", category: "Phones" },
-    { id: 2, name: "Product 2", price: "200,000", brand: "Apple", category: "Phones" },
-    { id: 3, name: "Product 3", price: "150,000", brand: "Sony", category: "TVs" },
-  ];
+  const allProducts = products;
 
-  const allBrands = ["Samsung", "Apple", "Sony", "Xiaomi"];
-  const allCategories = ["Phones", "TVs", "Laptops", "Headphones"];
+  const allBrands = Array.from(
+    new Set(allProducts.map((p) => p.brand).filter(Boolean)),
+  );
+  const allCategories = Array.from(
+    new Set(allProducts.map((p) => p.category).filter(Boolean)),
+  );
 
   useEffect(() => {
     // Filter products based on search query and filters
     const filtered = allProducts.filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const name = (language === "ar" ? product.nameAr : product.name) || product.name;
+      const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(product.brand);
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category);
       
@@ -197,7 +198,7 @@ const SearchPage: React.FC = () => {
               >
                 <div className="p-5 flex-1 flex flex-col">
                   <h3 className="font-bold text-gray-900 mb-2 group-hover:text-[#009FE3] transition-colors">
-                    {product.name}
+                    {language === "ar" && product.nameAr ? product.nameAr : product.name}
                   </h3>
                   <p className="text-sm text-gray-500 mb-2">{product.brand} • {product.category}</p>
                   <div className="mb-4">

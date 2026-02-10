@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, RefreshCw } from "lucide-react";
+import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, RefreshCw, Gift, Sparkles } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import translations from "../../../i18n/translations";
+import { CartOfferDisplay } from "../../offer/components/CartOfferDisplay";
+import { getProductOffers } from "../../../data/products";
 
 interface CartItem {
   id: number | string;
@@ -17,6 +19,9 @@ interface CartItem {
     optionId: string;
     value: string;
   };
+  isFreeGift?: boolean;
+  isBundleItem?: boolean;
+  bundleDiscount?: number;
 }
 
 interface ShoppingCartProps {
@@ -98,12 +103,12 @@ export function ShoppingCart({
       {/* Cart Sidebar */}
       <div
         className={`fixed top-0 ${isArabic ? "left-0" : "right-0"} h-full w-full md:w-[450px] bg-white z-[101] shadow-2xl transform transition-transform duration-300 flex flex-col`}
-        style={{
+        style={{zIndex: 2000,
           transform: isOpen ? "translateX(0)" : isArabic ? "translateX(-100%)" : "translateX(100%)",
         }}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white p-6 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white p-6 flex items-center justify-between"     >
           <div className="flex items-center gap-3">
             <ShoppingBag className="w-6 h-6" />
             <h2 className="text-2xl font-bold">{t.shoppingCart}</h2>
@@ -142,29 +147,42 @@ export function ShoppingCart({
           ) : (
             <div className="p-4 space-y-4">
               {cartItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`bg-white border border-gray-200 rounded-xl p-4 transition-all duration-300 ${
-                    removingItemId === item.id
-                      ? "opacity-0 scale-95 -translate-x-4"
-                      : "opacity-100 scale-100"
-                  }`}
-                >
-                  <div className="flex gap-4">
-                    {/* Product Image */}
-                    <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                      <ImageWithFallback
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                <div key={item.id}>
+                  <div
+                    className={`bg-white border border-gray-200 rounded-xl p-4 transition-all duration-300 ${
+                      removingItemId === item.id
+                        ? "opacity-0 scale-95 -translate-x-4"
+                        : "opacity-100 scale-100"
+                    }`}
+                  >
+                    <div className="flex gap-4">
+                      {/* Product Image */}
+                      <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        <ImageWithFallback
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
 
                     {/* Product Info */}
                     <div className="flex-1">
                       <h4 className="font-semibold text-gray-900 mb-1 line-clamp-2">
                         {item.name}
                       </h4>
+
+                      {item.isFreeGift && (
+                        <div className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-bold mb-1">
+                          <Gift className="w-3 h-3" />
+                          {isArabic ? "هدية مجانية" : "Free Gift"}
+                        </div>
+                      )}
+                      {item.isBundleItem && item.bundleDiscount && (
+                        <div className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs font-bold mb-1">
+                          <Sparkles className="w-3 h-3" />
+                          {item.bundleDiscount}% {isArabic ? "خصم" : "Off"}
+                        </div>
+                      )}
                       
                       {/* Variant Info */}
                       {item.variant && (
@@ -191,19 +209,34 @@ export function ShoppingCart({
                       
                       {/* Price with discount */}
                       <div className="mb-3">
-                        {item.oldPrice && (
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm text-gray-400 line-through">
-                              {formatPrice(parsePrice(item.oldPrice))} {t.currency}
-                            </span>
-                            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
-                              {Math.round((1 - parsePrice(item.price) / parsePrice(item.oldPrice)) * 100)}% خصم
-                            </span>
-                          </div>
+                        {item.isFreeGift ? (
+                          <>
+                            {item.oldPrice && (
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm text-gray-400 line-through">
+                                  {formatPrice(parsePrice(item.oldPrice))} {t.currency}
+                                </span>
+                              </div>
+                            )}
+                            <p className="text-lg font-bold text-green-600">{t.free}</p>
+                          </>
+                        ) : (
+                          <>
+                            {item.oldPrice && (
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm text-gray-400 line-through">
+                                  {formatPrice(parsePrice(item.oldPrice))} {t.currency}
+                                </span>
+                                <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
+                                  {Math.round((1 - parsePrice(item.price) / parsePrice(item.oldPrice)) * 100)}% خصم
+                                </span>
+                              </div>
+                            )}
+                            <p className="text-lg font-bold text-[#009FE3]">
+                              {formatPrice(parsePrice(item.price) * item.quantity)} {t.currency}
+                            </p>
+                          </>
                         )}
-                        <p className="text-lg font-bold text-[#009FE3]">
-                          {formatPrice(parsePrice(item.price) * item.quantity)} {t.currency}
-                        </p>
                       </div>
 
                       {/* Quantity Controls */}
@@ -236,7 +269,20 @@ export function ShoppingCart({
                         </button>
                       </div>
                     </div>
+                    </div>
                   </div>
+
+                  {/* Offers for this product */}
+                  {item.productId && getProductOffers(Number(item.productId)).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <CartOfferDisplay
+                        productId={Number(item.productId)}
+                        quantity={item.quantity}
+                        language={language}
+                        currencyLabel={t.currency}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

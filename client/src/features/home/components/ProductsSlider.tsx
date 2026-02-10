@@ -7,8 +7,10 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "../../../components/ui/carousel";
-import ProductCard from "../../../components/ui/ProductCard";
+import ProductCard from "../../products/components/ProductCard";
 import { Product } from "../../../types/product";
+import { getProductOffers } from "../../../data/products";
+import { Tag, Ticket, Gift, Package } from "lucide-react";
 
 interface ProductsSliderProps {
   language: "ar" | "en";
@@ -43,6 +45,73 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
   }, [title, products, onToggleCompare]);
   const [carouselKey, setCarouselKey] = useState(0);
   const lastZoomRef = useRef<number>(window.devicePixelRatio);
+
+  const getOfferBadgeForProduct = (product: Product) => {
+    const offers = getProductOffers(product.id);
+    if (offers.length === 0) return null;
+
+    const priority = ["direct_discount", "coupon", "free_product", "bundle_discount"] as const;
+    const currentOffer =
+      offers.find((o) => o.type === priority[0]) ||
+      offers.find((o) => o.type === priority[1]) ||
+      offers.find((o) => o.type === priority[2]) ||
+      offers.find((o) => o.type === priority[3]);
+
+    if (!currentOffer) return null;
+
+    const offerType = currentOffer.type;
+    const offerInfo = (() => {
+      switch (offerType) {
+        case "direct_discount":
+          return { Icon: Tag, gradient: "from-red-500 to-pink-600" };
+        case "coupon":
+          return { Icon: Ticket, gradient: "from-blue-500 to-indigo-600" };
+        case "free_product":
+          return { Icon: Gift, gradient: "from-green-500 to-emerald-600" };
+        case "bundle_discount":
+          return { Icon: Package, gradient: "from-purple-500 to-violet-600" };
+        default:
+          return null;
+      }
+    })();
+
+    if (!offerInfo) return null;
+
+    const badgeText = (() => {
+      if (offerType === "direct_discount" && "discountType" in currentOffer) {
+        return currentOffer.discountType === "percentage"
+          ? `${currentOffer.discountValue}% ${language === "ar" ? "خصم" : "OFF"}`
+          : language === "ar"
+          ? "خصم خاص"
+          : "Special Deal";
+      }
+      if (offerType === "coupon" && "couponValue" in currentOffer) {
+        return `${(currentOffer.couponValue / 1000).toFixed(0)}K ${
+          language === "ar" ? "كوبون" : "Coupon"
+        }`;
+      }
+      if (offerType === "free_product") {
+        return language === "ar" ? "هدية مجانية" : "Free Gift";
+      }
+      if (offerType === "bundle_discount" && "discountPercentage" in currentOffer) {
+        return `${currentOffer.discountPercentage}% ${
+          language === "ar" ? "على الحزمة" : "Bundle"
+        }`;
+      }
+      return "";
+    })();
+
+    if (!badgeText) return null;
+
+    return (
+      <div
+        className={`bg-gradient-to-r ${offerInfo.gradient} text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 whitespace-nowrap`}
+      >
+        <offerInfo.Icon className="w-4 h-4" />
+        <span>{badgeText}</span>
+      </div>
+    );
+  };
 
   // Effect to calculate and set max height
   useEffect(() => {
@@ -88,13 +157,14 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
   }, [products]);
 
   return (
-    <section className="py-8 relative">
+    <section className="py-16 relative">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-center gap-3 mb-6">
           {icon}
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center">
             {title}
           </h2>
+            {icon}
         </div>
       </div>
 
@@ -115,7 +185,7 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
             {products.map((product, index) => (
               <CarouselItem
                 key={product.id}
-                className="pl-4 basis-full md:basis-1/3 lg:basis-1/5"
+                className="basis-full md:basis-1/3 lg:basis-1/5 px-4 md:px-0"
                 style={
                   maxHeight > 0
                     ? {
@@ -128,16 +198,22 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
               >
                 <div
                   ref={(el) => (cardRefs.current[index] = el)}
-                  className="h-full"
+                  className="h-full mx-auto w-full max-w-[360px] md:max-w-none"
                   style={{ overflow: "visible" }}
                 >
-                  <ProductCard
-                    product={product}
-                    toggleCompare={onToggleCompare}
-                    compareItems={compareItems}
-                    language={language}
-                    onQuickView={() => onProductClick && onProductClick(product)}
-                  />
+                  {(() => {
+                    const topBadge = getOfferBadgeForProduct(product);
+                    return (
+                      <ProductCard
+                        product={product}
+                        toggleCompare={onToggleCompare}
+                        compareItems={compareItems}
+                        language={language}
+                        onQuickView={() => onProductClick && onProductClick(product)}
+                        topBadge={topBadge ?? undefined}
+                      />
+                    );
+                  })()}
                 </div>
               </CarouselItem>
             ))}

@@ -1,12 +1,12 @@
 import React from "react";
-import { Star, ShoppingCart, Tag, Flame, CreditCard } from "lucide-react";
-import { Product } from "../../types/product";
-import { useCart } from "../../context/CartContext";
+import { ShoppingCart, Tag, Flame, TrendingUp } from "lucide-react";
+import { Product } from "../../../types/product";
+import { useCart } from "../../../context/CartContext";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ColorSwatch } from "./ColorSwatch";
-import { ChargeOptionSlider } from "./ChargeOptionSlider";
-import { ImageWithFallback } from "../figma/ImageWithFallback";
+import { ColorSwatch } from "../../../components/ui/ColorSwatch";
+import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
+import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 
 export interface ProductCardProps {
   product: Product;
@@ -14,6 +14,8 @@ export interface ProductCardProps {
   compareItems: number[];
   language: "ar" | "en";
   onQuickView?: () => void;
+  topBadge?: React.ReactNode;
+  onProductClick?: (product: Product) => void;
 }
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
@@ -21,6 +23,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   compareItems,
   language,
   onQuickView,
+  topBadge,
+  onProductClick,
 }) => {
   const { addToCart } = useCart();
   const navigate = useNavigate();
@@ -42,6 +46,36 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const hasColors = product.colorVariants && product.colorVariants.length > 0;
   const hasChargeOptions =
     product.chargeOptions && product.chargeOptions.length > 0;
+
+  const badgeText = (() => {
+    if (product.isMostSold) return language === "ar" ? "الأكثر مبيعاً" : "MOST SOLD";
+    if (product.badge) {
+      const badgeLower = String(product.badge).toLowerCase();
+      if (language === "ar") {
+        if (badgeLower === "new" || badgeLower === "جديد") return "جديد";
+        if (badgeLower === "hot" || badgeLower === "حار") return "حار";
+      } else {
+        if (badgeLower === "جديد" || badgeLower === "new") return "NEW";
+        if (badgeLower === "حار" || badgeLower === "hot") return "HOT";
+      }
+      return String(product.badge);
+    }
+    if (product.isNew) return language === "ar" ? "جديد" : "NEW";
+    if (product.isHot) return language === "ar" ? "حار" : "HOT";
+    return "";
+  })();
+
+  const badgeVariant = product.isMostSold
+    ? "text-white"
+    : product.isNew
+    ? "bg-green-500"
+    : product.isHot
+    ? "bg-red-500"
+    : "bg-slate-600";
+
+  const badgeStyle = product.isMostSold
+    ? { background: "linear-gradient(90deg, #f59e0b, #f97316)" }
+    : undefined;
 
   // Robust compare match: support string or number ids
   const isCompared = Array.isArray(compareItems)
@@ -79,8 +113,21 @@ const ProductCard: React.FC<ProductCardProps> = ({
     : typeof product.basePrice === "number"
     ? product.basePrice.toLocaleString("en-US")
     : product.price;
+  const handleNavigate = () => {
+    if (onProductClick) {
+      onProductClick(product);
+    } else {
+      navigate(`/product/${product.id}`, { state: { product } });
+    }
+  };
+
   return (
     <div className="h-full relative">
+      {topBadge && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-[60] pointer-events-none">
+          {topBadge}
+        </div>
+      )}
       <div
         className={`bg-white rounded-lg shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 group overflow-visible flex flex-col h-full ${
           isHovered
@@ -94,7 +141,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           position: "relative",
         }}
       >
-        <div className="relative cursor-pointer flex-shrink-0" onClick={() => navigate(`/product/${product.id}`, { state: { product } })}>
+        <div className="relative cursor-pointer flex-shrink-0" onClick={handleNavigate}>
           {(() => {
             const badgeSide = language === "ar" ? "right-4" : "left-4";
             const compareSide = badgeSide === "right-4" ? "left-4" : "right-4";
@@ -154,59 +201,21 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 }`}
               />
             </div>
-
-            {product.rating && (
+            {badgeText && (
               <div
-                className={`absolute bottom-4 ${language === "ar" ? "left-4" : "right-4"} z-10`}
+                className={`absolute top-4 ${language === "ar" ? "right-4" : "left-4"} z-10 px-2 py-1 rounded-md font-bold text-white flex items-center gap-1 text-xs shadow-md ${badgeVariant}`}
+                style={badgeStyle}
               >
-                <div className="inline-flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-md px-2 py-1">
-                  <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                  <span className="text-sm font-bold text-gray-900">
-                    {product.rating}
-                  </span>
-                </div>
+                {product.isMostSold ? (
+                  <TrendingUp className="w-3 h-3" />
+                ) : product.isNew ? (
+                  <Tag className="w-3 h-3" />
+                ) : product.isHot ? (
+                  <Flame className="w-3 h-3" />
+                ) : null}
+                <span>{badgeText}</span>
               </div>
             )}
-
-            {hasChargeOptions ? (
-              <div
-                className={`absolute top-4 ${language === "ar" ? "right-4" : "left-4"} z-10`}
-              >
-                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-2">
-                  <CreditCard className="w-3 h-3" />
-                  <span>{language === "ar" ? "حساب" : "Account"}</span>
-                </div>
-              </div>
-            ) : product.badge ? (
-              (() => {
-                // Localize some common badge tokens if needed
-                let badgeText = product.badge;
-                const badgeLower = String(product.badge).toLowerCase();
-                if (language === "ar") {
-                  if (badgeLower === "new" || badgeLower === "جديد")
-                    badgeText = "جديد";
-                  else if (badgeLower === "hot" || badgeLower === "حار")
-                    badgeText = "حار";
-                } else {
-                  if (badgeLower === "جديد" || badgeLower === "new")
-                    badgeText = "NEW";
-                  else if (badgeLower === "حار" || badgeLower === "hot")
-                    badgeText = "HOT";
-                }
-
-                return (
-                  <div
-                    className={`absolute top-4 ${language === "ar" ? "right-4" : "left-4"} px-2 py-1 rounded-md font-bold text-white flex items-center gap-1 text-xs ${
-                      product.isNew ? "bg-green-500" : "bg-red-500"
-                    }`}
-                  >
-                    {product.isNew && <Tag className="w-3 h-3" />}
-                    {product.isHot && <Flame className="w-3 h-3" />}
-                    <span>{badgeText}</span>
-                  </div>
-                );
-              })()
-            ) : null}
           </div>
         </div>
 
@@ -215,7 +224,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             className={`font-bold text-gray-900 mb-2 text-sm cursor-pointer hover:text-[#009FE3] transition-colors line-clamp-2 min-h-[2.8rem] ${
               language === "ar" ? "text-right" : "text-left"
             }`}
-            onClick={() => navigate(`/product/${product.id}`, { state: { product } })}
+            onClick={handleNavigate}
           >
             {product.name}
           </h3>

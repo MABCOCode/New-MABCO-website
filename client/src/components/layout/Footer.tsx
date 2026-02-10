@@ -12,7 +12,8 @@ import {
   Shield,
   Wrench,
   Building2,
-  Briefcase
+  Briefcase,
+  FacebookIcon
 } from 'lucide-react';
 import { translations } from '../../i18n/translations';
 
@@ -33,57 +34,55 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
   onWarrantyClick,
   onMaintenanceClick
 }) => {
-  const t = (key: string): string => {
-    return translations[language][key] || key;
-  };
-
+  const t = translations[language];
   const isRTL = language === 'ar';
   const textDirection = isRTL ? 'rtl' : 'ltr';
   const textAlign = isRTL ? 'text-right' : 'text-left';
   const flexDirection = isRTL ? 'flex-row-reverse' : 'flex-row';
+  const justifyDirection = isRTL ? 'justify-end' : 'justify-start';
 
   const brands = [
-    { name: "Samsung", category: t('phones'), categoryEn: "Phones" },
-    { name: "iPhone (Apple)", category: t('phones'), categoryEn: "Phones" },
-    { name: "Xiaomi", category: t('phones'), categoryEn: "Phones" },
-    { name: "Sony", category: t('electronics'), categoryEn: "Electronics" },
-    { name: "Honor", category: t('phones'), categoryEn: "Phones" },
-    { name: "EcoFlow", category: t('power'), categoryEn: "Power" },
-    { name: "Deye", category: t('solarPower'), categoryEn: "Solar Power" }
+    { name: "Samsung", category: t.phones, categoryEn: "Phones" },
+    { name: "iPhone (Apple)", category: t.phones, categoryEn: "Phones" },
+    { name: "Xiaomi", category: t.phones, categoryEn: "Phones" },
+    { name: "Sony", category: t.electronics, categoryEn: "Electronics" },
+    { name: "Honor", category: t.phones, categoryEn: "Phones" },
+    { name: "EcoFlow", category: t.power, categoryEn: "Power" },
+    { name: "Deye", category: t.solarPower, categoryEn: "Solar Power" }
   ];
 
   const categories = [
-    { name: t('phones'), count: 150 },
-    { name: t('laptops'), count: 85 },
-    { name: t('tvs'), count: 45 },
-    { name: t('headphones'), count: 120 },
-    { name: t('homeAppliances'), count: 75 },
-    { name: t('gamingDevices'), count: 60 }
+    { name: t.phones, count: 150 },
+    { name: t.laptops, count: 85 },
+    { name: t.tvs, count: 45 },
+    { name: t.headphones, count: 120 },
+    { name: t.homeAppliances, count: 75 },
+    { name: t.gamingDevices, count: 60 }
   ];
 
   const quickLinks = [
-    { label: t('home'), href: "#home" },
-    { label: t('categories'), href: "#categories" },
-    { label: t('products'), href: "#products" },
-    { label: t('services'), href: "#services" },
-    { label: t('showrooms'), href: "#showrooms" },
-    { label: t('aboutUs'), href: "#about" },
-    { label: t('career'), href: "#career" },
-    { label: t('contact'), href: "#contact" }
+    { label: t.home, href: "#home" },
+    { label: t.categories, href: "#categories" },
+    { label: t.products, href: "#products" },
+    { label: t.services, href: "#services" },
+    { label: t.showrooms, href: "#showrooms" },
+    { label: t.aboutUs, href: "#about" },
+    { label: t.career, href: "#career" },
+    { label: t.contact, href: "#contact" }
   ];
 
   const services = [
-    { label: t('warranty'), icon: Shield, action: onWarrantyClick },
-    { label: t('maintenanceService'), icon: Wrench, action: onMaintenanceClick },
-    { label: t('downloadApp'), icon: Download },
-    { label: t('aboutCompany'), icon: Building2, action: onAboutClick },
-    { label: t('careers'), icon: Briefcase }
+    { label: t.warranty, icon: Shield, action: onWarrantyClick },
+    { label: t.maintenanceService, icon: Wrench, action: onMaintenanceClick },
+    { label: t.downloadApp, icon: Download },
+    { label: t.aboutCompany, icon: Building2, action: onAboutClick },
+    { label: t.careers, icon: Briefcase }
   ];
 
   const contactInfo = [
     { icon: Phone, text: "+963 11 123 4567" },
     { icon: Mail, text: "info@mabcoonline.com" },
-    { icon: MapPin, text: t('address') }
+    { icon: MapPin, text: t.address }
   ];
 
   return (
@@ -95,7 +94,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
         {/* Top Section - Fixed gradient */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12  ">
           {/* Company Info */}
-          <div>
+          <div className={textAlign} style={{ direction: 'ltr' }} >
             <div className={`flex items-center gap-3 mb-6 ${flexDirection}`}>
               <img
                 src="https://mabcoonline.com/images/Mabco%20100x100.jpg"
@@ -105,18 +104,18 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
               <div>
                 <h3 className="text-2xl font-bold text-white">MABCO</h3>
                 <p className="text-gray-300 text-sm">
-                  {t('largestStore')}
+                  {t.largestStore}
                 </p>
               </div>
             </div>
             <p className="text-gray-300 mb-6">
-              {t('companyDescription')}
+              {t.companyDescription}
             </p>
             
             {/* Social Media */}
-            <div className={`flex gap-4 ${isRTL ? 'justify-end' : 'justify-start'}`}>
-              <a href="https://www.facebook.com/mabco" className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform hover:bg-blue-700">
-                <Facebook className="w-5 h-5 text-white" />
+            <div className={`flex gap-4 ${justifyDirection}`}>
+              <a href="https://www.facebook.com/mabco" className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center hover:scale-110 transition-transform hover:bg-blue-700">
+                <FacebookIcon className="w-5 h-5 text-white" />
               </a>
               <a href="https://www.instagram.com/mabco" className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform hover:from-purple-700 hover:to-pink-700">
                 <Instagram className="w-5 h-5 text-white" />
@@ -131,14 +130,14 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
           </div>
 
           {/* Categories */}
-          <div>
+          <div className={textAlign} style={{ direction: 'ltr' }}>
             <h4 className="text-xl font-bold text-white mb-6 pb-3 border-b border-gray-700">
-              {t('categories')}
+              {t.categories}
             </h4>
             <ul className="space-y-3">
               {categories.map((category, index) => (
                 <li key={index} className={`flex justify-between items-center hover:text-[#009FE3] transition-colors cursor-pointer group ${flexDirection}`}>
-                  <span className={`text-gray-300 group-hover:text-[#009FE3] ${isRTL ? 'group-hover:translate-x-2' : 'group-hover:translate-x-2'} transition-all duration-300`}>
+                  <span className={`text-gray-300 group-hover:text-[#009FE3] ${isRTL ? 'group-hover:-translate-x-2' : 'group-hover:translate-x-2'} transition-all duration-300`}>
                     {category.name}
                   </span>
                   <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-sm">
@@ -150,16 +149,16 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
           </div>
 
           {/* Brands */}
-          <div>
+          <div className={textAlign} style={{ direction: 'ltr' }}>
             <h4 className="text-xl font-bold text-white mb-6 pb-3 border-b border-gray-700">
-              {t('brands')}
+              {t.brands}
             </h4>
             <div className="grid grid-cols-2 gap-3">
               {brands.map((brand, index) => (
                 <button
                   key={index}
                   onClick={() => onBrandClick && onBrandClick(brand.name, brand.category, brand.categoryEn)}
-                  className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg p-3 text-center transition-all hover:scale-105 group"
+                  className={`bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg p-3 transition-all hover:scale-105 group `}
                 >
                   <div className="font-medium group-hover:text-[#009FE3] transition-colors">
                     {brand.name}
@@ -173,9 +172,9 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
           </div>
 
           {/* Contact & Services */}
-          <div>
+          <div className={textAlign} style={{ direction: 'ltr' }}>
             <h4 className="text-xl font-bold text-white mb-6 pb-3 border-b border-gray-700">
-              {t('contactUs')}
+              {t.contactUs}
             </h4>
             
             {/* Contact Info */}
@@ -191,7 +190,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
             </div>
 
             {/* Services */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2"  style={{ direction: textDirection }}>
               {services.map((service, index) => (
                 <button
                   key={index}
@@ -208,7 +207,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
 
         {/* Middle Section - Quick Links */}
         <div className="border-t border-gray-700 pt-8 mb-8">
-          <div className="flex flex-wrap justify-center gap-6">
+          <div className={`flex flex-wrap gap-6 justify-center`}>
             {quickLinks.map((link, index) => (
               <a
                 key={index}
@@ -226,22 +225,22 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
           <div className={`flex flex-col md:flex-row justify-between items-center gap-4 ${isRTL ? 'md:flex-row-reverse' : ''}`}>
             <div className={`text-center ${isRTL ? 'md:text-right' : 'md:text-left'}`}>
               <p className="text-gray-400">
-                © {new Date().getFullYear()} MABCO. {t('allRightsReserved')}
+                © {new Date().getFullYear()} MABCO. {t.allRightsReserved}
               </p>
             </div>
             
-            <div className="flex flex-wrap justify-center gap-6">
+            <div className={`flex flex-wrap gap-6 ${isRTL ? 'justify-end' : 'justify-center'}`}>
               <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
-                {t('privacyPolicy')}
+                {t.privacyPolicy}
               </a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
-                {t('termsOfService')}
+                {t.termsOfService}
               </a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
-                {t('returnPolicy')}
+                {t.returnPolicy}
               </a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
-                {t('faq')}
+                {t.faq}
               </a>
             </div>
           </div>
@@ -249,7 +248,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
           {/* SEO: Additional company info */}
           <div className="mt-6 text-center text-gray-500 text-sm">
             <p>
-              {t('seoDescription')}
+              {t.seoDescription}
             </p>
           </div>
         </div>

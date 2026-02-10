@@ -38,13 +38,6 @@ export const compareUtils = {
     return prices.map((p) => p === minPrice);
   },
 
-  // Find best rating (higher is better)
-  getBestRating: (products: CompareProduct[]): boolean[] => {
-    const ratings = products.map((p) => p.rating || 0);
-    const maxRating = Math.max(...ratings);
-    return ratings.map((r) => r === maxRating && r > 0);
-  },
-
   // Filter available products for comparison
   getAvailableProducts: (
     allProducts: CompareProduct[],

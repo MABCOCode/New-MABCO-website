@@ -37,18 +37,68 @@ export interface Product {
   rating?: number;
   reviews?: number;
   badge?: string;
+  isMostSold?: boolean;
   isNew?: boolean;
   isHot?: boolean;
   description: string;
   descriptionAr: string;
   colorVariants?: ColorVariant[];
   chargeOptions?: ChargeOption[]; // New: For account products
+  specs?: ProductSpec[];
   specifications?: {
     key: string;
     keyAr: string;
     value: string;
     valueAr: string;
   }[];
+  offers?: ProductOffer[];
 }
 
 export type Language = 'ar' | 'en';
+
+// Offer types for products
+export interface DirectDiscountOffer {
+  type: "direct_discount";
+  discountType: "value" | "percentage";
+  discountValue: number;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+}
+
+export interface CouponOffer {
+  type: "coupon";
+  couponValue: number;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  eligibleProductIds: number[];
+  validityDays?: number;
+}
+
+export interface FreeProductOffer {
+  type: "free_product";
+  freeProductId: number;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+}
+
+export interface BundleDiscountOffer {
+  type: "bundle_discount";
+  discountPercentage: number;
+  relatedProductIds: number[];
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+}
+
+export type ProductOffer =
+  | DirectDiscountOffer
+  | CouponOffer
+  | FreeProductOffer
+  | BundleDiscountOffer;

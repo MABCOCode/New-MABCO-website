@@ -12,11 +12,29 @@ type CartItem = {
   variant?: string;
   variantColor?: string;
   chargeOption?: { optionId: string; value: string } | null;
+  isFreeGift?: boolean;
+  isBundleItem?: boolean;
+  linkedToProductId?: number;
+  bundleDiscount?: number;
 };
 
 type AddToCartFn = (
   product: Product | any,
-  options?: { color?: string; variantColorHex?: string | null; variantImage?: string | null; chargeOptionId?: string | null; chargeOptionLabel?: string | null; quantity?: number },
+  options?: {
+    color?: string;
+    variantColorHex?: string | null;
+    variantImage?: string | null;
+    chargeOptionId?: string | null;
+    chargeOptionLabel?: string | null;
+    quantity?: number;
+    customId?: string;
+    overridePrice?: number | string;
+    overrideOldPrice?: number | string;
+    isFreeGift?: boolean;
+    isBundleItem?: boolean;
+    linkedToProductId?: number;
+    bundleDiscount?: number;
+  },
 ) => void;
 
 type CartContextType = {
@@ -49,7 +67,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const closeCart = () => setCartOpen(false);
 
   const addToCart: AddToCartFn = (product, options) => {
-    const id = product.id ?? product.productId ?? product.sku ?? Math.random();
+    const id = options?.customId ?? product.id ?? product.productId ?? product.sku ?? Math.random();
     const variant = options?.color;
     const variantColorHex = options?.variantColorHex ?? null;
     const variantImage = options?.variantImage ?? null;
@@ -71,9 +89,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const selectedCharge = chargeOptionId
         ? product.chargeOptions?.find((o: any) => String(o.id) === String(chargeOptionId))
         : undefined;
-      const itemPrice = selectedCharge && typeof selectedCharge.price === "number"
-        ? selectedCharge.price.toLocaleString("en-US")
-        : product.price;
+      const itemPrice =
+        options?.overridePrice !== undefined
+          ? typeof options.overridePrice === "number"
+            ? options.overridePrice.toLocaleString("en-US")
+            : options.overridePrice
+          : selectedCharge && typeof selectedCharge.price === "number"
+          ? selectedCharge.price.toLocaleString("en-US")
+          : product.price;
+      const itemOldPrice =
+        options?.overrideOldPrice !== undefined
+          ? typeof options.overrideOldPrice === "number"
+            ? options.overrideOldPrice.toLocaleString("en-US")
+            : options.overrideOldPrice
+          : product.oldPrice;
 
       setCartItems((prev) => [
         ...prev,
@@ -82,12 +111,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           productId: product.id,
           name: product.name || product.title || "",
           price: itemPrice,
-          oldPrice: product.oldPrice,
+          oldPrice: itemOldPrice,
           image: variantImage ?? product.image ?? product.thumbnail ?? "",
           quantity: qty,
           variant: variant,
           variantColor: variantColorHex ?? variant,
           chargeOption: chargeOptionId ? { optionId: chargeOptionId, value: chargeOptionLabel ?? chargeOptionId } : null,
+          isFreeGift: options?.isFreeGift,
+          isBundleItem: options?.isBundleItem,
+          linkedToProductId: options?.linkedToProductId,
+          bundleDiscount: options?.bundleDiscount,
         },
       ]);
     }
@@ -104,7 +137,43 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const removeFromCart = (id: number | string) => {
-    setCartItems((prev) => prev.filter((it) => String(it.id) !== String(id)));
+    setCartItems((prev) => {
+      const target = prev.find((it) => String(it.id) === String(id));
+      if (!target) return prev;
+
+      const targetProductId = target.productId ?? Number(target.id);
+      const isPrimaryItem = !target.isBundleItem && !target.isFreeGift;
+
+      const next: CartItem[] = [];
+      for (const item of prev) {
+        if (String(item.id) === String(id)) {
+          continue;
+        }
+
+        if (isPrimaryItem && targetProductId && item.linkedToProductId === targetProductId) {
+          if (item.isFreeGift) {
+            // Free gifts depend on the main item, remove them.
+            continue;
+          }
+          if (item.isBundleItem && item.oldPrice) {
+            // Restore original price when the main item is removed.
+            next.push({
+              ...item,
+              price: item.oldPrice,
+              oldPrice: undefined,
+              isBundleItem: false,
+              bundleDiscount: undefined,
+              linkedToProductId: undefined,
+            });
+            continue;
+          }
+        }
+
+        next.push(item);
+      }
+
+      return next;
+    });
   };
 
   const clearCart = () => {
