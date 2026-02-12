@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, RefreshCw, Gift, Sparkles } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import translations from "../../../i18n/translations";
 import { CartOfferDisplay } from "../../offer/components/CartOfferDisplay";
-import { getProductOffers } from "../../../data/products";
+import { getProductOffers, products } from "../../../data/products";
+import { useCart } from "../../../context/CartContext";
 
 interface CartItem {
   id: number | string;
@@ -44,9 +45,23 @@ export function ShoppingCart({
   onProceedToCheckout,
   language,
 }: ShoppingCartProps) {
+  const { addToCart } = useCart();
   const t = translations[language];
   const isArabic = language === "ar";
   const [removingItemId, setRemovingItemId] = useState<number | string | null>(null);
+  const bundleItems = useMemo(() => {
+    const map = new Map<number, number[]>();
+    cartItems.forEach((item) => {
+      if (!item.isBundleItem || !item.linkedToProductId) return;
+      const relatedId = item.productId ?? Number(item.id);
+      if (!relatedId) return;
+      const list = map.get(item.linkedToProductId) ?? [];
+      if (!list.includes(relatedId)) {
+        map.set(item.linkedToProductId, [...list, relatedId]);
+      }
+    });
+    return map;
+  }, [cartItems]);
 
   // Calculate totals
   const parsePrice = (price: string | undefined) => {
@@ -88,6 +103,34 @@ export function ShoppingCart({
     if (item.quantity > 1) {
       onUpdateQuantity(item.id, item.quantity - 1);
     }
+  };
+
+  const handleAddBundleItem = (productId: number, bundleItemId: number) => {
+    const existing = bundleItems.get(productId) || [];
+    if (existing.includes(bundleItemId)) return;
+
+    const bundleProduct = products.find((p) => p.id === bundleItemId);
+    if (!bundleProduct) return;
+
+    const offers = getProductOffers(productId);
+    const bundleOffer = offers.find((offer) => offer.type === "bundle_discount") as any;
+    if (!bundleOffer) return;
+
+    const basePrice = bundleProduct.basePrice ?? parsePrice(bundleProduct.price);
+    const discountedPrice = Math.max(
+      0,
+      Math.round(basePrice * (1 - bundleOffer.discountPercentage / 100)),
+    );
+
+    addToCart(bundleProduct, {
+      customId: `bundle-${productId}-${bundleItemId}`,
+      quantity: 1,
+      overridePrice: discountedPrice,
+      overrideOldPrice: basePrice,
+      isBundleItem: true,
+      linkedToProductId: productId,
+      bundleDiscount: bundleOffer.discountPercentage,
+    });
   };
 
   if (!isOpen) return null;
@@ -280,6 +323,8 @@ export function ShoppingCart({
                         quantity={item.quantity}
                         language={language}
                         currencyLabel={t.currency}
+                        bundleItems={bundleItems}
+                        onAddBundleItem={handleAddBundleItem}
                       />
                     </div>
                   )}

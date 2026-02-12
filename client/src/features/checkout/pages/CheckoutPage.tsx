@@ -116,7 +116,7 @@ export function CheckoutPage() {
   const t = translations[language];
   const isArabic = language === "ar";
   const navigate = useNavigate();
-  const { cartItems, clearCart, addToCart } = useCart();
+  const { cartItems, clearCart, addToCart, removeFromCart } = useCart();
   const asText = (value: string | string[] | undefined) =>
     Array.isArray(value) ? value.join(" ") : value ?? "";
 
@@ -161,6 +161,31 @@ export function CheckoutPage() {
       setMapLoaded(true);
     }
   }, [fulfillmentType]);
+
+  useEffect(() => {
+    const nextFree = new Map<number, number>();
+    const nextBundle = new Map<number, number[]>();
+
+    cartItems.forEach((item) => {
+      if (!item.linkedToProductId) return;
+      const relatedId = item.productId ?? Number(item.id);
+      if (!relatedId) return;
+
+      if (item.isFreeGift) {
+        nextFree.set(item.linkedToProductId, relatedId);
+      }
+
+      if (item.isBundleItem) {
+        const list = nextBundle.get(item.linkedToProductId) ?? [];
+        if (!list.includes(relatedId)) {
+          nextBundle.set(item.linkedToProductId, [...list, relatedId]);
+        }
+      }
+    });
+
+    setFreeProductsAdded(nextFree);
+    setBundleProductsAdded(nextBundle);
+  }, [cartItems]);
 
   // Initialize Map
   useEffect(() => {
@@ -307,7 +332,42 @@ export function CheckoutPage() {
     showroom.city.toLowerCase().includes(showroomSearch.toLowerCase())
   );
 
+  const clearCouponOffer = (productId: number) => {
+    setAppliedCoupons((prev) => {
+      if (!prev.has(productId)) return prev;
+      const next = new Map(prev);
+      next.delete(productId);
+      return next;
+    });
+  };
+
+  const clearFreeOffer = (productId: number) => {
+    cartItems
+      .filter((item) => item.isFreeGift && item.linkedToProductId === productId)
+      .forEach((item) => removeFromCart(item.id));
+    setFreeProductsAdded((prev) => {
+      if (!prev.has(productId)) return prev;
+      const next = new Map(prev);
+      next.delete(productId);
+      return next;
+    });
+  };
+
+  const clearBundleOffer = (productId: number) => {
+    cartItems
+      .filter((item) => item.isBundleItem && item.linkedToProductId === productId)
+      .forEach((item) => removeFromCart(item.id));
+    setBundleProductsAdded((prev) => {
+      if (!prev.has(productId)) return prev;
+      const next = new Map(prev);
+      next.delete(productId);
+      return next;
+    });
+  };
+
   const handleApplyCoupon = (productId: number, coupon: CouponOffer) => {
+    clearFreeOffer(productId);
+    clearBundleOffer(productId);
     setAppliedCoupons((prev) => {
       const next = new Map(prev);
       next.set(productId, coupon);
@@ -316,6 +376,8 @@ export function CheckoutPage() {
   };
 
   const handleAddFreeProduct = (productId: number, freeProductId: number) => {
+    clearCouponOffer(productId);
+    clearBundleOffer(productId);
     if (freeProductsAdded.has(productId)) return;
     const freeProduct = products.find((p) => p.id === freeProductId);
     if (!freeProduct) return;
@@ -338,6 +400,8 @@ export function CheckoutPage() {
   };
 
   const handleAddBundleProduct = (productId: number, bundleProductId: number) => {
+    clearCouponOffer(productId);
+    clearFreeOffer(productId);
     const existing = bundleProductsAdded.get(productId) || [];
     if (existing.includes(bundleProductId)) return;
     const bundleProduct = products.find((p) => p.id === bundleProductId);

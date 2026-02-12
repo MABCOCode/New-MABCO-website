@@ -261,6 +261,7 @@ export function CartOfferDisplay({
               {offer.relatedProductIds.slice(0, 3).map((relatedId) => {
                 const relatedProduct = products.find((p) => p.id === relatedId);
                 if (!relatedProduct) return null;
+                const isAdded = appliedBundleItems.includes(relatedId);
 
                 const discountedPrice =
                   (relatedProduct.basePrice || 0) * (1 - offer.discountPercentage / 100);
@@ -290,12 +291,18 @@ export function CartOfferDisplay({
                         </span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => onAddBundleItem?.(productId, relatedId)}
-                      className="flex-shrink-0 bg-gradient-to-r from-purple-500 to-violet-500 text-white p-2 rounded-lg hover:scale-105 transition-transform"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+                    {isAdded ? (
+                      <div className="flex-shrink-0 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">
+                        {translation.cart_offer_applied}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onAddBundleItem?.(productId, relatedId)}
+                        className="flex-shrink-0 bg-gradient-to-r from-purple-500 to-violet-500 text-white p-2 rounded-lg hover:scale-105 transition-transform"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 );
               })}

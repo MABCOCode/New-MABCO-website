@@ -20,7 +20,7 @@ import {
   RefreshCw,
   Award,
   Minus,
-  Plus,
+  Plus,Tag,Badge
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -85,7 +85,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   const prod = product ?? localProduct;
   const productOffers = prod?.id ? getProductOffers(prod.id) : [];
-  const hasNewOffers = productOffers.length > 0;
+  const hasOffers = productOffers.length > 0;
 
   const hasColors = !!prod?.colorVariants?.length;
   const hasChargeOptions = !!prod?.chargeOptions?.length;
@@ -98,7 +98,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     prod?.chargeOptions?.[0]?.id || null,
   );
   const [quantity, setQuantity] = useState(1);
-  const [tabState, setTabState] = useState<"description" | "specs">(
+  const [tabState, setTabState] = useState<"description" | "specs" | "offers">(
     "description",
   );
   const [heroProductInCart, setHeroProductInCart] = useState(false);
@@ -181,6 +181,11 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     });
     setHeroProductInCart(true);
   };
+
+  const isHeroInCart = !!prod?.id && cart.cartItems?.some((item) => {
+    const itemProductId = item.productId ?? Number(item.id);
+    return itemProductId === prod.id && !item.isBundleItem && !item.isFreeGift;
+  });
 
   if (!prod) {
     return (
@@ -460,58 +465,6 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 </div>
               </div>
             )}
-
-            {hasNewOffers && (
-              <div className="mb-6">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-2xl">
-                  <Sparkles className="w-6 h-6 text-[#009FE3]" />
-                  {language === "ar" ? "العروض الخاصة" : "Special Offers"}
-                </h3>
-                <OfferDetailsCard
-                  offers={productOffers}
-                  language={language}
-                  basePrice={basePrice}
-                  currentPrice={calculateDiscountedPrice(basePrice, productOffers)}
-                />
-              </div>
-            )}
-
-            {productOffers.some((o) => o.type === "bundle_discount") && (
-              <div className="mb-6">
-                <RelatedProductsWithDiscount
-                  products={(() => {
-                    const bundleOffer = productOffers.find(
-                      (o) => o.type === "bundle_discount",
-                    ) as any;
-                    if (!bundleOffer) return [];
-                    return bundleOffer.relatedProductIds
-                      .map((relatedId: number) => {
-                        const rel = products.find((p) => p.id === relatedId);
-                        if (!rel) return null;
-                        return {
-                          id: rel.id,
-                          name: rel.name,
-                          nameAr: rel.nameAr,
-                          image: rel.image,
-                          originalPrice:
-                            rel.basePrice ||
-                            parseFloat((rel.price || "0").replace(/,/g, "")),
-                          discountPercentage: bundleOffer.discountPercentage,
-                        };
-                      })
-                      .filter(Boolean);
-                  })()}
-                  language={language}
-                  heroProductAdded={heroProductInCart}
-                  onAddToCart={(productId) => {
-                    const rel = products.find((p) => p.id === productId);
-                    if (rel && cart.addToCart) {
-                      cart.addToCart(rel, { quantity: 1 });
-                    }
-                  }}
-                />
-              </div>
-            )}
           </div>
         </div>
 
@@ -527,7 +480,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               } ${language === "ar" ? "flex-row-reverse" : "flex-row"}`}
             >
               <FileText className="w-5 h-5" />
-              <span>{language === "ar" ? "الوصف" : "Description"}</span>
+              <span>{t("description")}</span>
               {tabState === "description" && (
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7]" />
               )}
@@ -547,9 +500,115 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7]" />
               )}
             </button>
+
+          <button
+              onClick={() => setTabState("offers")}
+              className={`flex-1 px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 shadow-lg ${
+                tabState === "offers"
+                  ? "text-white bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 scale-105"
+                  : "text-orange-600 hover:text-orange-700 bg-gradient-to-r from-orange-50 to-pink-50 hover:from-orange-100 hover:to-pink-100 animate-pulse"
+              }`}
+            >
+              <Tag className="w-6 h-6" />
+              <span>{language === "ar" ? "العروض" : "Offers"}</span>
+              {/* {hasOffers && (
+                <Badge className="bg-yellow-400 text-orange-900 hover:bg-yellow-400 font-black animate-bounce">
+                  {productOffers.length}
+                </Badge>
+              )} */}
+              {tabState === "offers" && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500"></div>
+              )}
+            </button>
           </div>
 
           <div className="p-6 sm:p-8">
+            {tabState === "offers" && (
+              <div className="animate-fadeIn">
+                {hasOffers ? (
+                  <>
+                    <div className="mb-6">
+                      <OfferDetailsCard
+                        offers={productOffers}
+                        language={language}
+                        basePrice={basePrice}
+                        currentPrice={calculateDiscountedPrice(basePrice, productOffers)}
+                      />
+                    </div>
+
+                    {productOffers.some((o) => o.type === "bundle_discount") && (
+                      <div className="mb-6">
+                        <RelatedProductsWithDiscount
+                          products={(() => {
+                            const bundleOffer = productOffers.find(
+                              (o) => o.type === "bundle_discount",
+                            ) as any;
+                            if (!bundleOffer) return [];
+                            return bundleOffer.relatedProductIds
+                              .map((relatedId: number) => {
+                                const rel = products.find((p) => p.id === relatedId);
+                                if (!rel) return null;
+                                return {
+                                  id: rel.id,
+                                  name: rel.name,
+                                  nameAr: rel.nameAr,
+                                  image: rel.image,
+                                  originalPrice:
+                                    rel.basePrice ||
+                                    parseFloat((rel.price || "0").replace(/,/g, "")),
+                                  discountPercentage: bundleOffer.discountPercentage,
+                                };
+                              })
+                              .filter(Boolean);
+                          })()}
+                          language={language}
+                          heroProductAdded={heroProductInCart || isHeroInCart}
+                          onAddToCart={(productId) => {
+                            const rel = products.find((p) => p.id === productId);
+                            if (!rel || !cart.addToCart || !prod?.id) return;
+                            const alreadyAdded = cart.cartItems?.some((item) => {
+                              const itemProductId = item.productId ?? Number(item.id);
+                              return (
+                                itemProductId === productId &&
+                                item.isBundleItem &&
+                                item.linkedToProductId === prod.id
+                              );
+                            });
+                            if (alreadyAdded) return;
+
+                            const bundleOffer = productOffers.find(
+                              (o) => o.type === "bundle_discount",
+                            ) as any;
+                            if (!bundleOffer) return;
+
+                            const base = rel.basePrice || numericPrice(rel.price);
+                            const discounted = Math.max(
+                              0,
+                              Math.round(base * (1 - bundleOffer.discountPercentage / 100)),
+                            );
+
+                            cart.addToCart(rel, {
+                              customId: `bundle-${prod.id}-${productId}`,
+                              quantity: 1,
+                              overridePrice: discounted,
+                              overrideOldPrice: base,
+                              isBundleItem: true,
+                              linkedToProductId: prod.id,
+                              bundleDiscount: bundleOffer.discountPercentage,
+                            });
+                          }}
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    {t("noOffers")}
+                  </div>
+                )}
+              </div>
+            )}
+
             {tabState === "description" && (
               <div className="animate-fadeIn">
                 <div className="prose prose-lg max-w-none">

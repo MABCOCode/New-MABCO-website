@@ -6,6 +6,9 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
   ar: {
     home: "الرئيسية",
     products: "المنتجات",
+    navbar_dashboard: "لوحة التحكم",
+    navbar_manage_products: "إدارة المنتجات",
+    navbar_order_management: "إدارة الطلبات",
     categories: "الأقسام",
     services: "الخدمات",
     contact: "اتصل بنا",
@@ -471,6 +474,9 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
   en: {
     home: "Home",
     products: "Products",
+    navbar_dashboard: "Dashboard",
+    navbar_manage_products: "Manage Products",
+    navbar_order_management: "Order Management",
     categories: "Categories",
     services: "Services",
     contact: "Contact Us",
