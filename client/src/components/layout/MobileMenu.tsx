@@ -8,6 +8,8 @@ import {
   ChevronUp,
   ChevronDown,
   ShoppingCart,
+  Edit3,
+  Package2,
 } from 'lucide-react';
 import { loadSession } from '../../features/account/storage';
 
@@ -161,6 +163,41 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                 <span className="text-gray-700 group-hover:text-purple-600 font-medium">{t('myAccount')}</span>
               </button>
             )}
+
+            {/* Admin Links - show for all users while in dev mode */}
+            <div className="space-y-2 mt-2">
+              <button
+                onClick={() => {
+                  navigateTo('/account/admin/content');
+                  setMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 transition-all duration-200 group ${
+                  menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                }`}
+                style={{ transitionDelay: '235ms' }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Edit3 className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-gray-700 group-hover:text-orange-600 font-medium">{language === 'ar' ? 'إدارة المنتجات' : 'Manage Products'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  navigateTo('/account/admin/orders');
+                  setMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-all duration-200 group ${
+                  menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                }`}
+                style={{ transitionDelay: '245ms' }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Package2 className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-gray-700 group-hover:text-purple-600 font-medium">{language === 'ar' ? 'إدارة الطلبات' : 'Order Management'}</span>
+              </button>
+            </div>
 
             <button
               onClick={() => {

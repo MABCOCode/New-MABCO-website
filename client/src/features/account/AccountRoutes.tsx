@@ -10,6 +10,8 @@ import { OrderDetailsPage } from "./pages/OrderDetailsPage";
 import { MyDevicesPage } from "./pages/MyDevicesPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { AccountSettingsPage } from "./pages/AccountSettingsPage";
+import { ProductContentDashboard } from "./pages/admin/ProductContentDashboard";
+import { AdminOrderManagement } from "./pages/admin/AdminOrderManagement";
 
 type Session = {
   user?: any;
@@ -61,7 +63,7 @@ const OrderDetailsRoute = ({ language }: { language: "ar" | "en" }) => {
 };
 
 export const AccountRoutes = () => {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, updateUser, hydrated } = useSession();
@@ -71,13 +73,15 @@ export const AccountRoutes = () => {
     () => location.pathname.startsWith("/account/login") || location.pathname.startsWith("/account/signup"),
     [location.pathname],
   );
+  const isAdminRoute = useMemo(() => location.pathname.startsWith("/account/admin"), [location.pathname]);
 
   useEffect(() => {
     if (!hydrated) return;
-    if (!isAuthed && !isAuthRoute) {
+    // Allow admin routes to be accessible during development (treat all users as admins)
+    if (!isAuthed && !isAuthRoute && !isAdminRoute) {
       navigate("/account/login", { replace: true });
     }
-  }, [isAuthed, isAuthRoute, navigate, hydrated]);
+  }, [isAuthed, isAuthRoute, isAdminRoute, navigate, hydrated]);
 
   const handleLoginSuccess = (nextUser: any) => {
     updateUser(nextUser);
@@ -97,12 +101,43 @@ export const AccountRoutes = () => {
   if (!hydrated) {
     return null;
   }
-  if (!isAuthed && !isAuthRoute) {
+  if (!isAuthed && !isAuthRoute && !isAdminRoute) {
     return null;
   }
 
   return (
-    <Routes>
+    <>
+      {isAdminRoute && (
+        <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b shadow-sm">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/account/admin/content')}
+                className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/content' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                {t('admin.content.syncedProducts')}
+              </button>
+              <button
+                onClick={() => navigate('/account/admin/orders')}
+                className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/orders' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                {t('admin.orders.title')}
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/')} 
+                className="px-3 py-2 rounded-lg bg-gradient-to-br from-[#009FE3] to-[#007BC7] text-white font-semibold"
+              >
+                {t('home')}
+              </button>
+            </div>
+          </div>
+        </header>
+      )}
+
+      <div className={isAdminRoute ? 'pt-16' : ''}>
+        <Routes>
       <Route path="/" element={<Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />} />
       <Route
         path="/login"
@@ -202,8 +237,18 @@ export const AccountRoutes = () => {
           )
         }
       />
+      <Route
+        path="/admin/content"
+        element={<ProductContentDashboard language={language} onClose={() => navigate('/account/dashboard')} />}
+      />
+      <Route
+        path="/admin/orders"
+        element={<AdminOrderManagement language={language} />}
+      />
       <Route path="*" element={<Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />} />
     </Routes>
+        </div>
+    </>
   );
 };
 

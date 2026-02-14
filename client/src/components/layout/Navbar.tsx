@@ -15,6 +15,8 @@ import {
   ChevronDown,
   ChevronUp,
   GitCompare,
+  Edit3,
+  Package2,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useCart } from "../../context/CartContext";
@@ -39,6 +41,8 @@ const Navbar: React.FC = () => {
   const { cartCount, openCart } = useCart();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUserName, setCurrentUserName] = useState<string | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const isAdmin = true; // Treat all users as admins for now
   const [activeSection, setActiveSection] = useState("");
 
   const readSession = () => {
@@ -71,6 +75,20 @@ const Navbar: React.FC = () => {
       window.removeEventListener("focus", onFocus);
     };
   }, [language, location.key]);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuOpen) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.user-menu-container')) {
+          setUserMenuOpen(false);
+        }
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [userMenuOpen]);
 
   // Handle scroll effect
   useEffect(() => {
@@ -245,27 +263,73 @@ const Navbar: React.FC = () => {
               {t("contact")}
             </button>
 
-            {/* Login / My Account Button */}
-            {!isAuthed ? (
+            {/* Login / My Account Dropdown (includes admin links) */}
+            {!isLoggedIn ? (
               <button
-                onClick={() => {
-                  navigateTo(isAuthed ? "/account/dashboard" : "/account/login");
-                }}
+                onClick={() => navigateTo("/account/login")}
                 className="flex items-center gap-2 text-gray-700 hover:text-[#009FE3] transition-colors"
               >
                 <LogIn className="w-5 h-5" />
                 <span className="hidden xl:inline">{t("login")}</span>
               </button>
             ) : (
-              <button
-                onClick={() => navigateTo("/account/dashboard")}
-                className="flex items-center gap-2 text-gray-700 hover:text-[#009FE3] transition-colors"
-              >
-                <User className="w-5 h-5" />
-                <span className="hidden xl:inline">
-                  {currentUserName ? currentUserName : t("myAccount")}
-                </span>
-              </button>
+              <div className="relative user-menu-container">
+                <button
+                  onClick={() => setUserMenuOpen((s) => !s)}
+                  className="flex items-center gap-2 text-gray-700 hover:text-[#009FE3] transition-colors"
+                  aria-expanded={userMenuOpen}
+                >
+                  <User className="w-5 h-5" />
+                  <span className="hidden xl:inline">{t("myAccount")}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {userMenuOpen && (
+                  <div
+                    className="absolute top-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden w-max min-w-[220px] z-50"
+                    style={{ [direction === "rtl" ? "right" : "left"]: 0 }}
+                  >
+                    <div className="py-2">
+                      <button
+                        onClick={() => {
+                          navigateTo("/account/dashboard");
+                          setUserMenuOpen(false);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 group"
+                      >
+                        <User className="w-5 h-5 text-gray-600 group-hover:text-[#009FE3]" />
+                        <span className="text-gray-700 group-hover:text-[#009FE3] font-medium whitespace-nowrap">{t("navbar_dashboard") || "Dashboard"}</span>
+                      </button>
+
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => {
+                              navigateTo("/account/admin/content");
+                              setUserMenuOpen(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-orange-50 transition-colors flex items-center gap-3 group"
+                          >
+                            <Edit3 className="w-5 h-5 text-gray-600 group-hover:text-orange-600" />
+                            <span className="text-gray-700 group-hover:text-orange-600 font-medium whitespace-nowrap">{language === "ar" ? "إدارة المنتجات" : "Manage Products"}</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              navigateTo("/account/admin/orders");
+                              setUserMenuOpen(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 group"
+                          >
+                            <Package2 className="w-5 h-5 text-gray-600 group-hover:text-purple-600" />
+                            <span className="text-gray-700 group-hover:text-purple-600 font-medium whitespace-nowrap">{language === "ar" ? "إدارة الطلبات" : "Order Management"}</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Shopping Cart Button */}
