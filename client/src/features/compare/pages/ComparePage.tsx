@@ -88,6 +88,8 @@ export function ComparePage(props: ComparePageProps) {
     return prices.map((p) => p === minPrice);
   };
 
+  const bestPrices = getBestPrice();
+
   return (
     <div
       className="fixed inset-0 bg-black/50 z-50 overflow-y-auto"
