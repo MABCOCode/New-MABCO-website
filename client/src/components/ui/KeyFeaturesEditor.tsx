@@ -72,11 +72,11 @@ export function KeyFeaturesEditor({
     return (
       <button
         onClick={() => setIsEditing(true)}
-        className="absolute top-0 right-0 p-2 bg-white rounded-lg shadow-lg border-2 border-[#009FE3] text-[#009FE3] opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#009FE3] hover:text-white flex items-center gap-2 z-10"
+        className={`absolute top-4 ${language === "ar" ? "left-4" : "right-4"} p-2 bg-white rounded-lg shadow-lg border-2 border-[#009FE3] text-[#009FE3] opacity-100 transition-all duration-200 hover:bg-[#009FE3] hover:text-white flex items-center gap-2 z-10`}
       >
         <Edit3 className="w-4 h-4" />
         <span className="text-sm font-bold">
-          {language === "ar" ? "تحرير المميزات" : "Edit Features"}
+          {language === "ar" ? "تعديل المميزات" : "Edit Features"}
         </span>
       </button>
     );

@@ -30949,6 +30949,34 @@ export const productsBySection = {
         "valueAr": "خاص"
       }
     ]
+  },{
+    id: 6,
+    name: "Canon EOS R5",
+    nameAr: "كانون EOS R5",
+    basePrice: 3899000,
+    price: "3,899,000",
+    oldPrice: "4,299,000",
+    image: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=500&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1606980591165-23028d3a1c8a?w=500&q=80",
+      "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=500&q=80",
+      "https://images.unsplash.com/photo-1606462204993-435e2b0a36ae?w=500&q=80",
+      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=500&q=80",
+      "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=500&q=80",
+    ],
+    category: "Cameras & Photography",
+    categoryAr: "كاميرات",
+    brand: "Canon",
+    rating: 4.9,
+    reviews: 267,
+    description: "45MP full-frame, 8K video, 5-axis IBIS, dual card slots",
+    descriptionAr: "45 ميجابكسل كامل الإطار، فيديو 8K، تثبيت 5 محاور، فتحتي بطاقة",
+    specifications: [
+      { key: "Sensor", keyAr: "الحساس", value: "45MP Full-Frame CMOS", valueAr: "45 ميجابكسل كامل الإطار" },
+      { key: "Video", keyAr: "الفيديو", value: "8K 30fps RAW", valueAr: "8K 30 إطار RAW" },
+      { key: "Stabilization", keyAr: "التثبيت", value: "5-Axis IBIS", valueAr: "تثبيت 5 محاور" },
+      { key: "Autofocus", keyAr: "التركيز", value: "Dual Pixel CMOS AF II", valueAr: "تركيز ثنائي البكسل II" },
+    ],
   },
   {
     "id": 103,

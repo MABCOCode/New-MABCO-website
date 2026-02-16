@@ -239,11 +239,11 @@ export const AccountRoutes = () => {
       />
       <Route
         path="/admin/content"
-        element={<ProductContentDashboard language={language} onClose={() => navigate('/account/dashboard')} />}
+        element={<ProductContentDashboard onClose={() => navigate('/account/dashboard')} />}
       />
       <Route
         path="/admin/orders"
-        element={<AdminOrderManagement language={language} />}
+        element={<AdminOrderManagement  />}
       />
       <Route path="*" element={<Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />} />
     </Routes>

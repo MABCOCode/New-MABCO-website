@@ -1,0 +1,45 @@
+[
+  { "brand_code": "00", "name": "نوكيا", "englishName": "Nokia", "image": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Nokia_wordmark.svg", "category_code": "00" },
+  { "brand_code": "17", "name": "سامسونغ", "englishName": "Samsung", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/2560px-Samsung_Logo.svg.png", "category_code": "00" },
+  { "brand_code": "27", "name": "أي فون", "englishName": "IPHONE", "image": "https://www.apple.com/ac/structured-data/images/knowledge_graph_logo.png?202203040238", "category_code": "00" },
+  { "brand_code": "73", "name": "شاومي", "englishName": "Xiaomi", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Xiaomi_logo_%282021-%29.svg/2560px-Xiaomi_logo_%282021-%29.svg.png", "category_code": "00" },
+
+  { "brand_code": "1", "name": "باور بانك", "englishName": "Power Banks", "image": "", "category_code": "01" },
+  { "brand_code": "1006", "name": "شواحن و كبلات", "englishName": "Chargers + Cables", "image": "", "category_code": "01" },
+  { "brand_code": "2", "name": "سماعات سلكية", "englishName": "Wire Headset", "image": "", "category_code": "01" },
+  { "brand_code": "2006", "name": "ساعات ذكية", "englishName": "Smart Watches", "image": "", "category_code": "01" },
+  { "brand_code": "2009", "name": "مكبرات صوت", "englishName": "Speakers", "image": "", "category_code": "01" },
+  { "brand_code": "2011", "name": "بيوت حماية", "englishName": "Covers", "image": "", "category_code": "01" },
+  { "brand_code": "2014", "name": "لصاقة حماية", "englishName": "Screen Protector", "image": "", "category_code": "01" },
+  { "brand_code": "2015", "name": "سماعات لاسلكية", "englishName": "Wireless Earphones", "image": "", "category_code": "01" },
+  { "brand_code": "3", "name": "اكسسوارات أخرى", "englishName": "Other Accessories", "image": "", "category_code": "01" },
+  { "brand_code": "7", "name": "كروت ذاكرة وفلاشات", "englishName": "Memory Cards & Flash", "image": "", "category_code": "01" },
+  { "brand_code": "9", "name": "اكسسوارات آي فون", "englishName": "Iphone Accessories", "image": "", "category_code": "01" },
+
+  { "brand_code": "20", "name": "اتش تي سي", "englishName": "HTC", "image": "", "category_code": "02" },
+  { "brand_code": "60", "name": "هواوي", "englishName": "Huawei", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Huawei_logo_2023.svg/2560px-Huawei_logo_2023.svg.png", "category_code": "02" },
+  { "brand_code": "76", "name": "ريل مي", "englishName": "RealMi", "image": "", "category_code": "02" },
+  { "brand_code": "77", "name": "أوبو", "englishName": "Oppo", "image": "", "category_code": "02" },
+  { "brand_code": "78", "name": "انفينيكس", "englishName": "oppo", "image": "", "category_code": "02" },
+  { "brand_code": "79", "name": "تكنو", "englishName": "Tecno", "image": "", "category_code": "02" },
+  { "brand_code": "86", "name": "هونور", "englishName": "Honor", "image": "", "category_code": "02" },
+
+  { "brand_code": "3001", "name": "بورتكليه", "englishName": "KeyHolder", "image": "", "category_code": "04" },
+  { "brand_code": "3002", "name": "طباعة على الخشب", "englishName": "print on wood", "image": "", "category_code": "04" },
+  { "brand_code": "3003", "name": "لصاقات", "englishName": "Sticker", "image": "", "category_code": "04" },
+  { "brand_code": "3006", "name": "طباعة على ماغ", "englishName": "Print on Mag", "image": "", "category_code": "04" },
+  { "brand_code": "3008", "name": "اكسسوار الكفرات", "englishName": "COVERACCESSORY", "image": "", "category_code": "04" },
+  { "brand_code": "3009", "name": "بوكسات هدايا", "englishName": "gift boxes", "image": "", "category_code": "04" },
+
+  { "brand_code": "2018", "name": "وحدة التحكم", "englishName": "Console", "image": "", "category_code": "07" },
+  { "brand_code": "2019", "name": "اكسسوار الألعاب", "englishName": "Gaming Acc", "image": "", "category_code": "07" },
+  { "brand_code": "2020", "name": "مكتبة الألعاب", "englishName": "CD library", "image": "", "category_code": "07" },
+  { "brand_code": "2021", "name": "الاشتراكات", "englishName": "Subscriptions", "image": "", "category_code": "07" },
+  { "brand_code": "2022", "name": "تحدي مابكو", "englishName": "Mabco club challenges", "image": "", "category_code": "07" },
+
+  { "brand_code": "12", "name": "إيكوفلو", "englishName": "EcoFlow", "image": "https://www.ecoflow.com/cdn/shop/files/ecoflow_logo_580x.png?v=1677741288", "category_code": "09" },
+  { "brand_code": "83", "name": "اكسسوار ايكو فلو", "englishName": "Ecoflow Accessories", "image": "", "category_code": "09" },
+
+  { "brand_code": "19", "name": "سكوتر", "englishName": "Escooter", "image": "", "category_code": "17" },
+  { "brand_code": "18", "name": "كاميرات", "englishName": "Camera", "image": "", "category_code": "18" }
+]

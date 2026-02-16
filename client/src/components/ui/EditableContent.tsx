@@ -69,8 +69,8 @@ export function EditableContent({
         <span className={className}>{value}</span>
         <button
           onClick={() => setIsEditing(true)}
-          className="absolute -top-1 -right-1 p-1 bg-[#009FE3] text-white rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-[#007BC7] shadow-lg z-10"
-          title={language === "ar" ? "تحرير" : "Edit"}
+          className="absolute -top-1 -right-1 p-1 bg-[#009FE3] text-white rounded-md opacity-100 transition-all duration-200 hover:bg-[#007BC7] shadow-lg z-10"
+          title={language === "ar" ? "تعديل" : "Edit"}
         >
           <Edit3 className="w-3 h-3" />
         </button>

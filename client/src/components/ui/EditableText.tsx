@@ -51,8 +51,8 @@ export function EditableText({
         <div className={className}>{value}</div>
         <button
           onClick={() => setIsEditing(true)}
-          className="absolute -top-2 -right-2 p-1.5 bg-purple-500 text-white rounded-md opacity-0 group-hover/editable:opacity-100 transition-all duration-200 hover:bg-purple-600 shadow-lg z-10"
-          title={language === "ar" ? "تحرير" : "Edit"}
+          className={`absolute -top-2 ${language === "ar" ? "-left-2" : "-right-2"} p-1.5 bg-purple-500 text-white rounded-md opacity-100 transition-all duration-200 hover:bg-purple-600 shadow-lg z-10`}
+          title={language === "ar" ? "تعديل" : "Edit"}
         >
           <Edit3 className="w-3 h-3" />
         </button>

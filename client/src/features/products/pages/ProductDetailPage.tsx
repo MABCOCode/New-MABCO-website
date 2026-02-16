@@ -20,7 +20,9 @@ import {
   RefreshCw,
   Award,
   Minus,
-  Plus,Tag,Badge
+  Plus,Tag,Badge,
+  Star,
+  Edit3
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -31,11 +33,23 @@ import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { OfferDetailsCard } from "../../offer/components/OfferDetailsCard";
 import { RelatedProductsWithDiscount } from "../../offer/components/RelatedProductsWithDiscount";
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "../../../components/ui/carousel";
+import {
   calculateDiscountedPrice,
   getProductById,
   getProductOffers,
   products,
 } from "../../../data/products";
+import { EditableText } from "../../../components/ui/EditableText";
+import { EditableImage } from "../../../components/ui/EditableImage";
+import { KeyFeaturesEditor } from "../../../components/ui/KeyFeaturesEditor";
+import { InlineProductEditor } from "../../../components/ui/InlineProductEditor";
 
 interface ProductDetailPageProps {
   product?: any;
@@ -47,6 +61,10 @@ interface ProductDetailPageProps {
   setActiveTab?: (tab: "specs" | "offers") => void;
   categoryName?: string;
   brandName?: string;
+  userPermissions?: {
+    canEditContent: boolean;
+  };
+  onSaveProductContent?: (productId: number, updatedContent: any) => void;
 }
 
 const iconMap: { [key: string]: any } = {
@@ -61,7 +79,7 @@ const iconMap: { [key: string]: any } = {
 };
 
 export function ProductDetailPage(props: ProductDetailPageProps) {
-  const { product, categoryName, brandName } = props;
+  const { product, categoryName, brandName, userPermissions = { canEditContent: true }, onSaveProductContent } = props;
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const cart = useCart();
@@ -102,16 +120,24 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     "description",
   );
   const [heroProductInCart, setHeroProductInCart] = useState(false);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   const displayColor = hoveredColor || selectedColor;
-  const currentImage = hasColors
-    ? prod?.colorVariants?.find((v: any) => v.name === displayColor)?.image ||
-      prod?.image
+  const currentColorVariant = hasColors
+    ? prod?.colorVariants?.find((v: any) => v.name === displayColor)
+    : null;
+
+  // Get images array for current color (support both single image and images array)
+  const currentImages = currentColorVariant?.images || 
+    (currentColorVariant?.image ? [currentColorVariant.image] : null) ||
+    (prod?.images && Array.isArray(prod.images) ? prod.images : [prod?.image]).filter(Boolean);
+
+  const currentImage = currentImages && currentImages.length > 0 
+    ? currentImages[0]
     : prod?.image;
 
-  const currentColorVariant = hasColors
-    ? prod?.colorVariants?.find((v: any) => v.name === selectedColor)
-    : null;
+  const showImagePagination = !hasColors && currentImages.length > 1;
 
   const currentChargeOption = prod?.chargeOptions?.find(
     (opt: any) => opt.id === selectedChargeOption,
@@ -187,6 +213,40 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     return itemProductId === prod.id && !item.isBundleItem && !item.isFreeGift;
   });
 
+  // Carousel effect - update when carousel changes
+  useEffect(() => {
+    if (!carouselApi) return;
+
+    const onSelect = () => {
+      setCurrentSlide(carouselApi.selectedScrollSnap());
+    };
+
+    carouselApi.on("select", onSelect);
+    onSelect();
+
+    return () => {
+      carouselApi.off("select", onSelect);
+    };
+  }, [carouselApi]);
+
+  // Reset carousel when color changes
+  const handleColorChange = (colorName: string) => {
+    setSelectedColor(colorName);
+    setCurrentSlide(0);
+    if (carouselApi) {
+      carouselApi.scrollTo(0);
+    }
+  };
+
+  // Handle color hover
+  const handleColorHover = (colorName: string | null) => {
+    setHoveredColor(colorName);
+    if (colorName && carouselApi) {
+      setCurrentSlide(0);
+      carouselApi.scrollTo(0);
+    }
+  };
+
   if (!prod) {
     return (
       <section className="min-h-screen flex items-center justify-center">
@@ -208,6 +268,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       dir={language === "ar" ? "rtl" : "ltr"}
       className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50"
     >
+      {/* Editable Badge removed from fixed position; rendered below breadcrumb */}
       {/* Improved Breadcrumb */}
       <div className="sticky top-[72px] z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
@@ -259,57 +320,237 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         </div>
       </div>
 
+      {/* Edit Mode Badge (under breadcrumb) */}
+      {userPermissions.canEditContent && (
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-3">
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 text-white px-3 py-1 rounded-full shadow-2xl">
+            <Edit3 className="w-4 h-4" />
+            <span className="font-bold text-sm">{language === "ar" ? "وضع التعديل مُفعّل" : "Edit Mode Active"}</span>
+          </div>
+        </div>
+      )}
       {/* Product Content */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           <div className="lg:col-span-5">
             <div className="sticky top-32">
               <div className="relative group">
-                <div className="aspect-square rounded-2xl overflow-hidden bg-white shadow-xl border border-gray-200">
-                  <img
-                    src={currentImage}
-                    alt={prod?.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                </div>
+                {/* Carousel for Images - Fixed width constraint */}
+                <Carousel
+                  key={`${prod?.id}-${displayColor}`}
+                  setApi={setCarouselApi}
+                  opts={{
+                    loop: true,
+                    direction: language === "ar" ? "rtl" : "ltr",
+                  }}
+                  className="w-full overflow-hidden"
+                >
+                  <CarouselContent className="w-full">
+                    {currentImages && currentImages.length > 0 ? (
+                      currentImages.map((image, index) => (
+                        <CarouselItem key={`img-${prod?.id}-${displayColor}-${index}`} className="w-full flex-shrink-0">
+                          <div className="relative">
+                           <div className="relative aspect-square rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 shadow-xl border border-gray-200">
+                              {userPermissions.canEditContent ? (
+                                <EditableImage
+                                  src={image}
+                                  alt={`${prod?.name} - ${index + 1}`}
+                                  onSave={(newImageUrl) => {
+                                    if (onSaveProductContent) {
+                                      if (hasColors && selectedColor && prod?.colorVariants) {
+                                        const updatedColorVariants = prod.colorVariants.map((variant: any) => {
+                                          if (variant.name === selectedColor) {
+                                            const updatedImages = variant.images 
+                                              ? [...variant.images]
+                                              : [variant.image];
+                                            updatedImages[index] = newImageUrl;
+                                            
+                                            return {
+                                              ...variant,
+                                              image: index === 0 ? newImageUrl : variant.image,
+                                              images: updatedImages,
+                                            };
+                                          }
+                                          return variant;
+                                        });
+                                        
+                                        onSaveProductContent(prod.id, {
+                                          ...prod,
+                                          colorVariants: updatedColorVariants,
+                                        });
+                                      } else {
+                                        onSaveProductContent(prod.id, {
+                                          ...prod,
+                                          image: newImageUrl,
+                                        });
+                                      }
+                                    }
+                                  }}
+                                  className="w-full h-full object-cover rounded-2xl"
+                                  language={language}
+                                  userPermissions={userPermissions}
+                                />
+                              ) : (
+                                <img
+                                  src={image}
+                                  alt={`${prod?.name} - ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </CarouselItem>
+                      ))
+                    ) : (
+                      <CarouselItem className="w-full flex-shrink-0">
+                        <div className="relative">
+                          <div className="aspect-square rounded-2xl bg-white shadow-xl border border-gray-200 flex items-center justify-center overflow-hidden">
+                            {userPermissions.canEditContent ? (
+                              <EditableImage
+                                src={prod?.image}
+                                alt={prod?.name}
+                                onSave={(newImageUrl) => {
+                                  if (onSaveProductContent) {
+                                    onSaveProductContent(prod.id, {
+                                      ...prod,
+                                      image: newImageUrl,
+                                    });
+                                  }
+                                }}
+                                className="w-full h-full object-cover rounded-2xl"
+                                language={language}
+                                userPermissions={userPermissions}
+                              />
+                            ) : (
+                              <img
+                                src={prod?.image}
+                                alt={prod?.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </CarouselItem>
+                    )}
+                  </CarouselContent>
+
+                  {/* Navigation Arrows - Only show if multiple images */}
+                  {currentImages && currentImages.length > 1 && (
+                    <>
+                          <CarouselPrevious
+                                 className={`${language === "ar" ? "translate-x-1/2" : "-translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
+                               />
+                               <CarouselNext
+                                 className={`${language === "ar" ? "-translate-x-1/2" : "translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
+                               />
+                      {/* Image Counter */}
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-xs sm:text-sm font-medium backdrop-blur-sm z-10">
+                        {currentSlide + 1} / {currentImages.length}
+                      </div>
+
+                      {/* Dots Indicator */}
+                      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                        {currentImages.map((_, idx) => (
+                          <button
+                            key={`dot-${idx}`}
+                            onClick={() => carouselApi?.scrollTo(idx)}
+                            className={`h-2 rounded-sm transition-all duration-300 ${
+                              currentSlide === idx
+                                ? "bg-white w-8"
+                                : "bg-white/50 w-2"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </Carousel>
 
                 {discountPercentage > 0 && (
-                  <div className="absolute top-4 left-4 right-4 flex items-start justify-end">
+                  <div className={`absolute top-4 ${language === "ar" ? "left-6" : "right-6"} flex items-start justify-end`}>
                     <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-2 rounded-xl font-bold shadow-lg">
                       {language === "ar" ? "خصم" : "SAVE"} {discountPercentage}%
                     </div>
                   </div>
                 )}
 
-                <div className="mt-6 grid grid-cols-3 gap-3">
-                  <div className="bg-white rounded-xl p-3 text-center border border-gray-200 hover:border-[#009FE3] transition-colors">
-                    <Truck className="w-5 h-5 text-[#009FE3] mx-auto mb-1" />
-                    <p className="text-xs font-medium text-gray-700">
-                      {language === "ar" ? "توصيل سريع" : "Fast Delivery"}
-                    </p>
+                {/* Colors Section - Under Image */}
+                {hasColors && prod?.colorVariants && prod.colorVariants.length > 0 && (
+                  <div className="mt-6">
+                    <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-md">
+                      <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
+                        <Sparkles className="w-5 h-5 text-[#009FE3]" />
+                        {language === "ar" ? "الألوان المتاحة" : "Available Colors"}
+                      </h3>
+                      <ColorSwatch
+                        variants={prod.colorVariants}
+                        selectedColor={selectedColor}
+                        onColorChange={handleColorChange}
+                        onColorHover={handleColorHover}
+                        language={language}
+                        size="lg"
+                        showLabel={true}
+                      />
+                    </div>
                   </div>
-                  <div className="bg-white rounded-xl p-3 text-center border border-gray-200 hover:border-[#009FE3] transition-colors">
-                    <RefreshCw className="w-5 h-5 text-[#009FE3] mx-auto mb-1" />
-                    <p className="text-xs font-medium text-gray-700">
-                      {language === "ar" ? "إرجاع مجاني" : "Free Returns"}
-                    </p>
+                )}
+
+                {/* Image Thumbnails Pagination - When no colors but multiple images */}
+                {showImagePagination && (
+                  <div className="mt-6">
+                    <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-md">
+                      <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
+                        <Camera className="w-5 h-5 text-[#009FE3]" />
+                        {language === "ar" ? "صور المنتج" : "Product Images"}
+                      </h3>
+
+                      {/* Thumbnail Grid */}
+                      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
+                        {currentImages.map((image, index) => (
+                          <button
+                            key={index}
+                            onClick={() => carouselApi?.scrollTo(index)}
+                            className={`aspect-square rounded-lg overflow-hidden border-2 transition-all duration-300 hover:scale-105 ${
+                              currentSlide === index
+                                ? "border-[#009FE3] ring-2 ring-[#009FE3]/30 scale-105"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
+                          >
+                            <img
+                              src={image}
+                              alt={`${prod?.name} - Image ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-white rounded-xl p-3 text-center border border-gray-200 hover:border-[#009FE3] transition-colors">
-                    <Award className="w-5 h-5 text-[#009FE3] mx-auto mb-1" />
-                    <p className="text-xs font-medium text-gray-700">
-                      {language === "ar" ? "ضمان أصلي" : "Warranty"}
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
 
           <div className="lg:col-span-7">
-            <div className="mb-6">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 leading-tight">
-                {prod?.name}
-              </h1>
+            {/* Product Name - Editable */}
+            <div className="mb-4 sm:mb-6">
+              <EditableText
+                value={prod?.name}
+                onSave={(newName) => {
+                  if (onSaveProductContent) {
+                    onSaveProductContent(prod.id, {
+                      ...prod,
+                      name: newName,
+                    });
+                  }
+                }}
+                className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight"
+                editClassName="text-2xl sm:text-3xl font-bold"
+                language={language}
+                userPermissions={userPermissions}
+                maxLength={150}
+                placeholder={language === "ar" ? "اسم المنتج..." : "Product name..."}
+              />
             </div>
 
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50/50 rounded-2xl p-6 mb-6 border-2 border-[#009FE3]/20">
@@ -389,19 +630,35 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               </div>
             </div>
 
+            {/* Description */}
             {prod?.description && (
-              <div className="mb-6 bg-white rounded-2xl p-6 border border-gray-200">
-                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2 text-lg">
-                  <FileText className="w-5 h-5 text-[#009FE3]" />
+              <div className="mb-4 sm:mb-6 bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-200">
+                <h3 className="font-bold text-gray-900 mb-2 sm:mb-3 flex items-center gap-2 text-base sm:text-lg">
+                  <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-[#009FE3]" />
                   {t("description")}
                 </h3>
-                <p className="text-gray-600 leading-relaxed">
-                  {prod?.description}
-                </p>
+                <EditableText
+                  value={prod?.description}
+                  onSave={(newDescription) => {
+                    if (onSaveProductContent) {
+                      onSaveProductContent(prod.id, {
+                        ...prod,
+                        description: newDescription,
+                      });
+                    }
+                  }}
+                  className="text-gray-600 leading-relaxed text-sm sm:text-base"
+                  editClassName="text-sm sm:text-base"
+                  language={language}
+                  userPermissions={userPermissions}
+                  multiline={true}
+                  maxLength={300}
+                  placeholder={language === "ar" ? "وصف المنتج..." : "Product description..."}
+                />
               </div>
             )}
 
-            {hasColors && (
+            {/* {hasColors && (
               <div className="mb-6 bg-white rounded-2xl p-6 border border-gray-200">
                 <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
                   <Sparkles className="w-5 h-5 text-[#009FE3]" />
@@ -410,14 +667,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 <ColorSwatch
                   variants={prod.colorVariants}
                   selectedColor={selectedColor}
-                  onColorChange={setSelectedColor}
-                  onColorHover={setHoveredColor}
+                  onColorChange={handleColorChange}
+                  onColorHover={handleColorHover}
                   language={language}
                   size="lg"
                   showLabel={true}
                 />
               </div>
-            )}
+            )} */}
 
             {hasChargeOptions && (
               <div className="mb-6 bg-white rounded-2xl p-6 border border-gray-200">
@@ -434,8 +691,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               </div>
             )}
 
+            {/* Key Features */}
             {prod?.specs && prod.specs.length > 0 && (
-              <div className="mb-6 bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-200">
+              <div className="mb-6 bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-200 relative group">
                 <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
                   <TrendingUp className="w-5 h-5 text-[#009FE3]" />
                   {language === "ar" ? "المميزات الرئيسية" : "Key Features"}
@@ -463,6 +721,23 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     );
                   })}
                 </div>
+                {userPermissions.canEditContent  && (
+                  <KeyFeaturesEditor
+                    specs={prod.specs}
+                    selectedSpecs={prod.specs.slice(0, 4)}
+                    onSave={(selectedSpecs) => {
+                      onSaveProductContent(prod.id, {
+                        ...prod,
+                        specs: [
+                          ...selectedSpecs,
+                          ...prod.specs.slice(4),
+                        ],
+                      });
+                    }}
+                    language={language}
+                    userPermissions={userPermissions}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -602,8 +877,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     )}
                   </>
                 ) : (
-                  <div className="text-center py-12 text-gray-500">
-                    {t("noOffers")}
+                    <div className="text-center py-16">
+                    <div className="bg-gradient-to-br from-gray-100 to-gray-50 rounded-2xl p-12 inline-block">
+                      <Tag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500 text-lg font-semibold">
+                        {language === "ar" ? "لا توجد عروض متاحة لهذا المنتج" : "No offers available for this product"}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -611,6 +891,16 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
             {tabState === "description" && (
               <div className="animate-fadeIn">
+                {/* Inline Editor for Description Only */}
+                {userPermissions.canEditContent  && (
+                  <InlineProductEditor
+                    product={prod}
+                    userPermissions={userPermissions}
+                    onSave={(updatedContent) => onSaveProductContent(prod.id, updatedContent)}
+                    mode="description"
+                  />
+                )}
+
                 <div className="prose prose-lg max-w-none">
                   {prod?.description ? (
                     <div>
@@ -625,29 +915,42 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
                       <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
                         <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                          <PackageCheck className="w-5 h-5 text-[#009FE3]" />
-                          {language === "ar"
-                            ? "ما يأتي في العلبة"
-                            : "What's in the box"}
-                        </h4>
-                        <ul className="space-y-2 text-gray-600">
-                          <li className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
-                            {prod?.name}
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
-                            {language === "ar" ? "دليل المستخدم" : "User Manual"}
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
-                            {language === "ar" ? "بطاقة الضمان" : "Warranty Card"}
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
-                            {language === "ar" ? "ملحقات إضافية" : "Accessories"}
-                          </li>
-                        </ul>
+                            <PackageCheck className="w-5 h-5 text-[#009FE3]" />
+                            {t("admin.content.boxTitle") || (language === "ar" ? "ما يأتي في العلبة" : "What's in the box")}
+                          </h4>
+                          {userPermissions.canEditContent && (
+                            <InlineProductEditor
+                              product={prod}
+                              userPermissions={userPermissions}
+                              onSave={(updatedContent) => onSaveProductContent(prod.id, updatedContent)}
+                              mode="box"
+                            />
+                          )}
+
+                          <ul className="space-y-2 text-gray-600">
+                            {(() => {
+                              const raw = prod?.inTheBox || prod?.box || prod?.boxItems || [prod?.name, language === "ar" ? "دليل المستخدم" : "User Manual", language === "ar" ? "بطاقة الضمان" : "Warranty Card", language === "ar" ? "ملحقات إضافية" : "Accessories"];
+                              return (raw || []).filter(Boolean).map((item: any) => {
+                                if (typeof item === "string") return item;
+                                if (item && (item.en || item.ar)) {
+                                  return language === "ar"
+                                    ? `${item.ar || item.en}${item.en ? " / " + item.en : ""}`
+                                    : `${item.en || item.ar}${item.ar ? " / " + item.ar : ""}`;
+                                }
+                                if (item && (item.nameEn || item.valueEn || item.nameAr || item.valueAr)) {
+                                  return language === "ar"
+                                    ? item.nameAr || item.valueAr || item.nameEn || item.valueEn
+                                    : item.nameEn || item.valueEn || item.nameAr || item.valueAr;
+                                }
+                                return String(item);
+                              }).map((display: any, idx: number) => (
+                                <li key={idx} className="flex items-center gap-2">
+                                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                  {display}
+                                </li>
+                              ));
+                            })()}
+                          </ul>
                       </div>
                     </div>
                   ) : (
@@ -663,6 +966,16 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
             {tabState === "specs" && (
               <div className="animate-fadeIn">
+                {/* Inline Editor for Specifications Only */}
+                {userPermissions.canEditContent  && (
+                  <InlineProductEditor
+                    product={prod}
+                    userPermissions={userPermissions}
+                    onSave={(updatedContent) => onSaveProductContent(prod.id, updatedContent)}
+                    mode="specifications"
+                  />
+                )}
+
                 {prod?.specs && prod.specs.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {prod.specs.map((spec: any, index: number) => {
@@ -694,6 +1007,36 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     {language === "ar"
                       ? "لا توجد مواصفات متاحة"
                       : "No specifications available"}
+                  </div>
+                )}
+
+                {/* Offers Section in Specs Tab */}
+                {prod?.productOffers && prod.productOffers.length > 0 && (
+                  <div className="mt-8 pt-8 border-t border-gray-200">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                      <Star className="w-6 h-6 text-[#009FE3]" />
+                      {t("offers")}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {prod.productOffers.map((offer: any) => (
+                        <div
+                          key={offer.id}
+                          className="bg-gradient-to-br from-green-50 to-emerald-50/50 rounded-xl p-6 border-2 border-green-200 hover:border-green-400 transition-all duration-300 hover:shadow-lg"
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="bg-gradient-to-br from-green-500 to-green-600 p-3 rounded-xl shadow-md flex-shrink-0">
+                              <Star className="w-6 h-6 text-white fill-white" />
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-bold text-green-700 mb-2 text-lg">
+                                {offer.title}
+                              </h4>
+                              <p className="text-gray-700">{offer.description}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

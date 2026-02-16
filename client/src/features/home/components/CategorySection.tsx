@@ -1,13 +1,16 @@
 // components/CategorySection.tsx
-import React, { useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { iconsMap } from '../../../utils/iconMap';
-import categoriesData from '../../../testdata/categories.json';
+
+// We'll fetch categories from the public static JSON at runtime. This keeps
+// low-change data in static files and avoids bundling large testdata.
 
 interface CategorySectionProps {
   language: 'ar' | 'en';
   onBrandClick?: (brandName: string, categoryName: string, categoryNameEn: string) => void;
   selectedCategory?: number | null;
+  selectedCategoryCode?: string | null;
   onSelectCategory?: (index: number | null) => void;
 }
 
@@ -15,18 +18,75 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   language, 
   onBrandClick,
   selectedCategory = null,
+  selectedCategoryCode = null,
   onSelectCategory 
 }) => {
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
+  const lastAppliedCategoryCodeRef = useRef<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [centerItems, setCenterItems] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await fetch('/static/categories.json');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!mounted) return;
+        setCategories(
+          json.map((c: any) => ({ ...c, icon: iconsMap[c.iconName] || ChevronUp }))
+        );
+      } catch (e) {
+        // fallback: keep categories empty
+        console.warn('Failed to load categories.json', e);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Determine whether items fit within the container and should be centered
+  useEffect(() => {
+    const updateCentering = () => {
+      const container = categoriesScrollRef.current;
+      if (!container) return;
+      // Add a small tolerance
+      const fits = container.scrollWidth <= container.clientWidth + 1;
+      setCenterItems(fits);
+    };
+
+    updateCentering();
+    window.addEventListener('resize', updateCentering);
+    return () => window.removeEventListener('resize', updateCentering);
+  }, [categories.length]);
+
+  useEffect(() => {
+    if (!selectedCategoryCode || !onSelectCategory || categories.length === 0) return;
+    if (lastAppliedCategoryCodeRef.current === selectedCategoryCode) return;
+    const needle = String(selectedCategoryCode).trim().toLowerCase();
+    const categoryIndex = categories.findIndex((cat: any) => {
+      const code = String(cat?.cat_code || '').trim().toLowerCase();
+      const nameAr = String(cat?.name || '').trim().toLowerCase();
+      const nameEn = String(cat?.nameEn || '').trim().toLowerCase();
+      return code === needle || nameAr === needle || nameEn === needle;
+    });
+    if (categoryIndex >= 0 && categoryIndex !== selectedCategory) {
+      onSelectCategory(categoryIndex);
+      lastAppliedCategoryCodeRef.current = selectedCategoryCode;
+      return;
+    }
+    if (categoryIndex >= 0) {
+      lastAppliedCategoryCodeRef.current = selectedCategoryCode;
+    }
+  }, [categories, onSelectCategory, selectedCategory, selectedCategoryCode]);
   
-  // Process categories data
-  const categories = categoriesData.map((c: any) => ({
-    ...c,
-    icon: iconsMap[c.iconName] || ChevronUp,
-  }));
+  // `categories` state is loaded from public/static/categories.json
 
   // Handle swipe/drag for categories carousel
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -106,7 +166,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         {/* Categories Container */}
         <div
           ref={categoriesScrollRef}
-          className="flex overflow-x-auto gap-4 px-4 scroll-smooth scrollbar-hide select-none"
+            className={`flex overflow-x-auto gap-4 px-4 scroll-smooth scrollbar-hide select-none ${centerItems ? 'justify-center' : ''}`}
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
@@ -188,8 +248,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
             <div className="flex items-center justify-center mb-6 relative">
               <h3 className="text-2xl md:text-3xl font-bold text-[#009FE3] text-center">
                 {language === 'ar'
-                  ? categories[selectedCategory].name
-                  : categories[selectedCategory].nameEn}
+                  ? (categories[selectedCategory]?.name || '')
+                  : (categories[selectedCategory]?.nameEn || '')}
               </h3>
               {onSelectCategory && (
                 <button
@@ -202,57 +262,67 @@ const CategorySection: React.FC<CategorySectionProps> = ({
             </div>
 
             <div className="flex justify-center">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5 w-full max-w-7xl">
-                {categories[selectedCategory].brands && categories[selectedCategory].brands.length > 0 ? (
-                  categories[selectedCategory].brands.map(
-                    (brand: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="bg-white rounded-2xl p-5 md:p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group"
-                        onClick={() => {
-                          if (onBrandClick) {
-                            onBrandClick(
-                              // `brand` here is a string in testdata, pass it directly
-                              brand,
-                              categories[selectedCategory].name,
-                              categories[selectedCategory].nameEn
-                            );
-                          }
-                        }}
-                      >
-                        <div className="flex flex-col items-center text-center">
-                          <div className="w-full aspect-square bg-gray-50 rounded-2xl flex items-center justify-center mb-4 p-6 md:p-8 group-hover:bg-gray-100 transition-colors">
-                            <img
-                              src={brand.image || "https://via.placeholder.com/150"}
-                              alt={`${brand.name} Logo`}
-                              className="w-full h-full object-contain"
-                            />
+              {(() => {
+                const brandsList = categories[selectedCategory]?.brands || [];
+                if (!brandsList || brandsList.length === 0) {
+                  return (
+                    <div className="col-span-full text-center py-8 text-gray-500">
+                      {language === 'ar'
+                        ? "لا توجد علامات تجارية متاحة حالياً"
+                        : "No brands available at the moment"}
+                    </div>
+                  );
+                }
+
+                const count = Math.max(1, brandsList.length);
+                const cols = Math.min(count, 6);
+                const colWidth = 220;
+
+                return (
+                  <div
+                    className="grid gap-4 md:gap-5"
+                    style={{ gridTemplateColumns: `repeat(${cols}, ${colWidth}px)` }}
+                  >
+                    {brandsList.map((brand: any, idx: number) => {
+                      const brandObj = typeof brand === 'string' ? { name: brand } : brand;
+                      return (
+                        <div
+                          key={brandObj.brand_code || idx}
+                          className="bg-white rounded-2xl p-5 md:p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group"
+                          onClick={() => {
+                            if (onBrandClick) {
+                              onBrandClick(
+                                brandObj.name,
+                                categories[selectedCategory]?.name,
+                                categories[selectedCategory]?.nameEn,
+                              );
+                            }
+                          }}
+                        >
+                          <div className="flex flex-col items-center text-center">
+                            <div className="w-full aspect-square bg-gray-50 rounded-2xl flex items-center justify-center mb-4 p-6 md:p-8 group-hover:bg-gray-100 transition-colors">
+                              <img
+                                src={brandObj.image || "https://via.placeholder.com/150"}
+                                alt={`${brandObj.name} Logo`}
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                            {language === "ar" ? (
+                              <h4 className="text-gray-900 mb-1.5 text-base md:text-lg">
+                                {brandObj.name}
+                              </h4>
+                            ) : (
+                              <h4 className="text-gray-900 mb-1.5 text-base md:text-lg">
+                                {brandObj.englishName || brandObj.name}
+                              </h4>
+                            )}
                           </div>
-                          <h4 className="text-gray-900 mb-1.5 text-base md:text-lg">
-                            {brand.name}
-                          </h4>
-                          {brand.englishName && (
-                            <p className="text-sm text-gray-500 mb-2">
-                              {brand.englishName}
-                            </p>
-                          )}
-                          {brand.description && (
-                            <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">
-                              {brand.description}
-                            </p>
-                          )}
                         </div>
-                      </div>
-                    ),
-                  )
-                ) : (
-                  <div className="col-span-full text-center py-8 text-gray-500">
-                    {language === 'ar'
-                      ? "لا توجد علامات تجارية متاحة حالياً"
-                      : "No brands available at the moment"}
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </div>
           </div>
         )}

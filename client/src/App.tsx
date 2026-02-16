@@ -35,6 +35,11 @@ const AppContent: React.FC = () => {
     navigate(`/brand/${encodedCategory}/${encodedBrand}`);
   };
 
+  const handleCategoryClick = (categoryCode: string, categoryName: string, categoryNameEn: string) => {
+    const encodedCode = encodeURIComponent(categoryCode || '');
+    navigate(`/?openCategory=${encodedCode}#categories`);
+  };
+
   const handleAboutClick = () => {
     console.log('About clicked');
     // Navigate to about page
@@ -133,6 +138,7 @@ const AppContent: React.FC = () => {
           <ModernFooter 
             language={language}
             onBrandClick={handleBrandClick}
+            onCategoryClick={handleCategoryClick}
             onAboutClick={handleAboutClick}
             onShowroomsClick={handleShowroomsClick}
             onWarrantyClick={handleWarrantyClick}

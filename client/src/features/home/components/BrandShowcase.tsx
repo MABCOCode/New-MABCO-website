@@ -23,83 +23,37 @@ const BrandShowcase: React.FC<BrandShowcaseProps> = ({
   brands: customBrands,
   onBrandClick 
 }) => {
-  // Default brands data
-  const defaultBrands: Brand[] = [
-    {
-      id: 1,
-      name: "سامسونج",
-      englishName: "Samsung",
-      description: "أجهزة كهربائية ومنزلية متطورة",
-      image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/2560px-Samsung_Logo.svg.png",
-      category: "إلكترونيات",
-      productsCount: 120
-    },
-    {
-      id: 2,
-      name: "أبل",
-      englishName: "Apple",
-      description: "منتجات تكنولوجيا مبتكرة",
-      image: "https://www.apple.com/ac/structured-data/images/knowledge_graph_logo.png?202203040238",
-      category: "هواتف وأجهزة",
-      productsCount: 85
-    },
-    {
-      id: 3,
-      name: "سوني",
-      englishName: "Sony",
-      description: "أنظمة صوت وصورة متطورة",
-      image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Sony_logo.svg/2560px-Sony_logo.svg.png",
-      category: "سماعات وتلفزيونات",
-      productsCount: 75
-    },
-    {
-      id: 4,
-      name: "شاومي",
-      englishName: "Xiaomi",
-      description: "أجهزة ذكية بجودة عالية",
-      image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Xiaomi_logo_%282021-%29.svg/2560px-Xiaomi_logo_%282021-%29.svg.png",
-      category: "هواتف وإكسسوارات",
-      productsCount: 95
-    },
-    {
-      id: 5,
-      name: "هونر",
-      englishName: "Honor",
-      description: "هواتف ذكية مبتكرة",
-      image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Honor_logo.svg/2560px-Honor_logo.svg.png",
-      category: "هواتف",
-      productsCount: 60
-    },
-    {
-      id: 6,
-      name: "إيكوفلو",
-      englishName: "EcoFlow",
-      description: "حلول طاقة مبتكرة",
-      image: "https://www.ecoflow.com/cdn/shop/files/ecoflow_logo_580x.png?v=1677741288",
-      category: "طاقة ومولدات",
-      productsCount: 40
-    },
-    {
-      id: 7,
-      name: "داي",
-      englishName: "Deye",
-      description: "أنظمة الطاقة الشمسية",
-      image: "https://deye.com/wp-content/uploads/2022/03/cropped-Deye-Logo-1.png",
-      category: "طاقة شمسية",
-      productsCount: 35
-    },
-    {
-      id: 8,
-      name: "هواوي",
-      englishName: "Huawei",
-      description: "تكنولوجيا اتصالات متقدمة",
-      image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Huawei_logo_2023.svg/2560px-Huawei_logo_2023.svg.png",
-      category: "إلكترونيات",
-      productsCount: 110
-    }
-  ];
+  const [fetchedBrands, setFetchedBrands] = useState<any[] | null>(null);
 
-  const brands = customBrands || defaultBrands;
+  useEffect(() => {
+    let mounted = true;
+    if (!customBrands) {
+      (async () => {
+        try {
+          const res = await fetch('/static/brands.json');
+          if (!res.ok) return;
+          const json = await res.json();
+          if (!mounted) return;
+          // normalize to Brand[] shape expected by this component
+          const normalized = json.map((b: any, idx: number) => ({
+            id: b.brand_code || idx,
+            name: b.name,
+            englishName: b.englishName || b.name,
+            description: b.description || '',
+            image: b.image || 'https://via.placeholder.com/150',
+            category: b.category || '',
+            productsCount: b.productsCount || 0
+          }));
+          setFetchedBrands(normalized);
+        } catch (err) {
+          console.warn('Failed to load /static/brands.json', err);
+        }
+      })();
+    }
+    return () => { mounted = false; };
+  }, [customBrands]);
+
+  const brands = customBrands || fetchedBrands || [];
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [centerItems, setCenterItems] = useState(false);

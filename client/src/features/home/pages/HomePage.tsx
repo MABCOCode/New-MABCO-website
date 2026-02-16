@@ -17,11 +17,17 @@ import SEOSection from "../components/SEOSection";
 import { useCompareStore } from "../../../features/compare/state";
 import { useCart } from "../../../context/CartContext";
 import { OfferTypeSlider } from "../components/OfferTypeSlider";
+import { ServicesGrid } from "../components/ServicesGrid";
+import { PrintingService } from "../components/PrintingService";
+import { EPaymentService } from "../components/EPaymentService";
+import { WarrantyCheckService } from "../components/WarrantyCheckService";
+import { MaintenanceStatusService } from "../components/MaintenanceStatusService";
 
 const HomePage: React.FC = () => {
   const { t, language, navigateToSection } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
+  const openCategoryCode = new URLSearchParams(location.search).get('openCategory');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const compareItems = useCompareStore((s: any) => s.items) as number[];
   const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: number) => void;
@@ -166,6 +172,9 @@ const HomePage: React.FC = () => {
     }
   };
 
+  const [selectedService, setSelectedService] = useState<string | null>(null);
+
+
   const updateCartQuantity = (id: number, quantity: number) => {
     cartUpdateQuantity(id, quantity);
   };
@@ -226,6 +235,7 @@ const HomePage: React.FC = () => {
             language={language}
             onBrandClick={handleBrandClick}
             selectedCategory={selectedCategory}
+            selectedCategoryCode={openCategoryCode}
             onSelectCategory={setSelectedCategory}
             key={`category-${refreshKey}`}
           />
@@ -275,7 +285,34 @@ const HomePage: React.FC = () => {
         />
 
         {/* Services Section */}
-        <ServicesSection language={language} key={`services-${refreshKey}`} />
+        <ServicesGrid
+          language={language}
+          key={`services-${refreshKey}`}
+          onServiceClick={(servicePath: string) => {
+            setSelectedService(servicePath);
+          }}
+        />
+
+        {/* Service Modals */}
+        {selectedService === "printing" && (
+          <PrintingService
+            language={language}
+            onClose={() => setSelectedService(null)}
+            onAddToCart={(item: any) => {
+              handleAddToCart(item);
+              setSelectedService(null);
+            }}
+          />
+        )}
+        {selectedService === "epayment" && (
+          <EPaymentService language={language} onClose={() => setSelectedService(null)} />
+        )}
+        {selectedService === "warranty" && (
+          <WarrantyCheckService language={language} onClose={() => setSelectedService(null)} />
+        )}
+        {selectedService === "maintenance-status" && (
+          <MaintenanceStatusService language={language} onClose={() => setSelectedService(null)} />
+        )}
 
         {/* Company Strength Section */}
         <CompanyStrength language={language} key={`strength-${refreshKey}`} />

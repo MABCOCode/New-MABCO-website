@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import categoriesData from '../../../testdata/categories.json';
 import ProductCard from "../components/ProductCard";
@@ -10,8 +10,33 @@ import { products as allProducts } from "../../../data/products";
 const CategoryPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const term = id ? decodeURIComponent(id) : '';
+  const [staticCategories, setStaticCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch('/static/categories.json');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (mounted && Array.isArray(json)) {
+          setStaticCategories(json);
+        }
+      } catch {
+        // fallback to bundled testdata
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const categorySource = useMemo(
+    () => (staticCategories.length > 0 ? staticCategories : (categoriesData as any[])),
+    [staticCategories],
+  );
 
   // Resolve display name: match by exact name or by slugified form to support slugs/encoding
   const slug = (s: string) =>
@@ -25,7 +50,7 @@ const CategoryPage: React.FC = () => {
 
   const termSlug = slug(term);
 
-  const matchedCategory = (categoriesData as any[]).find((c) => {
+  const matchedCategory = categorySource.find((c) => {
     const en = String(c.nameEn || '');
     const ar = String(c.name || '');
     return (
@@ -63,7 +88,7 @@ const CategoryPage: React.FC = () => {
               className={`group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0 ${language === 'ar' ? 'flex-row-reverse' : 'flex-row'}`}
             >
               <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'}`} />
-              <span className="font-medium">{language === 'ar' ? 'الرئيسية' : 'Home'}</span>
+              <span className="font-medium">{t('home')}</span>
             </button>
             <span className="text-gray-300 flex-shrink-0">/</span>
             <span className="text-[#009FE3] font-semibold truncate max-w-[300px]">{displayCategoryName}</span>
@@ -108,3 +133,4 @@ const CategoryPage: React.FC = () => {
 };
 
 export default CategoryPage;
+

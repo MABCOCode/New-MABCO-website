@@ -119,7 +119,12 @@ const Navbar: React.FC = () => {
 
     // Also update active section based on current route
     if (location.pathname !== "/") {
-      setActiveSection(location.pathname.replace("/", ""));
+      // Highlight the special-offers nav when on any /offers/* route
+      if (location.pathname.startsWith("/offers")) {
+        setActiveSection("special-offers-carousel");
+      } else {
+        setActiveSection(location.pathname.replace(/^\//, ""));
+      }
     }
 
     window.addEventListener("scroll", handleScroll);
@@ -139,6 +144,13 @@ const Navbar: React.FC = () => {
   const handleNavClick = (sectionId: string) => {
     navigateToSection(sectionId);
     setMenuOpen(false);
+  };
+
+  // Ensure immediate visual feedback when clicking nav items
+  // (e.g. highlight the Offers item) by setting activeSection right away
+  const handleNavClickWithHighlight = (sectionId: string) => {
+    setActiveSection(sectionId);
+    handleNavClick(sectionId);
   };
 
   const navigateTo = (path: string) => {
@@ -181,7 +193,7 @@ const Navbar: React.FC = () => {
           {/* Desktop Menu */}
           <div className="hidden lg:flex items-center gap-6">
             <button
-              onClick={() => handleNavClick("home")}
+              onClick={() => handleNavClickWithHighlight("home")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
                 activeSection === "home" ? "text-[#009FE3] font-semibold" : ""
               }`}
@@ -189,7 +201,7 @@ const Navbar: React.FC = () => {
               {t("home")}
             </button>
             <button
-              onClick={() => handleNavClick("categories")}
+              onClick={() => handleNavClickWithHighlight("categories")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
                 activeSection === "categories"
                   ? "text-[#009FE3] font-semibold"
@@ -199,7 +211,7 @@ const Navbar: React.FC = () => {
               {t("products")}
             </button>
             <button
-              onClick={() => handleNavClick("special-offers-carousel")}
+              onClick={() => handleNavClickWithHighlight("special-offers-carousel")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
                 activeSection === "special-offers-carousel"
                   ? "text-[#009FE3] font-semibold"
@@ -217,7 +229,7 @@ const Navbar: React.FC = () => {
               {t('products')}
             </button> */}
             <button
-              onClick={() => handleNavClick("services")}
+              onClick={() => handleNavClickWithHighlight("services")}
               className={`text-gray-700 hover:text-[#009FE3] transition-colors ${
                 activeSection === "services"
                   ? "text-[#009FE3] font-semibold"
@@ -418,6 +430,7 @@ const Navbar: React.FC = () => {
         toggleLanguage={toggleLanguage}
         language={language}
         navigateTo={navigateTo}
+        navigateToSection={navigateToSection}
         t={t}
         cartCount={cartCount}
         compareCount={compareCount}

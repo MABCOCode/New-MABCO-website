@@ -12,7 +12,9 @@ import {
   Wrench,
   Download,
   Banknote,
-  Building2
+  Building2,
+  Tablet,
+  
 } from "lucide-react";
 
 export const iconsMap: Record<string, any> = {
@@ -29,5 +31,5 @@ export const iconsMap: Record<string, any> = {
   Wrench,
   Download,
   Banknote,
-  Building2,
+  Building2,Tablet
 };

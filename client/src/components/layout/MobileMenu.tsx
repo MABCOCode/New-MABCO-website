@@ -19,6 +19,7 @@ interface MobileMenuProps {
   toggleLanguage: () => void;
   language: string;
   navigateTo: (path: string) => void;
+  navigateToSection: (sectionId: string) => void;
   t: (k: string) => string;
   cartCount: number;
   compareCount: number;
@@ -35,6 +36,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
   toggleLanguage,
   language,
   navigateTo,
+  navigateToSection,
   t,
   cartCount,
   compareCount,
@@ -201,13 +203,29 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
 
             <button
               onClick={() => {
-                navigateTo('/showrooms');
+                navigateToSection('services');
                 setMenuOpen(false);
               }}
               className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
                 menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
               }`}
               style={{ transitionDelay: '250ms' }}
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <MapPin className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">{t('services')}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                navigateTo('/showrooms');
+                setMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
+                menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+              }`}
+              style={{ transitionDelay: '255ms' }}
             >
               <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                 <MapPin className="w-5 h-5 text-white" />

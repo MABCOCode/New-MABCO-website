@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import categoriesData from '../../../testdata/categories.json';
 import { products as allProducts } from "../../../data/products";
@@ -10,9 +10,34 @@ import { useCompareStore } from '../../compare/state';
 const BrandPage: React.FC = () => {
   const { id, category } = useParams<{ id: string; category?: string }>();
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const term = id ? decodeURIComponent(id) : '';
   const categoryParam = category ? decodeURIComponent(category) : '';
+  const [staticCategories, setStaticCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch('/static/categories.json');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (mounted && Array.isArray(json)) {
+          setStaticCategories(json);
+        }
+      } catch {
+        // fallback to bundled testdata
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const categorySource = useMemo(
+    () => (staticCategories.length > 0 ? staticCategories : (categoriesData as any[])),
+    [staticCategories],
+  );
 
   const slug = (s: string) =>
     String(s)
@@ -31,14 +56,14 @@ const BrandPage: React.FC = () => {
       String(p.brand).toLowerCase().includes(String(term).toLowerCase()),
   );
 
-  const matchedCategoryByBrand = (categoriesData as any[]).find((c) =>
+  const matchedCategoryByBrand = categorySource.find((c) =>
     (c.brands || []).some((b: string) => slug(b) === termSlug),
   );
 
   const inferredCategory = (() => {
     if (categoryParam) {
       return (
-        (categoriesData as any[]).find((c) => {
+        categorySource.find((c) => {
           const nameEn = String(c.nameEn || '');
           const nameAr = String(c.name || '');
           return (
@@ -57,7 +82,7 @@ const BrandPage: React.FC = () => {
         : first.category || first.categoryAr || '',
     );
     if (!raw) return null;
-    return (categoriesData as any[]).find((c) => {
+    return categorySource.find((c) => {
       const nameEn = String(c.nameEn || '');
       const nameAr = String(c.name || '');
       return slug(nameEn) === slug(raw) || slug(nameAr) === slug(raw);
@@ -96,14 +121,14 @@ const BrandPage: React.FC = () => {
               className={language === 'ar' ? 'flex-row-reverse group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0' : 'group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0'}
             >
               <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'}`} />
-              <span className="font-medium">{language === 'ar' ? 'الرئيسية' : 'Home'}</span>
+              <span className="font-medium">{t('home')}</span>
             </button>
             <span className="text-gray-300 flex-shrink-0">/</span>
             {displayCategoryName && (
               <>
                 <button
                   onClick={() =>
-                    navigate(`/category/${encodeURIComponent(categoryRouteName)}`)
+                    navigate(`/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`)
                   }
                   className="text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0"
                 >
@@ -180,4 +205,6 @@ const BrandPage: React.FC = () => {
 };
 
 export default BrandPage;
+
+
 

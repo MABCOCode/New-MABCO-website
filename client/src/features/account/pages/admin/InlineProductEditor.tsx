@@ -25,7 +25,6 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
-import { useLanguage } from "../../../../context/LanguageContext";
 
 // Content Guidelines & Limits
 const CONTENT_LIMITS = {
@@ -58,6 +57,7 @@ const AVAILABLE_ICONS = [
 
 interface InlineProductEditorProps {
   product: any;
+  language: "ar" | "en";
   userPermissions: {
     canEditContent: boolean;
   };
@@ -67,6 +67,7 @@ interface InlineProductEditorProps {
 
 export function InlineProductEditor({
   product,
+  language,
   userPermissions,
   onSave,
   mode = "both", // Default to showing both
@@ -82,7 +83,56 @@ export function InlineProductEditor({
     return rawSpecs.map((spec: any) => {
       if (spec.nameEn || spec.nameAr) {
         // Already in the correct format
-        const { t, language } = useLanguage();
+        return spec;
+      } else {
+        // Convert from old format {title, value, icon}
+        return {
+          icon: spec.icon || "Smartphone",
+          nameEn: spec.title || "",
+          nameAr: spec.title || "",
+          valueEn: spec.value || "",
+          valueAr: spec.value || "",
+        };
+      }
+    });
+  });
+  const [showIconPicker, setShowIconPicker] = useState<number | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const t = {
+    ar: {
+      editDescription: "تعديل الوصف",
+      editSpecs: "تعديل المواصفات",
+      save: "حفظ",
+      cancel: "إلغاء",
+      descriptionEn: "الوصف الإنجليزي",
+      descriptionAr: "الوصف ��لعربي",
+      addSpec: "إضافة مواصفة",
+      charCount: "حرف",
+      optimal: "مثالي",
+      tooShort: "قصير جداً",
+      tooLong: "طويل جداً",
+      good: "جيد",
+      specNameEn: "الاسم (إنجليزي)",
+      specNameAr: "الاسم (عربي)",
+      specValueEn: "القيمة (إنجليزي)",
+      specValueAr: "القيمة (عربي)",
+      selectIcon: "اختر أيقونة",
+      maxSpecs: "الحد الأقصى",
+      minSpecs: "الحد الأدنى",
+      saved: "تم الحفظ!",
+      validationError: "يجب استيفاء جميع المتطلبات",
+      guidelines: "إرشادات المحتوى",
+    },
+    en: {
+      editDescription: "Edit Description",
+      editSpecs: "Edit Specifications",
+      save: "Save",
+      cancel: "Cancel",
+      descriptionEn: "English Description",
+      descriptionAr: "Arabic Description",
+      addSpec: "Add Specification",
+      charCount: "characters",
       optimal: "optimal",
       tooShort: "too short",
       tooLong: "too long",
@@ -115,7 +165,7 @@ export function InlineProductEditor({
 
     if (descEnStatus.status === "short" || descEnStatus.status === "long" ||
         descArStatus.status === "short" || descArStatus.status === "long") {
-      alert(t("editor.validationError"));
+      alert(t[language].validationError);
       return;
     }
 
@@ -127,7 +177,7 @@ export function InlineProductEditor({
 
   const handleSaveSpecs = () => {
     if (specs.length < CONTENT_LIMITS.minSpecs) {
-      alert(`${t("editor.minSpecs")}: ${CONTENT_LIMITS.minSpecs}`);
+      alert(`${t[language].minSpecs}: ${CONTENT_LIMITS.minSpecs}`);
       return;
     }
 
@@ -137,7 +187,7 @@ export function InlineProductEditor({
     );
 
     if (!allFilled) {
-      alert(t("editor.validationError"));
+      alert(t[language].validationError);
       return;
     }
 
@@ -163,7 +213,7 @@ export function InlineProductEditor({
 
   const addNewSpec = () => {
     if (specs.length >= CONTENT_LIMITS.maxSpecs) {
-      alert(`${t("editor.maxSpecs")}: ${CONTENT_LIMITS.maxSpecs}`);
+      alert(`${t[language].maxSpecs}: ${CONTENT_LIMITS.maxSpecs}`);
       return;
     }
     setSpecs([...specs, { icon: "Smartphone", nameEn: "", nameAr: "", valueEn: "", valueAr: "" }]);
@@ -199,7 +249,7 @@ export function InlineProductEditor({
       {saveSuccess && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-slideDown">
           <Check className="w-5 h-5" />
-          <span className="font-bold">{t("editor.saved")}</span>
+          <span className="font-bold">{t[language].saved}</span>
         </div>
       )}
 
@@ -213,7 +263,7 @@ export function InlineProductEditor({
                 className="absolute top-0 right-0 p-2 bg-white rounded-lg shadow-lg border-2 border-[#009FE3] text-[#009FE3] opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#009FE3] hover:text-white flex items-center gap-2 z-10"
               >
                 <Edit3 className="w-4 h-4" />
-                <span className="text-sm font-bold">{t("editor.editDescription")}</span>
+                <span className="text-sm font-bold">{t[language].editDescription}</span>
               </button>
             </div>
           ) : (
@@ -222,7 +272,7 @@ export function InlineProductEditor({
             <div className="bg-white rounded-xl p-4 mb-4 flex items-start gap-3 shadow-sm">
               <Info className="w-5 h-5 text-[#009FE3] flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-bold text-gray-900 mb-1">{t("editor.guidelines")}</h4>
+                <h4 className="font-bold text-gray-900 mb-1">{t[language].guidelines}</h4>
                 <p className="text-sm text-gray-600">
                   {language === "ar"
                     ? `الطول المثالي: ${CONTENT_LIMITS.descriptionEn.optimal} حرف | الحد الأدنى: ${CONTENT_LIMITS.descriptionEn.min} | الحد الأقصى: ${CONTENT_LIMITS.descriptionEn.max}`
@@ -235,13 +285,13 @@ export function InlineProductEditor({
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-bold text-gray-700">
-                  {t("admin.content.descriptionEn")}
+                  {t[language].descriptionEn}
                 </label>
                 <div className={`text-sm font-bold ${descEnStatus.color}`}>
-                  {descriptionEn.length} / {CONTENT_LIMITS.descriptionEn.max} {t("admin.content.charCount")}
-                  {descEnStatus.status === "short" && ` (${t("editor.tooShort")})`}
-                  {descEnStatus.status === "long" && ` (${t("editor.tooLong")})`}
-                  {descEnStatus.status === "optimal" && ` ✓ (${t("editor.optimal")})`}
+                  {descriptionEn.length} / {CONTENT_LIMITS.descriptionEn.max} {t[language].charCount}
+                  {descEnStatus.status === "short" && ` (${t[language].tooShort})`}
+                  {descEnStatus.status === "long" && ` (${t[language].tooLong})`}
+                  {descEnStatus.status === "optimal" && ` ✓ (${t[language].optimal})`}
                 </div>
               </div>
               <textarea
@@ -267,13 +317,13 @@ export function InlineProductEditor({
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-bold text-gray-700">
-                  {t("admin.content.descriptionAr")}
+                  {t[language].descriptionAr}
                 </label>
                 <div className={`text-sm font-bold ${descArStatus.color}`}>
-                  {descriptionAr.length} / {CONTENT_LIMITS.descriptionAr.max} {t("admin.content.charCount")}
-                  {descArStatus.status === "short" && ` (${t("editor.tooShort")})`}
-                  {descArStatus.status === "long" && ` (${t("editor.tooLong")})`}
-                  {descArStatus.status === "optimal" && ` ✓ (${t("editor.optimal")})`}
+                  {descriptionAr.length} / {CONTENT_LIMITS.descriptionAr.max} {t[language].charCount}
+                  {descArStatus.status === "short" && ` (${t[language].tooShort})`}
+                  {descArStatus.status === "long" && ` (${t[language].tooLong})`}
+                  {descArStatus.status === "optimal" && ` ✓ (${t[language].optimal})`}
                 </div>
               </div>
               <textarea
@@ -303,7 +353,7 @@ export function InlineProductEditor({
                 className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
               >
                 <Save className="w-5 h-5" />
-                {t("editor.save")}
+                {t[language].save}
               </button>
               <button
                 onClick={() => {
@@ -314,7 +364,7 @@ export function InlineProductEditor({
                 className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-300 transition-all flex items-center justify-center gap-2"
               >
                 <X className="w-5 h-5" />
-                {t("editor.cancel")}
+                {t[language].cancel}
               </button>
             </div>
           </div>
@@ -332,7 +382,7 @@ export function InlineProductEditor({
                 className="absolute top-0 right-0 p-2 bg-white rounded-lg shadow-lg border-2 border-[#009FE3] text-[#009FE3] opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#009FE3] hover:text-white flex items-center gap-2 z-10"
               >
                 <Edit3 className="w-4 h-4" />
-                <span className="text-sm font-bold">{t("editor.editSpecs")}</span>
+                <span className="text-sm font-bold">{t[language].editSpecs}</span>
               </button>
             </div>
           ) : (
@@ -341,9 +391,9 @@ export function InlineProductEditor({
             <div className="bg-white rounded-xl p-4 mb-4 flex items-start gap-3 shadow-sm">
               <Info className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-bold text-gray-900 mb-1">{t("editor.guidelines")}</h4>
+                <h4 className="font-bold text-gray-900 mb-1">{t[language].guidelines}</h4>
                 <p className="text-sm text-gray-600">
-                  {t("editor.minSpecs")}: {CONTENT_LIMITS.minSpecs} | {t("editor.maxSpecs")}: {CONTENT_LIMITS.maxSpecs}
+                  {t[language].minSpecs}: {CONTENT_LIMITS.minSpecs} | {t[language].maxSpecs}: {CONTENT_LIMITS.maxSpecs}
                 </p>
               </div>
             </div>
@@ -359,7 +409,7 @@ export function InlineProductEditor({
               }`}
             >
               <Plus className="w-5 h-5" />
-              {t("admin.content.addSpec")} ({specs.length}/{CONTENT_LIMITS.maxSpecs})
+              {t[language].addSpec} ({specs.length}/{CONTENT_LIMITS.maxSpecs})
             </button>
 
             {/* Specs List */}
@@ -374,15 +424,15 @@ export function InlineProductEditor({
                   >
                     <button
                       onClick={() => removeSpec(index)}
-                      className="absolute top-4 right-4 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      className={`absolute top-4 ${language === "ar" ? "left-4" : "right-4"}  p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
 
                     {/* Icon Selector */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-2">
-                        {t("admin.content.selectIcon")}
+                      <label className="block text-xs font-bold text-gray-700 mb-2">
+                        {t[language].selectIcon}
                       </label>
                       <div className="relative">
                         <button
@@ -434,7 +484,7 @@ export function InlineProductEditor({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">
-                          {t("admin.content.specNameEn")}
+                          {t[language].specNameEn}
                         </label>
                         <input
                           type="text"
@@ -450,7 +500,7 @@ export function InlineProductEditor({
                       </div>
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">
-                          {t("admin.content.specNameAr")}
+                          {t[language].specNameAr}
                         </label>
                         <input
                           type="text"
@@ -471,7 +521,7 @@ export function InlineProductEditor({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">
-                          {t("admin.content.specValueEn")}
+                          {t[language].specValueEn}
                         </label>
                         <input
                           type="text"
@@ -487,7 +537,7 @@ export function InlineProductEditor({
                       </div>
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">
-                          {t("admin.content.specValueAr")}
+                          {t[language].specValueAr}
                         </label>
                         <input
                           type="text"
@@ -508,7 +558,7 @@ export function InlineProductEditor({
               })}
             </div>
 
-              {specs.length < CONTENT_LIMITS.minSpecs && (
+            {specs.length < CONTENT_LIMITS.minSpecs && (
               <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center gap-2 mb-4">
                 <AlertCircle className="w-5 h-5 text-orange-600" />
                 <p className="text-sm text-orange-700">
@@ -526,7 +576,7 @@ export function InlineProductEditor({
                 className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
               >
                 <Save className="w-5 h-5" />
-                {t("editor.save")}
+                {t[language].save}
               </button>
               <button
                 onClick={() => {
@@ -550,7 +600,7 @@ export function InlineProductEditor({
                 className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-300 transition-all flex items-center justify-center gap-2"
               >
                 <X className="w-5 h-5" />
-                {t("editor.cancel")}
+                {t[language].cancel}
               </button>
             </div>
           </div>

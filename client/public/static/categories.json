@@ -1,0 +1,102 @@
+[{
+  "cat_code": "00",
+  "name": "موبايلات",
+  "nameEn": "MOBILES",
+  "iconName": "Smartphone",
+  "brands": [
+    { "brand_code": "00", "name": "نوكيا", "englishName": "Nokia" },
+    { "brand_code": "17", "name": "سامسونغ", "englishName": "Samsung" },
+    { "brand_code": "27", "name": "أي فون", "englishName": "IPHONE" },
+    { "brand_code": "73", "name": "شاومي", "englishName": "Xiaomi" }
+  ]
+},
+{
+  "cat_code": "01",
+  "name": "اكسسوار",
+  "nameEn": "ACCESSORIES",
+  "iconName": "Headphones",
+  "brands": [
+    { "brand_code": "1", "name": "باور بانك", "englishName": "Power Banks" },
+    { "brand_code": "1006", "name": "شواحن و كبلات", "englishName": "Chargers + Cables" },
+    { "brand_code": "2", "name": "سماعات سلكية", "englishName": "Wire Headset" },
+    { "brand_code": "2006", "name": "ساعات ذكية", "englishName": "Smart Watches" },
+    { "brand_code": "2009", "name": "مكبرات صوت", "englishName": "Speakers" },
+    { "brand_code": "2011", "name": "بيوت حماية", "englishName": "Covers" },
+    { "brand_code": "2014", "name": "لصاقة حماية", "englishName": "Screen Protector" },
+    { "brand_code": "2015", "name": "سماعات لاسلكية", "englishName": "Wireless Earphones" },
+    { "brand_code": "3", "name": "اكسسوارات أخرى", "englishName": "Other Accessories" },
+    { "brand_code": "7", "name": "كروت ذاكرة وفلاشات", "englishName": "Memory Cards & Flash" },
+    { "brand_code": "9", "name": "اكسسوارات آي فون", "englishName": "Iphone Accessories" }
+  ]
+},
+{
+  "cat_code": "02",
+  "name": "قطع صيانة",
+  "nameEn": "MOBILE SPARES",
+  "iconName": "Settings",
+  "brands": [
+    { "brand_code": "00", "name": "نوكيا", "englishName": "Nokia" },
+    { "brand_code": "17", "name": "سامسونغ", "englishName": "Samsung" },
+    { "brand_code": "20", "name": "اتش تي سي", "englishName": "HTC" },
+    { "brand_code": "27", "name": "أي فون", "englishName": "IPHONE" },
+    { "brand_code": "60", "name": "هواوي", "englishName": "Huawei" },
+    { "brand_code": "73", "name": "شاومي", "englishName": "Xiaomi" },
+    { "brand_code": "76", "name": "ريل مي", "englishName": "RealMi" },
+    { "brand_code": "77", "name": "أوبو", "englishName": "Oppo" },
+    { "brand_code": "78", "name": "انفينيكس", "englishName": "oppo" },
+    { "brand_code": "79", "name": "تكنو", "englishName": "Tecno" },
+    { "brand_code": "86", "name": "هونور", "englishName": "Honor" }
+  ]
+},
+
+{
+  "cat_code": "07",
+  "name": "ألعاب",
+  "nameEn": "Gaming",
+  "iconName": "Gamepad2",
+  "brands": [
+    { "brand_code": "2018", "name": "وحدة التحكم", "englishName": "Console" },
+    { "brand_code": "2019", "name": "اكسسوار الألعاب", "englishName": "Gaming Acc" },
+    { "brand_code": "2020", "name": "مكتبة الألعاب", "englishName": "CD library" },
+    { "brand_code": "2021", "name": "الاشتراكات", "englishName": "Subscriptions" },
+    { "brand_code": "2022", "name": "تحدي مابكو", "englishName": "Mabco club challenges" }
+  ]
+},
+{
+  "cat_code": "09",
+  "name": "وحدة كهرباء",
+  "nameEn": "POWER STATION",
+  "iconName": "Battery",
+  "brands": [
+    { "brand_code": "12", "name": "إيكوفلو", "englishName": "EcoFlow" },
+    { "brand_code": "83", "name": "اكسسوار ايكو فلو", "englishName": "Ecoflow Accessories" }
+  ]
+},
+{
+  "cat_code": "16",
+  "name": "تابات",
+  "nameEn": "TAB",
+  "iconName": "Tablet",
+  "brands": [
+    { "brand_code": "17", "name": "سامسونغ", "englishName": "Samsung" },
+    { "brand_code": "73", "name": "شاومي", "englishName": "Xiaomi" }
+  ]
+},
+{
+  "cat_code": "17",
+  "name": "سكوتر كهربائي",
+  "nameEn": "Escooter",
+  "iconName": "Bike",
+  "brands": [
+    { "brand_code": "19", "name": "سكوتر", "englishName": "Escooter" }
+  ]
+},
+{
+  "cat_code": "18",
+  "name": "كاميرات",
+  "nameEn": "Camera",
+  "iconName": "Camera",
+  "brands": [
+    { "brand_code": "18", "name": "كاميرات", "englishName": "Camera" }
+  ]
+}]

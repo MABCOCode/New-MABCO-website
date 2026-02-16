@@ -1,5 +1,5 @@
 // components/layout/ModernFooter.tsx
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Phone, 
   Mail, 
@@ -15,15 +15,31 @@ import { translations } from '../../i18n/translations';
 interface ModernFooterProps {
   language: 'ar' | 'en';
   onBrandClick?: (brandName: string, categoryName: string, categoryNameEn: string) => void;
+  onCategoryClick?: (categoryCode: string, categoryName: string, categoryNameEn: string) => void;
   onAboutClick?: () => void;
   onShowroomsClick?: () => void;
   onWarrantyClick?: () => void;
   onMaintenanceClick?: () => void;
 }
 
+interface StaticCategory {
+  cat_code: string;
+  name: string;
+  nameEn: string;
+  brands?: Array<{ brand_code?: string; name?: string; englishName?: string }>;
+}
+
+interface StaticBrand {
+  brand_code: string;
+  name: string;
+  englishName?: string;
+  category_code?: string;
+}
+
 const ModernFooter: React.FC<ModernFooterProps> = ({
   language = 'ar',
   onBrandClick,
+  onCategoryClick,
   onAboutClick,
   onShowroomsClick,
   onWarrantyClick,
@@ -35,18 +51,42 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
   const textAlign = isRTL ? 'text-right' : 'text-left';
   const flexDirection = isRTL ? 'flex-row-reverse' : 'flex-row';
   const justifyDirection = isRTL ? 'justify-end' : 'justify-start';
+  const [categoriesData, setCategoriesData] = useState<StaticCategory[]>([]);
+  const [brandsData, setBrandsData] = useState<StaticBrand[]>([]);
 
-  const brands = [
-    { name: "Samsung", category: t.phones, categoryEn: "Phones" },
-    { name: "iPhone (Apple)", category: t.phones, categoryEn: "Phones" },
-    { name: "Xiaomi", category: t.phones, categoryEn: "Phones" },
-    { name: "Sony", category: t.electronics, categoryEn: "Electronics" },
-    { name: "Honor", category: t.phones, categoryEn: "Phones" },
-    { name: "EcoFlow", category: t.power, categoryEn: "Power" },
-    { name: "Deye", category: t.solarPower, categoryEn: "Solar Power" }
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const loadFooterData = async () => {
+      try {
+        const [categoriesRes, brandsRes] = await Promise.all([
+          fetch('/static/categories.json'),
+          fetch('/static/brands.json'),
+        ]);
+        if (!mounted) return;
+        if (categoriesRes.ok) {
+          const categoriesJson = await categoriesRes.json();
+          if (Array.isArray(categoriesJson)) {
+            setCategoriesData(categoriesJson);
+          }
+        }
+        if (brandsRes.ok) {
+          const brandsJson = await brandsRes.json();
+          if (Array.isArray(brandsJson)) {
+            setBrandsData(brandsJson);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load footer static data', err);
+      }
+    };
 
-  const categories = [
+    loadFooterData();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const fallbackCategories = [
     { name: t.phones, count: 150 },
     { name: t.laptops, count: 85 },
     { name: t.tvs, count: 45 },
@@ -54,6 +94,64 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
     { name: t.homeAppliances, count: 75 },
     { name: t.gamingDevices, count: 60 }
   ];
+
+  const fallbackBrands = [
+    { name: 'Samsung', routeName: 'Samsung', category: t.phones, categoryAr: t.phones, categoryEn: 'Phones' },
+    { name: 'iPhone (Apple)', routeName: 'iPhone (Apple)', category: t.phones, categoryAr: t.phones, categoryEn: 'Phones' },
+    { name: 'Xiaomi', routeName: 'Xiaomi', category: t.phones, categoryAr: t.phones, categoryEn: 'Phones' },
+    { name: 'Sony', routeName: 'Sony', category: t.electronics, categoryAr: t.electronics, categoryEn: 'Electronics' },
+    { name: 'Honor', routeName: 'Honor', category: t.phones, categoryAr: t.phones, categoryEn: 'Phones' },
+    { name: 'EcoFlow', routeName: 'EcoFlow', category: t.power, categoryAr: t.power, categoryEn: 'Power' },
+    { name: 'Deye', routeName: 'Deye', category: t.solarPower, categoryAr: t.solarPower, categoryEn: 'Solar Power' }
+  ];
+
+  const categoryByCode = useMemo(() => {
+    const map = new Map<string, StaticCategory>();
+    categoriesData.forEach((cat) => map.set(String(cat.cat_code), cat));
+    return map;
+  }, [categoriesData]);
+
+  const categories = useMemo(() => {
+    const normalized = categoriesData.slice(0, 6).map((cat) => {
+      const categoryBrandsCount = Array.isArray(cat.brands)
+        ? cat.brands.length
+        : brandsData.filter((b) => String(b.category_code || '') === String(cat.cat_code)).length;
+      return {
+        catCode: String(cat.cat_code),
+        name: language === 'ar' ? cat.name : (cat.nameEn || cat.name),
+        nameAr: cat.name,
+        nameEn: cat.nameEn || cat.name,
+        count: categoryBrandsCount
+      };
+    });
+    if (normalized.length > 0) return normalized;
+    return fallbackCategories.map((cat, index) => ({
+      catCode: String(index),
+      name: cat.name,
+      nameAr: cat.name,
+      nameEn: cat.name,
+      count: cat.count
+    }));
+  }, [brandsData, categoriesData, fallbackCategories, language]);
+
+  const brands = useMemo(() => {
+    const normalized = brandsData
+      .filter((brand) => String(brand.category_code || '') === '00' || String(brand.category_code || '') === '09')
+      .slice(0, 8)
+      .map((brand) => {
+      const category = categoryByCode.get(String(brand.category_code || ''));
+      const categoryAr = category?.name || '';
+      const categoryEn = category?.nameEn || category?.name || '';
+      return {
+        name: language === 'ar' ? (brand.name || brand.englishName || '') : (brand.englishName || brand.name || ''),
+        routeName: brand.englishName || brand.name || '',
+        category: language === 'ar' ? categoryAr : categoryEn,
+        categoryAr,
+        categoryEn
+      };
+    });
+    return normalized.length > 0 ? normalized : fallbackBrands;
+  }, [brandsData, categoryByCode, fallbackBrands, language]);
 
   const quickLinks = [
     { label: t.home, href: "#home" },
@@ -159,7 +257,11 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
             </h4>
             <ul className="space-y-3">
               {categories.map((category, index) => (
-                <li key={index} className={`flex justify-between items-center hover:text-[#009FE3] transition-colors cursor-pointer group ${flexDirection}`}>
+                <li
+                  key={index}
+                  onClick={() => onCategoryClick && onCategoryClick(category.catCode, category.nameAr, category.nameEn)}
+                  className={`flex justify-between items-center hover:text-[#009FE3] transition-colors cursor-pointer group ${flexDirection}`}
+                >
                   <span className={`text-gray-300 group-hover:text-[#009FE3] ${isRTL ? 'group-hover:-translate-x-2' : 'group-hover:translate-x-2'} transition-all duration-300`}>
                     {category.name}
                   </span>
@@ -180,7 +282,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
               {brands.map((brand, index) => (
                 <button
                   key={index}
-                  onClick={() => onBrandClick && onBrandClick(brand.name, brand.category, brand.categoryEn)}
+                  onClick={() => onBrandClick && onBrandClick(brand.routeName, brand.categoryAr, brand.categoryEn)}
                   className={`bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg p-3 transition-all hover:scale-105 group `}
                 >
                   <div className="font-medium group-hover:text-[#009FE3] transition-colors">

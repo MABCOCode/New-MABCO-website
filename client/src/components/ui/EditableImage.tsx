@@ -65,7 +65,7 @@ export function EditableImage({
         <img src={src} alt={alt} className={className} />
         <button
           onClick={() => setIsEditing(true)}
-          className="absolute top-4 right-4 p-2 bg-purple-500 text-white rounded-lg opacity-0 group-hover/image:opacity-100 transition-all duration-200 hover:bg-purple-600 shadow-xl z-10"
+          className={`absolute top-3 ${language === "ar" ? "right-3":"left-3" } p-3 bg-purple-500 text-white rounded-lg opacity-100 transition-all duration-200 hover:bg-purple-600 shadow-xl z-20 border-2 border-white`}
           title={language === "ar" ? "تغيير الصورة" : "Change Image"}
         >
           <Edit3 className="w-4 h-4" />
@@ -87,7 +87,7 @@ export function EditableImage({
           <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl">
             <ImageIcon className="w-8 h-8 text-purple-500 mx-auto mb-2" />
             <p className="text-sm font-bold text-gray-700">
-              {language === "ar" ? "جاري التحرير..." : "Editing..."}
+              {language === "ar" ? "جاري التعديل..." : "Editing..."}
             </p>
           </div>
         </div>
