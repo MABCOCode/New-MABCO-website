@@ -391,3 +391,45 @@ footer a,
 footer li {
   color: inherit !important;
 }
+
+/* Global shimmer */
+@keyframes shimmer-wave {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-surface {
+  background: linear-gradient(
+    90deg,
+    #e5e7eb 0%,
+    #f3f4f6 40%,
+    #e5e7eb 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-wave 1.2s linear infinite;
+}
+
+.skeleton-card {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.skeleton-line {
+  border-radius: 0.5rem;
+}
+
+/* Applied globally to img elements while loading */
+img.img-loading {
+  background: linear-gradient(
+    90deg,
+    #e5e7eb 0%,
+    #f3f4f6 40%,
+    #e5e7eb 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-wave 1.1s linear infinite;
+}

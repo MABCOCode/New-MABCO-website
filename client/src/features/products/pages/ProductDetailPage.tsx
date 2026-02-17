@@ -122,6 +122,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const [heroProductInCart, setHeroProductInCart] = useState(false);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
 
   const displayColor = hoveredColor || selectedColor;
   const currentColorVariant = hasColors
@@ -247,17 +248,45 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     }
   };
 
+  const markImageLoaded = (key: string) => {
+    setLoadedImages((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  };
+
   if (!prod) {
     return (
-      <section className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-gray-600">
-          {id
-            ? language === "ar"
-              ? "جاري التحميل..."
-              : "Loading..."
-            : language === "ar"
-            ? "المنتج غير موجود"
-            : "Product not found"}
+      <section className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+            <div className="lg:col-span-5">
+              <div className="aspect-square rounded-2xl border border-gray-200 shimmer-surface" />
+              <div className="mt-6 bg-white rounded-2xl p-6 border border-gray-200">
+                <div className="h-6 w-40 skeleton-line shimmer-surface mb-4" />
+                <div className="grid grid-cols-5 gap-3">
+                  {Array.from({ length: 5 }).map((_, idx) => (
+                    <div key={`prod-thumb-skeleton-${idx}`} className="aspect-square rounded-lg shimmer-surface" />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="lg:col-span-7">
+              <div className="h-10 w-3/4 skeleton-line shimmer-surface mb-4" />
+              <div className="h-6 w-1/3 skeleton-line shimmer-surface mb-6" />
+              <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                <div className="h-8 w-32 skeleton-line shimmer-surface mb-4" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <div key={`prod-icon-skeleton-${idx}`} className="rounded-xl border border-gray-200 p-4 flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-lg shimmer-surface" />
+                      <div className="flex-1">
+                        <div className="h-3 w-2/3 skeleton-line shimmer-surface mb-2" />
+                        <div className="h-4 w-1/2 skeleton-line shimmer-surface" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     );
@@ -391,11 +420,18 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                   userPermissions={userPermissions}
                                 />
                               ) : (
-                                <img
-                                  src={image}
-                                  alt={`${prod?.name} - ${index + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
+                                <div className="relative w-full h-full">
+                                  {!loadedImages[`main-${index}-${displayColor}`] && (
+                                    <div className="absolute inset-0 shimmer-surface rounded-2xl" />
+                                  )}
+                                  <img
+                                    src={image}
+                                    alt={`${prod?.name} - ${index + 1}`}
+                                    className="w-full h-full object-cover"
+                                    onLoad={() => markImageLoaded(`main-${index}-${displayColor}`)}
+                                    onError={() => markImageLoaded(`main-${index}-${displayColor}`)}
+                                  />
+                                </div>
                               )}
                             </div>
                           </div>
@@ -422,11 +458,18 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                 userPermissions={userPermissions}
                               />
                             ) : (
-                              <img
-                                src={prod?.image}
-                                alt={prod?.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                              />
+                              <div className="relative w-full h-full">
+                                {!loadedImages["main-fallback"] && (
+                                  <div className="absolute inset-0 shimmer-surface rounded-2xl" />
+                                )}
+                                <img
+                                  src={prod?.image}
+                                  alt={prod?.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                  onLoad={() => markImageLoaded("main-fallback")}
+                                  onError={() => markImageLoaded("main-fallback")}
+                                />
+                              </div>
                             )}
                           </div>
                         </div>
@@ -516,11 +559,18 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                 : "border-gray-200 hover:border-gray-300"
                             }`}
                           >
-                            <img
-                              src={image}
-                              alt={`${prod?.name} - Image ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
+                            <div className="relative w-full h-full">
+                              {!loadedImages[`thumb-${index}-${displayColor}`] && (
+                                <div className="absolute inset-0 shimmer-surface" />
+                              )}
+                              <img
+                                src={image}
+                                alt={`${prod?.name} - Image ${index + 1}`}
+                                className="w-full h-full object-cover"
+                                onLoad={() => markImageLoaded(`thumb-${index}-${displayColor}`)}
+                                onError={() => markImageLoaded(`thumb-${index}-${displayColor}`)}
+                              />
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -1049,3 +1099,5 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 }
 
 export default ProductDetailPage;
+
+

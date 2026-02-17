@@ -78,6 +78,52 @@ const AppContent: React.FC = () => {
     navigate('/checkout');
   };
 
+  useEffect(() => {
+    const observed = new WeakSet<HTMLImageElement>();
+
+    const wireImage = (img: HTMLImageElement) => {
+      if (observed.has(img)) return;
+      observed.add(img);
+
+      const clearLoading = () => {
+        img.classList.remove('img-loading');
+        img.removeEventListener('load', clearLoading);
+        img.removeEventListener('error', clearLoading);
+      };
+
+      if (img.complete) {
+        img.classList.remove('img-loading');
+        return;
+      }
+
+      img.classList.add('img-loading');
+      img.addEventListener('load', clearLoading);
+      img.addEventListener('error', clearLoading);
+    };
+
+    const scanImages = (root: ParentNode) => {
+      root.querySelectorAll('img').forEach((node) => wireImage(node as HTMLImageElement));
+    };
+
+    scanImages(document);
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          if (node.tagName === 'IMG') {
+            wireImage(node as HTMLImageElement);
+            return;
+          }
+          scanImages(node);
+        });
+      });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
 
   return (
     <>

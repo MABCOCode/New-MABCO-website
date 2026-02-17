@@ -3,6 +3,10 @@ import {
   MapPin,
   Building2,
   Briefcase,
+  Home,
+  Package,
+  Tag,
+  Phone,
   LogIn,
   User,
   ChevronUp,
@@ -10,6 +14,7 @@ import {
   ShoppingCart,
   Edit3,
   Package2,
+  Crown,
 } from 'lucide-react';
 import { loadSession } from '../../features/account/storage';
 
@@ -46,6 +51,13 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
   expandedCategory,
   toggleCategory,
 }) => {
+  const closeMenuAndNavigateToSection = (sectionId: string) => {
+    setMenuOpen(false);
+    window.setTimeout(() => {
+      navigateToSection(sectionId);
+    }, 400);
+  };
+
   return (
     <div
       className={`lg:hidden overflow-y-auto transition-all duration-500 ease-in-out ${
@@ -199,12 +211,72 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                 </div>
                 <span className="text-gray-700 group-hover:text-purple-600 font-medium">{language === 'ar' ? 'إدارة الطلبات' : 'Order Management'}</span>
               </button>
+
+              <button
+                onClick={() => {
+                  navigateTo('/account/superadmin');
+                  setMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-yellow-50 transition-all duration-200 group ${
+                  menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                }`}
+                style={{ transitionDelay: '247ms' }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Crown className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-gray-700 group-hover:text-yellow-600 font-medium">Super Admin Dashboard</span>
+              </button>
             </div>
 
             <button
               onClick={() => {
-                navigateToSection('services');
-                setMenuOpen(false);
+                closeMenuAndNavigateToSection('home');
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
+                menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+              }`}
+              style={{ transitionDelay: '248ms' }}
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Home className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">{t('home')}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                closeMenuAndNavigateToSection('categories');
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
+                menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+              }`}
+              style={{ transitionDelay: '249ms' }}
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">{t('products')}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                closeMenuAndNavigateToSection('special-offers-carousel');
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
+                menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+              }`}
+              style={{ transitionDelay: '249ms' }}
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Tag className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">{t('specialOffers')}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                closeMenuAndNavigateToSection('services');
               }}
               className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
                 menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
@@ -250,7 +322,10 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
             </button>
 
             <button
-              onClick={() => navigateTo('/career')}
+              onClick={() => {
+                navigateTo('/career');
+                setMenuOpen(false);
+              }}
               className={`flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
                 menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
               }`}
@@ -260,6 +335,22 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                 <Briefcase className="w-5 h-5 text-white" />
               </div>
               <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">{t('career')}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                navigateTo('/contact');
+                setMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
+                menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+              }`}
+              style={{ transitionDelay: '310ms' }}
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Phone className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">{t('contact')}</span>
             </button>
           </div>
 
@@ -329,9 +420,8 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                               <div className="w-full aspect-square bg-gray-50 rounded-2xl flex items-center justify-center mb-4 p-6 group-hover:bg-gray-100 transition-colors">
                                 <img
                                   src={
-                                    typeof brand === "string"
-                                      ? "https://via.placeholder.com/150"
-                                      : brand.image || "https://via.placeholder.com/150"
+                                 
+                                       brand.image 
                                   }
                                   alt={`${typeof brand === "string" ? brand : brand.name} Logo`}
                                   className="w-full h-full object-contain"

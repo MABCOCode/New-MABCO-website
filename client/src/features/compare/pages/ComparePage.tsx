@@ -150,9 +150,9 @@ export function ComparePage(props: ComparePageProps) {
                       {comparedProducts.map((product) => (
                         <th
                           key={product.id}
-                          className="p-4 border-b-2 border-gray-200 min-w-[250px]"
+                          className="p-4 border-b-2 border-gray-200 min-w-[250px] align-top"
                         >
-                          <div className="relative">
+                          <div className="relative flex flex-col gap-3">
                             <button
                               onClick={() => onRemoveItem(product.id)}
                               className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-300 shadow-lg z-10"
@@ -167,6 +167,13 @@ export function ComparePage(props: ComparePageProps) {
                             <h3 className="font-bold text-gray-900 mb-2">
                               {language === "ar" && product.nameAr ? product.nameAr : product.name}
                             </h3>
+                            <button
+                              type="button"
+                              className="w-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white py-2 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+                            >
+                              <ShoppingCart className="w-4 h-4" />
+                              {t.addToCart || "Add to Cart"}
+                            </button>
                           </div>
                         </th>
                       ))}
@@ -284,9 +291,9 @@ export function ComparePage(props: ComparePageProps) {
 
                     {/* Add to Cart Row */}
                     <tr className="bg-gray-50">
-                      <td className="sticky left-0 bg-gray-50 p-4"></td>
+                      <td className="sticky left-0 p-4 bg-gray-50 z-20"></td>
                       {comparedProducts.map((product) => (
-                        <td key={product.id} className="p-4">
+                        <td key={product.id} className="p-4 bg-gray-50">
                           <button className="w-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white py-3 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2">
                             <ShoppingCart className="w-5 h-5" />
                             {t.addToCart || "Add to Cart"}
@@ -355,13 +362,15 @@ export function ComparePage(props: ComparePageProps) {
                   {availableProducts.slice(0, 8).map((product) => (
                     <div
                       key={product.id}
-                      className="bg-white border-2 border-gray-200 rounded-lg p-4 hover:shadow-lg transition-all duration-300"
+                      className="bg-white border-2 border-gray-200 rounded-lg p-4 hover:shadow-lg transition-all duration-300 flex flex-col min-h-[280px]"
                     >
-                      <ImageWithFallback
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-32 object-cover rounded-lg mb-3"
-                      />
+                      <div className="w-full h-32 rounded-lg mb-3 overflow-hidden bg-gray-100">
+                        <ImageWithFallback
+                          src={product.image}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                       <h3 className="font-bold text-gray-900 mb-2 text-sm">
                         {language === "ar" && product.nameAr ? product.nameAr : product.name}
                       </h3>
@@ -370,7 +379,7 @@ export function ComparePage(props: ComparePageProps) {
                       </p>
                       <button
                         onClick={() => onAddItem(product.id)}
-                        className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white py-2 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
+                        className="w-full mt-auto bg-gradient-to-r from-purple-500 to-purple-700 text-white py-2 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
                       >
                         <svg
                           className="w-4 h-4"

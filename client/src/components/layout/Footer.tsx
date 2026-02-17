@@ -95,16 +95,6 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
     { name: t.gamingDevices, count: 60 }
   ];
 
-  const fallbackBrands = [
-    { name: 'Samsung', routeName: 'Samsung', category: t.phones, categoryAr: t.phones, categoryEn: 'Phones' },
-    { name: 'iPhone (Apple)', routeName: 'iPhone (Apple)', category: t.phones, categoryAr: t.phones, categoryEn: 'Phones' },
-    { name: 'Xiaomi', routeName: 'Xiaomi', category: t.phones, categoryAr: t.phones, categoryEn: 'Phones' },
-    { name: 'Sony', routeName: 'Sony', category: t.electronics, categoryAr: t.electronics, categoryEn: 'Electronics' },
-    { name: 'Honor', routeName: 'Honor', category: t.phones, categoryAr: t.phones, categoryEn: 'Phones' },
-    { name: 'EcoFlow', routeName: 'EcoFlow', category: t.power, categoryAr: t.power, categoryEn: 'Power' },
-    { name: 'Deye', routeName: 'Deye', category: t.solarPower, categoryAr: t.solarPower, categoryEn: 'Solar Power' }
-  ];
-
   const categoryByCode = useMemo(() => {
     const map = new Map<string, StaticCategory>();
     categoriesData.forEach((cat) => map.set(String(cat.cat_code), cat));
@@ -150,8 +140,8 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
         categoryEn
       };
     });
-    return normalized.length > 0 ? normalized : fallbackBrands;
-  }, [brandsData, categoryByCode, fallbackBrands, language]);
+    return  normalized ;
+  }, [brandsData, categoryByCode, language]);
 
   const quickLinks = [
     { label: t.home, href: "#home" },
@@ -173,8 +163,8 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
   ];
 
   const contactInfo = [
-    { icon: Phone, text: "+963 11 123 4567" },
-    { icon: Mail, text: "info@mabcoonline.com" },
+    { icon: Phone, text: "+011 9909" },
+    { icon: Mail, text: "info@mabco.biz" },
     { icon: MapPin, text: t.address }
   ];
 

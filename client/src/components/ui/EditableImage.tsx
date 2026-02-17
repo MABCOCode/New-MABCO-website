@@ -1,5 +1,5 @@
 import { Upload, Edit3, X, Check, Image as ImageIcon } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface EditableImageProps {
   src: string;
@@ -21,10 +21,42 @@ export function EditableImage({
   const [isEditing, setIsEditing] = useState(false);
   const [tempUrl, setTempUrl] = useState(src);
   const [previewUrl, setPreviewUrl] = useState(src);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [imageReady, setImageReady] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasSourceImage = Boolean(String(src || "").trim());
+  const hasPreviewImage = Boolean(String(previewUrl || "").trim());
+
+  useEffect(() => {
+    setImageFailed(!hasSourceImage);
+    setImageReady(false);
+  }, [src]);
+
+  useEffect(() => {
+    setPreviewFailed(!hasPreviewImage);
+    setPreviewReady(false);
+  }, [previewUrl]);
 
   if (!userPermissions.canEditContent) {
-    return <img src={src} alt={alt} className={className} />;
+    return (
+      <div className="relative w-full h-full min-h-[180px] overflow-hidden">
+        {!imageReady || imageFailed ? (
+          <div className="absolute inset-0 shimmer-surface" />
+        ) : null}
+        <img
+          src={src}
+          alt={alt}
+          className={`block w-full h-full ${className} ${imageFailed ? "invisible" : ""}`}
+          onLoad={() => setImageReady(true)}
+          onError={() => {
+            setImageFailed(true);
+            setImageReady(true);
+          }}
+        />
+      </div>
+    );
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,8 +93,20 @@ export function EditableImage({
 
   if (!isEditing) {
     return (
-      <div className="relative group/image">
-        <img src={src} alt={alt} className={className} />
+      <div className="relative group/image w-full h-full min-h-[180px] overflow-hidden">
+        {!imageReady || imageFailed ? (
+          <div className="absolute inset-0 shimmer-surface" />
+        ) : null}
+        <img
+          src={src}
+          alt={alt}
+          className={`block w-full h-full ${className} ${imageFailed ? "invisible" : ""}`}
+          onLoad={() => setImageReady(true)}
+          onError={() => {
+            setImageFailed(true);
+            setImageReady(true);
+          }}
+        />
         <button
           onClick={() => setIsEditing(true)}
           className={`absolute top-3 ${language === "ar" ? "right-3":"left-3" } p-3 bg-purple-500 text-white rounded-lg opacity-100 transition-all duration-200 hover:bg-purple-600 shadow-xl z-20 border-2 border-white`}
@@ -75,13 +119,21 @@ export function EditableImage({
   }
 
   return (
-    <div className="relative">
+    <div className="relative w-full min-h-[220px]">
       {/* Preview */}
-      <div className="relative">
+      <div className="relative w-full h-full min-h-[220px] overflow-hidden">
+        {!previewReady || previewFailed ? (
+          <div className="absolute inset-0 border-4 border-purple-500 shimmer-surface" />
+        ) : null}
         <img
           src={previewUrl}
           alt={alt}
-          className={`${className} opacity-75 border-4 border-purple-500`}
+          className={`block w-full h-full ${className} opacity-75 border-4 border-purple-500 ${previewFailed ? "invisible" : ""}`}
+          onLoad={() => setPreviewReady(true)}
+          onError={() => {
+            setPreviewFailed(true);
+            setPreviewReady(true);
+          }}
         />
         <div className="absolute inset-0 bg-purple-500/20 backdrop-blur-[1px] flex items-center justify-center">
           <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl">
@@ -94,7 +146,7 @@ export function EditableImage({
       </div>
 
       {/* Edit Controls */}
-      <div className="absolute bottom-4 left-4 right-4 bg-white rounded-xl p-4 shadow-2xl border-2 border-purple-500">
+      <div className="relative mt-4 bg-white rounded-xl p-4 shadow-2xl border-2 border-purple-500 z-30">
         <div className="space-y-3">
           {/* URL Input */}
           <div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLanguage } from "../../../../context/LanguageContext";
 import {
   Package,
@@ -19,26 +19,61 @@ import {
   RefreshCw,
 } from "lucide-react";
 import {
-  ordersData,
   Order,
   OrderStatus,
   orderStatusConfig,
   paymentStatusConfig,
-  getOrderStatistics,
-} from "../../../../data/ordersData";
+} from "../../types/orderAdmin";
 import { OrderDetailsModal } from "./OrderDetailsModal";
+import { fetchAdminOrders } from "../../api/adminDataApi";
 
 export function AdminOrderManagement() {
-  const [orders, setOrders] = useState<Order[]>(ordersData);
+  const { t, language } = useLanguage();
+  const [orders, setOrders] = useState<Order[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month">("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const stats = getOrderStatistics();
+  const loadOrders = () => {
+    setIsLoading(true);
+    setError(null);
+    fetchAdminOrders()
+      .then((rows) => {
+        setOrders(rows as Order[]);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.warn("Failed to load orders", err);
+        setOrders([]);
+        setError(language === "ar" ? "تعذر تحميل الطلبات." : "Failed to load orders.");
+        setIsLoading(false);
+      });
+  };
 
-  const { t, language } = useLanguage();
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const stats = useMemo(() => {
+    const total = orders.length;
+    const delivered = orders.filter((o) => o.status === "delivered").length;
+    return {
+      total,
+      pending: orders.filter((o) => o.status === "pending").length,
+      confirmed: orders.filter((o) => o.status === "confirmed").length,
+      processing: orders.filter((o) => o.status === "processing").length,
+      shipped: orders.filter((o) => o.status === "shipped").length,
+      outForDelivery: orders.filter((o) => o.status === "out_for_delivery").length,
+      delivered,
+      cancelled: orders.filter((o) => o.status === "cancelled").length,
+      returned: orders.filter((o) => o.status === "returned").length,
+      totalRevenue: orders.reduce((sum, o) => sum + Number(o.pricing?.total || 0), 0),
+    };
+  }, [orders]);
 
   // Filter orders
   const filteredOrders = useMemo(() => {
@@ -182,7 +217,9 @@ export function AdminOrderManagement() {
                 </div>
                 <div className="flex items-center gap-3">
               <button
-                onClick={() => setOrders([...ordersData])}
+                onClick={() => {
+                  loadOrders();
+                }}
                 className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl hover:border-[#009FE3] transition-all flex items-center gap-2 font-semibold text-gray-700"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -318,6 +355,22 @@ export function AdminOrderManagement() {
 
         {/* Orders Table */}
         <div className="bg-white rounded-2xl border-2 border-gray-200 overflow-hidden">
+          {error && (
+            <div className="mx-4 mt-4 rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3 flex items-center justify-between">
+              <span>{error}</span>
+              <button onClick={loadOrders} className="px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700">
+                {language === "ar" ? "إعادة المحاولة" : "Retry"}
+              </button>
+            </div>
+          )}
+          {isLoading && (
+            <div className="p-6 space-y-3">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div key={`orders-skeleton-${idx}`} className="h-14 rounded-xl shimmer-surface" />
+              ))}
+            </div>
+          )}
+          {!isLoading && (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
@@ -432,6 +485,7 @@ export function AdminOrderManagement() {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </div>
 

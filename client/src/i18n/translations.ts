@@ -415,7 +415,7 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     companyDescription: "متخصصون في بيع الأجهزة الإلكترونية والكهربائية الأصلية بضمان معتمد منذ عام 2008",
     aboutCompany: "عن الشركة",
     careers: "الوظائف",
-    address: "دمشق، شارع الحمرا",
+    address: "دمشق - البرامكة - مقابل جامع مصعب بن عمير  ",
     privacyPolicy: "سياسة الخصوصية",
     termsOfService: "شروط الاستخدام",
     returnPolicy: "سياسة الإرجاع",

@@ -17,6 +17,7 @@ import {
   GitCompare,
   Edit3,
   Package2,
+  Crown,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useCart } from "../../context/CartContext";
@@ -101,6 +102,7 @@ const Navbar: React.FC = () => {
           "home",
           "search-section",
           "categories",
+          "special-offers-carousel",
           "products",
           "services",
         ];
@@ -335,6 +337,17 @@ const Navbar: React.FC = () => {
                           >
                             <Package2 className="w-5 h-5 text-gray-600 group-hover:text-purple-600" />
                             <span className="text-gray-700 group-hover:text-purple-600 font-medium whitespace-nowrap">{language === "ar" ? "إدارة الطلبات" : "Order Management"}</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              navigateTo("/account/superadmin");
+                              setUserMenuOpen(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-yellow-50 transition-colors flex items-center gap-3 group"
+                          >
+                            <Crown className="w-5 h-5 text-gray-600 group-hover:text-yellow-600" />
+                            <span className="text-gray-700 group-hover:text-yellow-600 font-medium whitespace-nowrap">Super Admin Dashboard</span>
                           </button>
                         </>
                       )}

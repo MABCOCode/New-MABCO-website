@@ -261,12 +261,12 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
               {t('admin.content.subtitle')}
             </p>
           </div>
-          <button
+          {/* <button
             onClick={onClose}
             className="p-2 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 transition-all duration-300"
           >
             <X className="w-6 h-6" />
-          </button>
+          </button> */}
         </div>
 
         {/* Warning Banner */}

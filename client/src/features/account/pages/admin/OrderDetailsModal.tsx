@@ -17,7 +17,7 @@ import {
   Gift,
   Percent,
 } from "lucide-react";
-import { Order, orderStatusConfig, paymentStatusConfig } from "../../../../data/ordersData";
+import { Order, orderStatusConfig, paymentStatusConfig } from "../../types/orderAdmin";
 import { useState } from "react";
 import { useLanguage } from "../../../../context/LanguageContext";
 import { OrderStatusUpdater } from "./OrderStatusUpdater";

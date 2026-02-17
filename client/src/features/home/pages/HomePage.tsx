@@ -285,13 +285,15 @@ const HomePage: React.FC = () => {
         />
 
         {/* Services Section */}
-        <ServicesGrid
-          language={language}
-          key={`services-${refreshKey}`}
-          onServiceClick={(servicePath: string) => {
-            setSelectedService(servicePath);
-          }}
-        />
+        <section id="services" className="container mx-auto px-4 py-16">
+          <ServicesGrid
+            language={language}
+            key={`services-${refreshKey}`}
+            onServiceClick={(servicePath: string) => {
+              setSelectedService(servicePath);
+            }}
+          />
+        </section>
 
         {/* Service Modals */}
         {selectedService === "printing" && (

@@ -1,6 +1,6 @@
 import { Check, X } from "lucide-react";
 import { useState } from "react";
-import { OrderStatus, orderStatusConfig } from "../../../../data/ordersData";
+import { OrderStatus, orderStatusConfig } from "../../types/orderAdmin";
 import { useLanguage } from "../../../../context/LanguageContext";
 
 interface OrderStatusUpdaterProps {

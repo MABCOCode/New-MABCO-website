@@ -34,6 +34,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const isRTL = language === "ar";
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedMap, setSelectedMap] = useState<{ lat: string; lng: string; name: string } | null>(null);
   const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
   const [showroomsData, setShowroomsData] = useState<Showroom[]>([]);
@@ -51,6 +52,10 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
         setShowroomsData(json);
       } catch (err) {
         console.warn('Failed to load showrooms.json', err);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     })();
     return () => { mounted = false; };
@@ -98,7 +103,35 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
 
       {/* Showrooms Grid */}
       <div className="max-w-7xl mx-auto px-4 py-12">
-        {cities.map((city) => (
+        {isLoading && (
+          <div className="mb-16">
+            <div className="h-9 w-56 skeleton-line shimmer-surface mb-6" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div
+                  key={`showroom-skeleton-${idx}`}
+                  className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100 skeleton-card"
+                >
+                  <div className="h-48 shimmer-surface" />
+                  <div className="p-5 space-y-4">
+                    <div className="h-5 w-2/3 skeleton-line shimmer-surface" />
+                    <div className="h-4 w-full skeleton-line shimmer-surface" />
+                    <div className="h-4 w-5/6 skeleton-line shimmer-surface" />
+                    <div className="h-10 w-full rounded-lg shimmer-surface mt-4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isLoading && cities.length === 0 && (
+          <div className="text-center py-20 text-gray-500">
+            {language === "ar" ? "لا توجد صالات عرض متاحة حالياً" : "No showrooms available right now"}
+          </div>
+        )}
+
+        {!isLoading && cities.map((city) => (
           <div key={city} className="mb-16">
             <div className="flex items-center gap-3 mb-6">
               <MapPin className="w-8 h-8 text-[#009FE3]" />

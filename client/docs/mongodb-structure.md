@@ -1,370 +1,381 @@
-# MongoDB Schema & Read-Model Structure for MABCO Website
+# MongoDB Structure (Performance-First) for the Current MABCO Website
 
-This document describes the recommended MongoDB collections, field shapes, indexes, read-models, change flows, and sample documents to support all pages and functions of the MABCO website (products, product detail, listings, offers, orders, showrooms, users/customers, notifications, translations, assets, analytics, admin audit). Use this as both an implementation guide and a migration checklist.
+This document is the updated MongoDB blueprint for the **current edited website** (home/catalog/offers/search/showrooms/checkout/account/admin/super-admin reports/services).
 
----
-
-## Goals
-- Provide canonical master collections for authoritative writes and denormalized read models (or static JSON) for ultra-fast reads.
-- Cover per-page payloads so front-end pages do not need to do heavy joins or recalculations.
-- Support bilingual content (English/Arabic) and product variants (colors, charge options, images per color).
-- Include non-functional pieces: notifications, search sync, caching, CDN invalidation, observability.
-
----
-
-## High-level Strategy
-- Master collections store authoritative data: `products`, `categories`, `brands`, `offers`, `users`, `orders`, `showrooms`, etc.
-- Read-model collections or precomputed JSON files store denormalized payloads used by pages: `products_read`, `category_pages`, `home_page`, `showrooms.{locale}.json`.
-- Background worker(s) listen to change events (change stream or write to `events` queue) to regenerate read models and invalidate CDN caches.
-- Use a search engine (Meili/Algolia/Elastic) for full-text search; sync from product master.
+It includes:
+- Complete collection design.
+- Fields needed by admin + super-admin reporting pages.
+- Required edits to existing objects so reports can be generated accurately.
+- Route/page coverage check so no page is missed.
+- Index/read-model strategy focused on performance.
 
 ---
 
-## Collections (detailed)
+## 1) Architecture Principles
 
-### 1) `products` (master)
-Purpose: canonical product data (admin writes / external sync source).
-Fields (recommended):
-- `_id: ObjectId`
-- `sku: string` (unique)
-- `slug: string` (unique)
-- `nameEn: string`, `nameAr: string`
-- `descriptionEn: string`, `descriptionAr: string`
-- `basePrice: number`, `oldPrice?: number`, `currency?: string`
-- `categories: ObjectId[]`
-- `brandId?: ObjectId`
-- `tags?: string[]`
-- `images?: string[]` (global fallback gallery)
-- `colorVariants?: [{ id:string, name:string, hexCode?:string, image?:string, images?:string[], inStock?: boolean, stock?: number, sku?: string }]`
-- `specs?: [{ nameEn, nameAr, valueEn, valueAr, icon }]`
-- `inTheBox?: [{ en: string, ar: string }]`  // bilingual box contents
-- `keyFeatures?: string[]`
-- `chargeOptions?: [{ id, value, valueAr?, price }]
-- `offersApplied?: ObjectId[]` (refs)
-- `availability?: { globalStock:number, perStore?: { [showroomId:string]: number } }`
-- `seo?: { titleEn, titleAr, descEn, descAr, keywords?: string[] }
-- `meta?: { popularity?: number, rating?: number, reviewsCount?: number }
-- `syncedFrom?: { source?:string, externalId?:string }`
+1. Use **write models** for authoritative data (`products`, `orders`, `users`, etc.).
+2. Use **read models/materialized views** for UI pages (`home_read`, `product_detail_read`, `category_brand_read`, etc.).
+3. Keep analytics/audit append-only in dedicated collections (`admin_actions`, `web_events`, `notification_events`).
+4. Generate reports from **daily rollups** (`report_daily_kpis`) instead of scanning large raw event collections.
+5. Keep mutable hot fields (stock/price/status) small and indexed.
+
+---
+
+## 2) Page Coverage (Rechecked)
+
+All current routes/features and required data sources:
+
+- `/` Home: `home_read`, `categories`, `brands`, `offers`, `products_read`, `services_catalog`, `site_content`.
+- `/products`, `/search`: `search_index` (or Atlas Search on `products`), `products_read` summaries.
+- `/product/:id`: `product_detail_read` + optional dynamic stock/price endpoint from `inventory`.
+- `/brand/:category/:id`, `/category/:id`: `category_brand_read` + `products_read` summaries.
+- `/offers/:offerType`: `offers_read` + product snapshots.
+- `/showrooms`: `showrooms` (or cached `showrooms_read`).
+- `/checkout`: `carts`, `orders`, `inventory`, `offers`, `payments`.
+- `/account/*`: `users`, `orders`, `devices`, `warranties`, `maintenance_tickets`, `invoices`.
+- `/account/admin/content`: `products`, `categories`, `brands`, `assets`, `admin_actions`, `product_revisions`.
+- `/account/admin/orders`: `orders`, `order_status_history`, `admin_actions`.
+- `/account/superadmin`: `report_daily_kpis`, `admin_actions`, `users`.
+- `/account/superadmin/admin-management`: `users`, `admin_roles`, `admin_privilege_history`.
+- `/account/superadmin/product-tracking`: `product_revisions`, `admin_actions`, `products.visibility`.
+- `/account/superadmin/analytics`: `report_daily_kpis`, `web_events`, `cart_events`, `notification_events`, `sales_rollups`.
+- `/account/superadmin/notifications`: `notifications`, `notification_events`, `notification_deliveries`.
+- Services in home (`printing`, `epayment`, `warranty`, `maintenance-status`): `service_requests`, `payment_transactions`, `warranties`, `maintenance_tickets`.
+
+---
+
+## 3) Core Write Collections
+
+## 3.1 `products`
+Canonical product record.
+
+Key fields:
+- `_id`, `sku` (unique), `slug` (unique)
+- `name: { en, ar }`, `description: { en, ar }`
+- `categoryIds: ObjectId[]`, `brandId: ObjectId`
+- `pricing: { base, old, currency, taxClass }`
+- `specs: [{ key: {en, ar}, value: {en, ar}, sortOrder }]`
+- `variants: [{ code, color: {en, ar, hex}, images: [assetId], stockQty, priceDelta }]`
+- `media: { primaryAssetId, galleryAssetIds: [] }`
+- `status: { isActive, isHidden, hideReason, visibleFrom, visibleTo }`
+- `metrics: { ratingAvg, ratingCount, soldCount30d, viewCount30d }`
+- `audit: { createdBy, updatedBy, createdAt, updatedAt }`
+- `version: number`
+
+Indexes:
+- `{ sku: 1 }` unique
+- `{ slug: 1 }` unique
+- `{ brandId: 1, categoryIds: 1, 'status.isActive': 1, 'status.isHidden': 1 }`
+- `{ updatedAt: -1 }`
+- Atlas Search index on localized name/description/specs
+
+## 3.2 `categories`
+- `_id`, `slug`, `name: {en, ar}`, `iconName`, `sortOrder`, `isActive`
+- `seo`, `audit`
+- Optional: `brandIds` (denormalized for fast category->brand menus)
+
+Index: `{ slug: 1 }` unique, `{ isActive: 1, sortOrder: 1 }`
+
+## 3.3 `brands`
+- `_id`, `slug`, `name: {en, ar}`, `logoAssetId`, `imageAssetId`, `isActive`, `sortOrder`
+- `categoryIds` (for quick mapping)
+
+Index: `{ slug: 1 }` unique, `{ categoryIds: 1, isActive: 1 }`
+
+## 3.4 `offers`
+- `_id`, `code` unique
+- `type: direct_discount|coupon|free_product|bundle_discount`
+- `title: {en, ar}`, `description: {en, ar}`
+- `scope: { allProducts, productIds, categoryIds, brandIds }`
+- `rule`, `priority`, `stackable`
+- `window: { startsAt, endsAt }`, `isActive`
+
+Indexes:
+- `{ code: 1 }` unique
+- `{ isActive: 1, 'window.startsAt': 1, 'window.endsAt': 1 }`
+- `{ 'scope.categoryIds': 1, 'scope.brandIds': 1 }`
+
+## 3.5 `users`
+- `_id`, `email` unique, `phone`
+- `name: { first, last, full, fullAr }`
+- `role: customer|admin|super_admin`
+- `adminMeta: { level, privilegeSetId, isSuspended }`
+- `preferences: { language, notificationChannels }`
+- `stats: { totalOrders, totalSpent, lastLoginAt }`
+
+Indexes:
+- `{ email: 1 }` unique
+- `{ role: 1, 'adminMeta.isSuspended': 1 }`
+
+## 3.6 `orders`
+- `_id`, `orderNumber` unique
+- `userId`, `customerSnapshot`
+- `items: [{ productId, sku, name, qty, unitPrice, discount, finalPrice, variantSnapshot }]`
+- `pricing: { subtotal, discount, shipping, tax, total, currency }`
+- `status: pending|confirmed|processing|shipped|out_for_delivery|delivered|cancelled|returned`
+- `statusHistory: [{ from, to, at, byUserId, note }]`
+- `payment`, `fulfillment`, `addresses`
+- `appliedOffersSnapshot`
 - `createdAt`, `updatedAt`
 
 Indexes:
-- `{ slug: 1 } unique`
-- `{ sku: 1 } unique`
-- `{ categories: 1 }` (multikey)
-- Text index for search fields (if using Mongo search): `{$**: 'text'}` or specific: `{ nameEn: 'text', nameAr: 'text', descriptionEn: 'text', descriptionAr: 'text' }`
-- `{ updatedAt: 1 }` for change-stream filtering
+- `{ orderNumber: 1 }` unique
+- `{ userId: 1, createdAt: -1 }`
+- `{ status: 1, createdAt: -1 }`
 
-Read usage: admin pages, product sync, source for read-model generation.
-
-Sample document (truncated):
-```json
-{
-  "_id": "ObjectId(...)",
-  "sku": "ABC-123",
-  "slug": "phone-model-x",
-  "nameEn": "Phone Model X",
-  "nameAr": "هاتف X",
-  "descriptionEn": "...",
-  "basePrice": 199.99,
-  "oldPrice": 249.99,
-  "categories": ["ObjectId(...)"],
-  "colorVariants": [{ "id":"black","name":"Black","images":["https://cdn/.../b1.jpg"] }],
-  "specs": [{ "nameEn":"Display","nameAr":"الشاشة","valueEn":"6.1 OLED","valueAr":"6.1 OLED" }],
-  "inTheBox": [{"en":"User Manual","ar":"دليل المستخدم"}],
-  "createdAt":"2026-02-15T...Z"
-}
-```
-
----
-
-### 2) `products_read` (read-model)
-Purpose: Denormalized product payload optimized for ProductDetail page (one doc per slug+locale, optionally per variant). These documents are the ones cached on CDN or Redis for instant responses.
-
-Key fields:
-- `_id: string` (format: `${slug}|${locale}`)
-- `productId: ObjectId`
-- `locale: 'en'|'ar'`
-- `slug, title, descriptionHtml`
-- `priceDisplay: string`, `numericPrice: number`, `oldPrice?: number`, `discountPercentage?: number`
-- `primaryImage: string`, `gallery: [{url,width,height}]`
-- `colorVariants: [{ id,name,hexCode,images, sku, inStock }]`
-- `specsTop4: [...]` (for summary)
-- `specsAll: [...]` (full list)
-- `keyFeatures: []`
-- `inTheBox: [{en,ar}]`
-- `offersSnapshot: [{ offerId, title, discount, validUntil }]
-- `seo: {...}`
-- `precomputedPurchaseOptions` (charge options + display strings)
-- `updatedAt`
+## 3.7 `carts`
+- `_id`, `userId` or `sessionId`
+- `items[]`, `totalsSnapshot`, `appliedOffersPreview`
+- `updatedAt`, `expiresAt`
 
 Indexes:
-- `{ _id:1 }` (slug|locale)
-- `{ productId:1 }`
+- `{ userId: 1 }`, `{ sessionId: 1 }`
+- TTL: `{ expiresAt: 1 }`
 
-Generation: background worker builds this from `products`, `offers`, `categories`, and `assets` whenever product or related offer/category changes.
+## 3.8 `showrooms`
+- `_id`, `code`, `name: {en, ar}`, `city: {en, ar}`
+- `address`, `phone`, `location: { type:'Point', coordinates:[lng,lat] }`
+- `hours`, `services`, `isActive`
 
-Sample:
-```json
-{
-  "_id": "phone-model-x|en",
-  "productId": "ObjectId(...)",
-  "locale":"en",
-  "title":"Phone Model X",
-  "descriptionHtml":"<p>...</p>",
-  "priceDisplay":"$199.99",
-  "primaryImage":"https://cdn/.../hero.jpg",
-  "gallery":["..."],
-  "inTheBox":[{"en":"User Manual","ar":"دليل المستخدم"}],
-  "offersSnapshot":[{"offerId":"ObjectId(...)","title":"Summer Sale","discount":20}],
-  "updatedAt":"2026-02-15T...Z"
-}
-```
+Indexes:
+- `{ code: 1 }` unique
+- `2dsphere` on `location`
+- `{ isActive: 1, 'city.en': 1 }`
 
-Read usage: Product detail page reads this doc and renders immediately. No joins required.
+## 3.9 `notifications`
+- `_id`, `type`, `title: {en, ar}`, `message: {en, ar}`
+- `recipientType`, `recipientQuery` or `recipientIds`
+- `channels`, `navigation`, `priority`
+- `status: draft|scheduled|sent|failed`
+- `scheduleAt`, `sentAt`, `createdBy`, `createdAt`
+- `metrics: { sent, delivered, opened, clicked, dismissed }`
+
+Indexes:
+- `{ status: 1, scheduleAt: 1 }`
+- `{ createdBy: 1, createdAt: -1 }`
+
+## 3.10 `assets`
+- `_id`, `storageKey`, `cdnUrl`, `variants`, `mimeType`, `size`
+- `width`, `height`, `alt: {en, ar}`
+
+Indexes: `{ storageKey: 1 }` unique
+
+## 3.11 Service-related collections (missing before, required now)
+
+### `warranties`
+- `serialNumber` unique, `imei`, `userId`, `productId`, `purchaseOrderId`
+- `coverageType`, `startsAt`, `endsAt`, `claimsUsed`, `maxClaims`, `isActive`
+
+Index: `{ serialNumber: 1 }` unique, `{ userId: 1, endsAt: 1 }`
+
+### `maintenance_tickets`
+- `ticketNumber` unique, `serialNumber`, `userId`, `productSnapshot`
+- `statusCode` (1..15), `statusLabel`, `timeline[]`, `technicianId`
+- `receivedAt`, `eta`, `closedAt`
+
+Index: `{ ticketNumber: 1 }` unique, `{ userId: 1, statusCode: 1, updatedAt: -1 }`
+
+### `payment_transactions` (for e-payment service)
+- `transactionId` unique, `provider`, `serviceType`, `accountRef`, `amount`, `status`
+- `requestedBy`, `createdAt`, `settledAt`
+
+Index: `{ transactionId: 1 }` unique, `{ status: 1, createdAt: -1 }`
+
+### `service_requests` (printing/gaming/other service forms)
+- `_id`, `type`, `userId`, `payload`, `status`, `assignedTo`, `createdAt`, `updatedAt`
+
+Index: `{ type: 1, status: 1, createdAt: -1 }`
 
 ---
 
-### 3) `categories`
-Fields: `_id, slug, nameEn, nameAr, parentId?, descriptionEn?, descriptionAr?, featuredProductIds?: [productId], seo?, sortOrder?`
-Indexes: `{ slug:1 }`
-Usage: categories page, breadcrumbs, filters, category listing precomputed pages.
+## 4) Admin + Super Admin Data Collections (Reporting)
 
----
+## 4.1 `admin_actions`
+Append-only audit for all admin/super-admin actions.
 
-### 4) `brands`
-Fields: `_id, nameEn, nameAr, slug, logoAssetId, featuredProductIds[]`
-Indexes: `{ slug:1 }`
-Usage: brand page, filters.
-
----
-
-### 5) `offers`
-Purpose: store promotion rules and metadata.
 Fields:
-- `_id, code, titleEn, titleAr, descriptionEn, descriptionAr`
-- `type: 'percentage'|'fixed'|'bundle'|'buyXgetY'`
-- `value: number`
-- `appliesTo: { products?: [ObjectId], categories?: [ObjectId], brands?: [ObjectId], all?: boolean }`
-- `startAt, endAt, active: boolean, combinable: boolean`
-- `conditions: { minQuantity?, customerGroups? }`
-- `createdAt, updatedAt`
+- `_id`, `actorUserId`, `actorRole`, `actionType`
+- `targetType`, `targetId`, `targetNameSnapshot`
+- `changes: [{ field, oldValue, newValue }]`
+- `requestMeta: { ip, userAgent, traceId }`
+- `durationMs`, `status`, `note`, `createdAt`
 
 Indexes:
-- `{ code:1 } unique`
-- TTL or range queries support: `{ active:1, startAt:1, endAt:1 }`
+- `{ actorUserId: 1, createdAt: -1 }`
+- `{ targetType: 1, targetId: 1, createdAt: -1 }`
+- `{ actionType: 1, createdAt: -1 }`
 
-Usage:
-- Worker computes `offersSnapshot` for `products_read`.
-- Checkout calculates valid offers for `orders` (re-evaluate at checkout for correctness).
+## 4.2 `product_revisions`
+Version history for product tracking and edit-history modal.
 
-Sample:
-```json
-{ "_id":"ObjectId(...)","code":"SUMMER23","titleEn":"Summer Sale","type":"percentage","value":15,"appliesTo":{"categories":["ObjectId(...)"]},"startAt":"2026-06-01T...Z","endAt":"2026-06-30T...Z","active":true }
-```
-
----
-
-### 6) `orders`
-Purpose: store transactions, immutable snapshots for accounting/audit.
 Fields:
-- `_id, orderNumber (string unique), userId?, customer: { name,email,phone }, items: [{ productId, sku, nameEn, nameAr, unitPrice, qty, totalPrice, color, variantImage }], subtotal, shippingAmount, taxAmount, totalAmount, currency, appliedOffers:[{offerId,code,amountDiscount}], orderStatus, payment:{method, provider, transactionId, status}, shippingAddress, billingAddress, fulfillment:{type, showroomId?}, events:[], createdAt, updatedAt`
+- `_id`, `productId`, `version`
+- `snapshot` (minimal diff or full snapshot)
+- `editedBy`, `editedAt`, `reason`
 
 Indexes:
-- `{ orderNumber:1 } unique`, `{ userId:1, createdAt:-1 }`.
+- `{ productId: 1, version: -1 }`
+- `{ editedBy: 1, editedAt: -1 }`
 
-Usage:
-- Checkout writes this; post-order workers handle stock decrement, notifications, fulfillment.
+## 4.3 `web_events` (time-series recommended)
+For website traffic report.
 
-Notes on connection to cart and applied offers:
-- `carts` (if you persist server-side) should store the `appliedOffers` snapshot when the user proceeds to checkout. That snapshot contains `{ offerId, code, amountDiscount, metadata }` so the client and server agree on what discounts were applied at checkout time.
-- The `orders` document must persist the `appliedOffers` snapshot from the cart (or re-evaluation result) into `orders.appliedOffers`. This preserves auditability and prevents future price/offer changes from invalidating old orders.
-- Optionally include a `cartId` (or `cartSnapshotId`) field in `orders` referencing the cart record used to create the order for traceability.
-- During checkout, always re-validate offers and stock against master `offers` and `products` collections; but persist the snapshot used for the final charge in `orders`.
+Fields:
+- `eventAt`, `sessionId`, `userId?`, `eventType` (page_view, click, search, add_to_cart, etc.)
+- `path`, `referrer`, `deviceType`, `browser`, `country`, `city`
+- `metadata`
+
+Use MongoDB time-series:
+- `timeField: eventAt`
+- `metaField: { sessionId, userId, deviceType, country }`
+
+Indexes:
+- `{ eventAt: -1 }`
+- `{ 'meta.userId': 1, eventAt: -1 }`
+
+## 4.4 `cart_events` (time-series or append-only)
+For conversion funnel reports.
+
+Fields:
+- `eventAt`, `userId?`, `sessionId`, `productId`, `action: added|removed|converted`
+- `cartId`, `orderId?`, `qty`, `priceSnapshot`
+
+Indexes:
+- `{ productId: 1, eventAt: -1 }`
+- `{ userId: 1, eventAt: -1 }`
+
+## 4.5 `notification_events`
+For notification analytics report.
+
+Fields:
+- `eventAt`, `notificationId`, `userId`, `channel`, `eventType: delivered|opened|clicked|dismissed`
+
+Indexes:
+- `{ notificationId: 1, eventType: 1, eventAt: -1 }`
+- `{ userId: 1, eventAt: -1 }`
+
+## 4.6 `report_daily_kpis` (materialized rollups)
+Primary source for super-admin dashboard cards/charts.
+
+Fields:
+- `date` (UTC day)
+- `traffic: { sessions, uniqueUsers, loggedInUsers, avgSessionSec, byDevice }`
+- `sales: { orders, revenue, avgOrderValue, discountAmount, byStatus }`
+- `notifications: { sent, delivered, opened, clicked, dismissed }`
+- `admin: { actionCount, byType, byAdmin }`
+- `products: { editedCount, hiddenCount, topEdited[] }`
+
+Indexes:
+- `{ date: 1 }` unique
+- Optional monthly partition key if very large scale
 
 ---
 
-### 7) `carts` (optional server-side)
-Purpose: persistent per-user or per-session cart for cross-device continuity.
-Fields: `{ _id, userId?, sessionId?, items:[{productId, sku, qty, chosenColor, priceSnapshot}], updatedAt }`
-TTL for guest carts optional.
+## 5) Read Models for Fast UI
+
+These are generated asynchronously from write collections:
+
+- `home_read` (`home|en`, `home|ar`): hero banners, sections, category cards, offer blocks.
+- `product_detail_read` (`{slug}|{locale}`): full PDP payload.
+- `products_read`: card/list summaries for sliders/search/category.
+- `category_brand_read` (`{categorySlug}|{locale}`): category with brand cards for home/footer/nav.
+- `offers_read` (`{offerType}|{locale}`): offer page payload.
+- `showrooms_read` (`showrooms|{locale}`): cached showroom payload.
+- `footer_read` (`footer|{locale}`): category/brand/footer links.
+
+Read model indexes:
+- `_id` unique on each read collection.
+- Keep docs compact and cacheable.
 
 ---
 
-### 8) `users` and `customers`
-`users` for auth & app preference; `customers` (optional) for CRM/checkout details.
-Users fields: `_id, email, passwordHash, roles, profile:{firstName,lastName,locale,preferredShowroom}, preferences:{currency,language,notificationPrefs}, createdAt`.
-Indexes: `{ email:1 } unique`.
+## 6) Required Edits to Existing Objects (Important)
 
-Customers fields: `_id, userId?, name, emails[], phones[], addresses[], billingProfiles[], loyaltyPoints`.
+To enable accurate reports and admin features, apply these object edits:
 
-Usage: auth, account pages, notification targeting.
+1. `products` add:
+- `status.isHidden`, `status.hideReason`, `audit.updatedBy`, `version`.
+- Reason: product tracking, hidden/visible stats, edit history.
+
+2. `orders` add:
+- `statusHistory[]`, `appliedOffersSnapshot`, `updatedByAdminId` (for manual status updates).
+- Reason: sales status-change log report + audit-safe totals.
+
+3. `users` add:
+- `role`, `adminMeta.privilegeSetId`, `adminMeta.level`, `adminMeta.isSuspended`.
+- Reason: admin management page and privilege editing.
+
+4. `notifications` add:
+- `metrics` counters + immutable delivery events in `notification_events`.
+- Reason: open/click/dismiss reports without heavy recompute.
+
+5. `showrooms` add:
+- geospatial `location` and normalized `isActive`.
+- Reason: performant map/filter/nearest queries.
+
+6. `offers` add:
+- `priority`, `stackable`, normalized `scope`.
+- Reason: deterministic checkout calculation and offer reports.
+
+7. Add new collections:
+- `admin_actions`, `product_revisions`, `web_events`, `cart_events`, `notification_events`, `report_daily_kpis`, `warranties`, `maintenance_tickets`, `payment_transactions`, `service_requests`.
 
 ---
 
-### 9) `showrooms`
-Fields: `{ _id (string code), code, city, name, address, phone, coords:{lat,lng}, hours:{mon..sun}, imageUrl, week_end, services:[string], updatedAt }`.
-Indexes: `{ city:1 }`, `2dsphere` on coords for geo queries.
-Usage: Showrooms page, pickup selection in checkout, nearest showroom lookups.
+## 7) Performance & Scale Recommendations
 
-Sample:
-```json
-{ "_id":"S222","code":"S222","city":"دمشق","name":"البرامكة","address":"...","phone":"011-9909","coords":{"lat":33.5064,"lng":36.285} }
+1. Prefer read models + CDN for home/category/brand/offers/showrooms/footer payloads.
+2. Use Atlas Search for multilingual product search/facets.
+3. Use time-series collections for high-volume events (`web_events`, `cart_events`, `notification_events`).
+4. Build daily rollups (`report_daily_kpis`) every hour + end-of-day finalize.
+5. Keep raw events TTL-retained (example: 90-180 days), keep rollups long-term.
+6. Use partial indexes for active data (example: active offers, non-deleted products).
+7. Keep admin audit append-only and immutable.
+8. Avoid joins at request time; precompute read models asynchronously.
+
+---
+
+## 8) Suggested Index Commands (Core)
+
+```javascript
+// products
+ db.products.createIndex({ sku: 1 }, { unique: true })
+ db.products.createIndex({ slug: 1 }, { unique: true })
+ db.products.createIndex({ brandId: 1, categoryIds: 1, 'status.isActive': 1, 'status.isHidden': 1 })
+
+// orders
+ db.orders.createIndex({ orderNumber: 1 }, { unique: true })
+ db.orders.createIndex({ userId: 1, createdAt: -1 })
+ db.orders.createIndex({ status: 1, createdAt: -1 })
+
+// admin actions
+ db.admin_actions.createIndex({ actorUserId: 1, createdAt: -1 })
+ db.admin_actions.createIndex({ targetType: 1, targetId: 1, createdAt: -1 })
+
+// notifications + events
+ db.notifications.createIndex({ status: 1, scheduleAt: 1 })
+ db.notification_events.createIndex({ notificationId: 1, eventType: 1, eventAt: -1 })
+
+// report rollups
+ db.report_daily_kpis.createIndex({ date: 1 }, { unique: true })
 ```
 
 ---
 
-### 10) `pages` (CMS)
-Per-locale page content for static pages: `{ _id:"home|en", key:"home", locale:"en", html:"..", blocks:[...], seo:{}}`.
-Usage: home, about, legal, faq.
+## 9) Migration Checklist (from current static/mocked setup)
+
+1. Migrate static files (`categories.json`, `brands.json`, `showrooms.json`, `site-static.json`) into master collections.
+2. Add missing fields listed in section 6.
+3. Create read-model generator workers.
+4. Start writing admin actions + product revisions from admin pages.
+5. Start collecting web/cart/notification events.
+6. Build `report_daily_kpis` job and switch super-admin pages to rollups.
+7. Add TTL/retention policies to raw events.
 
 ---
 
-### 11) `translations`
-UI strings per-locale (also can be static JSON files). `{ locale:"en", strings: {...}, updatedAt }`.
-Usage: client i18n bundle and server-side text.
+## 10) Notes
 
----
-
-### 12) `assets`
-Image metadata and responsive srcsets: `{ _id, originalUrl, cdnPaths:{"1200":"...","600":"..."}, width, height, aspect, altEn, altAr, tags }`.
-Usage: image srcset generation and validation.
-
----
-
-### 13) `notifications`
-Queued & delivered notifications: `{ _id, targetUserId?, channels:["email","push","inapp"], template, payload, status:"pending|sent|failed", attempts, lastAttemptAt, createdAt }`.
-Usage: in-app badges/unread counts, push/email delivery.
-
----
-
-### 14) `webhooks/events` (change/invalidation queue)
-Event queue storing tasks for workers: `{ _id, type:"product.updated", payload:{ productId }, status:"pending", attempts, runAfter }`.
-Workers pick pending events to regenerate read-models and call CDN invalidation.
-
----
-
-### 15) `analytics_events` (optional)
-Store RUM or event logs for analysis: short retention, or stream to analytics system.
-
----
-
-### 16) `admin_audit`
-Audit trail for admin changes: `{ _id, actorUserId, action, objectType, objectId, before, after, at }`.
-
----
-
-## Indexes summary
-- `products`: `{ slug:1 } unique`, `{ sku:1 } unique`, `{ categories:1 }`, text index on searchable fields.
-- `products_read`: `{ _id:1 }` (slug|locale), `{ productId:1 }`.
-- `categories`: `{ slug:1 }`.
-- `offers`: `{ code:1 } unique`, `{ active:1, startAt:1, endAt:1 }`.
-- `orders`: `{ orderNumber:1 } unique`, `{ userId:1, createdAt:-1 }`.
-- `users`: `{ email:1 } unique`.
-- `showrooms`: `{ city:1 }`, `2dsphere` on `coords`.
-- `webhooks/events`: `{ status:1, runAfter:1 }`.
-
-Consider Redis caches for hot `products_read` documents and counters (unread notifications, cart counts).
-
----
-
-## Change flows & worker responsibilities
-1. Admin edits a product (write to `products`).
-2. Write triggers an event (change-stream or push to `webhooks/events`).
-3. Background worker consumes event, regenerates `products_read` for affected locales/variants, updates search index, writes any derived static JSON files, and enqueues CDN invalidation.
-4. CDN invalidation or versioned path promotion ensures new payloads served at edge.
-
-Idempotency: worker jobs should be idempotent and use `attempts` counters + dead-letter handling.
-
----
-
-## Minimal queries per page (performance checklist)
-To keep page requests minimal and fast, front-end pages should read small, precomputed payloads. Below are recommended single-document reads (or small, cached endpoints) per page:
-
-- Product Detail Page:
-  - Read `products_read` by `_id` (slug|locale) from CDN/Redis or the DB. This single document contains all images, specs (EN/AR), inTheBox (EN/AR), offersSnapshot and precomputed price displays. No additional DB joins required.
-  - If dynamic stock or realtime price is required, call a small dynamic endpoint `/api/products/{id}/stock` that returns only stock/price TTL-sensitive fields.
-
-- Category / Listing Page:
-  - Read a precomputed listing JSON (`category_pages` or `categories_read`) containing paginated arrays of product summaries (id, slug, title, priceDisplay, primaryImage). Avoid per-item product reads.
-
-- Home Page:
-  - Read `home_page` (single JSON) for hero banners, featured product summaries (id + read snapshot short fields), and translations.
-
-- Search:
-  - Query dedicated search index (Meili/Algolia/Elastic). Only fetch product summaries from search results (IDs + price + image). If necessary, fetch `products_read` for top N items by id in a batched request.
-
-- Showrooms Page:
-  - Serve a static JSON `showrooms.{locale}.json` from CDN (single file). For nearest search, call a geo endpoint that queries `showrooms` with a `near` geospatial index.
-
-- Checkout Page:
-  - Read cart summary (server-side `carts` doc or client session). For each item, use `products_read` only if additional display data is required; otherwise persist necessary snapshots (name, price, variantImage) in the `cart` to avoid reads.
-  - At confirmation, server re-evaluates offers via `offers` collection and products stock via `products` master before writing `orders`.
-
-- Account / Orders Page:
-  - Query `orders` by `userId` paginated; each `orders` doc contains item snapshots and appliedOffers snapshot so UI can render without product joins.
-
-- Admin pages (product edit):
-  - Read `products` master for editing and use change-stream to trigger `products_read` regeneration. Admin may also fetch `products_read` for preview.
-
-General principles:
-- Always prefer single-document reads for page render.
-- Keep TTL-sensitive values (stock/flash price) in separate small endpoints to allow long CDN TTLs for heavy payloads.
-- Batch requests when you must fetch multiple `products_read` docs (use one request that accepts multiple ids and returns array).
-
----
-
-## Static JSON files for low-change data
-For data that changes infrequently (site metadata, showrooms, category lists, translations), publish versioned JSON files to the CDN under `public/static/` and serve them directly to the client. Examples created in this repo:
-- `/static/showrooms.json` — grouped showrooms structure for the Showrooms page.
-- `/static/site-static.json` — site-level metadata, category names, and other editable non-frequent content.
-
-Advantages:
-- Zero DB reads at runtime for these pages.
-- Easy manual editing or CI-driven update and CDN invalidation.
-
-
----
-
-## Checkout & offers
-- At checkout, server should read `products_read` for display and to minimize lookups, but re-evaluate `offers` and `stock` using master collections to ensure correctness.
-- Apply offers deterministically and persist `appliedOffers` snapshots to the `orders` document for audit.
-- Use transactions for stock decrement if running on MongoDB replica set supporting multi-doc transactions.
-
----
-
-## Search
-- Use a dedicated search index (Meili/Algolia/Elastic) synced from `products`.
-- Fields: nameEn/nameAr, tags, specs keywords, categories, brand, price, inStock.
-- For facets (price range, brand, category), precompute attribute buckets during read-model generation.
-
----
-
-## Caching & CDN
-- Serve `products_read` as JSON from CDN with long TTL and versioned URLs (`/products/{slug}.{locale}.json?v={hash}`).
-- Use `stale-while-revalidate` at edge if supported to avoid cold-cache latency.
-- For highly dynamic fields (stock, price during flash sale) use short TTL or a separate dynamic endpoint that merges into client-side hydration.
-
----
-
-## Migration suggestions
-1. Export existing product dataset to JSON.
-2. Normalize fields into `products` master shape (ensure bilingual fields exist, specs normalized, inTheBox as objects).
-3. Run a job to create `products_read` docs for each locale (en/ar) using templates.
-4. Validate product pages for a small set (smoke test), then roll out incrementally.
-
----
-
-## Operational & monitoring
-- Metrics: worker job durations, queue depths, CDN invalidation latency, products_read generation TPS, cache hit ratio, API latency.
-- Alerts: worker failures > threshold, low cache-hit rate, high queue backlogs, high error-rate.
-- Backups: daily snapshots, point-in-time restore retention policy.
-
----
-
-## Next steps / artifacts you may want me to create
-- Concrete JSON Schema (JSON Schema draft) for each collection.
-- `mongo` `createIndex()` commands for all recommended indexes.
-- Worker pseudo-code (Node + BullMQ) for change->regen->invalidate flow.
-- Example migration scripts to transform current `src/data/products.ts` into `products` docs.
-
-Tell me which artifact you need next and I will generate it (JSON schema, indexes, worker code, or migration script).\\
+- This schema is intentionally designed for the current UI and routes.
+- If a page still reads local static/mock data, map it to the corresponding collection above before backend rollout.
+- Keep API responses thin and page-specific; avoid generic large payload endpoints.

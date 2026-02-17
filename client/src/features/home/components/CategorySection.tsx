@@ -27,27 +27,75 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [categories, setCategories] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [centerItems, setCenterItems] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const load = async () => {
       try {
-        const res = await fetch('/static/categories.json');
-        if (!res.ok) return;
-        const json = await res.json();
+        const [categoriesRes, brandsRes] = await Promise.all([
+          fetch('/static/categories.json'),
+          fetch('/static/brands.json'),
+        ]);
+        if (!categoriesRes.ok) {
+          // Keep shimmer visible and retry on transient/static-server failures.
+          if (mounted) {
+            retryTimer = setTimeout(load, 3000);
+          }
+          return;
+        }
+        const categoriesJson = await categoriesRes.json();
+        const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
         if (!mounted) return;
+        const brandsByCode = new Map<string, any>();
+        const brandsByName = new Map<string, any>();
+        (Array.isArray(brandsJson) ? brandsJson : []).forEach((b: any) => {
+          if (b?.brand_code != null) {
+            brandsByCode.set(String(b.brand_code), b);
+          }
+          if (b?.name) {
+            brandsByName.set(String(b.name).trim().toLowerCase(), b);
+          }
+          if (b?.englishName) {
+            brandsByName.set(String(b.englishName).trim().toLowerCase(), b);
+          }
+        });
+
         setCategories(
-          json.map((c: any) => ({ ...c, icon: iconsMap[c.iconName] || ChevronUp }))
+          (Array.isArray(categoriesJson) ? categoriesJson : []).map((c: any) => ({
+            ...c,
+            icon: iconsMap[c.iconName] || ChevronUp,
+            brands: (Array.isArray(c.brands) ? c.brands : []).map((brand: any) => {
+              if (typeof brand === 'string') {
+                const match = brandsByName.get(brand.trim().toLowerCase());
+                return match ? { ...brand, ...match } : { name: brand };
+              }
+              const codeMatch = brand?.brand_code != null
+                ? brandsByCode.get(String(brand.brand_code))
+                : null;
+              const nameKey = String(brand?.name || brand?.englishName || '').trim().toLowerCase();
+              const nameMatch = nameKey ? brandsByName.get(nameKey) : null;
+              return { ...brand, ...(codeMatch || nameMatch || {}) };
+            }),
+          }))
         );
+        setIsLoading(false);
       } catch (e) {
-        // fallback: keep categories empty
+        // Keep shimmer visible and retry on network/timeouts.
         console.warn('Failed to load categories.json', e);
+        if (mounted) {
+          retryTimer = setTimeout(load, 3000);
+        }
       }
     };
     load();
     return () => {
       mounted = false;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
     };
   }, []);
 
@@ -180,7 +228,19 @@ const CategorySection: React.FC<CategorySectionProps> = ({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleMouseUp}
         >
-          {categories.map((category, index) => {
+          {isLoading &&
+            Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={`category-skeleton-${idx}`}
+                className="flex-shrink-0 w-32 sm:w-36 md:w-40 bg-white rounded-lg p-4 md:p-6 shadow-lg border-2 border-gray-100"
+              >
+                <div className="flex flex-col items-center text-center gap-2 md:gap-3">
+                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-lg shimmer-surface" />
+                  <div className="h-3 md:h-4 w-20 md:w-24 skeleton-line shimmer-surface" />
+                </div>
+              </div>
+            ))}
+          {!isLoading && categories.map((category, index) => {
             const IconComponent = category.icon;
             const isSelected = selectedCategory === index;
             
@@ -264,6 +324,19 @@ const CategorySection: React.FC<CategorySectionProps> = ({
             <div className="flex justify-center">
               {(() => {
                 const brandsList = categories[selectedCategory]?.brands || [];
+                if (isLoading) {
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 w-full">
+                      {Array.from({ length: 4 }).map((_, idx) => (
+                        <div key={`brand-skeleton-${idx}`} className="bg-white rounded-2xl p-5 md:p-6 shadow-md border border-gray-100 skeleton-card">
+                          <div className="w-full h-28 sm:h-32 md:h-36 rounded-2xl shimmer-surface mb-4" />
+                          <div className="h-4 w-2/3 mx-auto skeleton-line shimmer-surface" />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
                 if (!brandsList || brandsList.length === 0) {
                   return (
                     <div className="col-span-full text-center py-8 text-gray-500">
@@ -274,21 +347,14 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                   );
                 }
 
-                const count = Math.max(1, brandsList.length);
-                const cols = Math.min(count, 6);
-                const colWidth = 220;
-
                 return (
-                  <div
-                    className="grid gap-4 md:gap-5"
-                    style={{ gridTemplateColumns: `repeat(${cols}, ${colWidth}px)` }}
-                  >
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-5 w-full">
                     {brandsList.map((brand: any, idx: number) => {
                       const brandObj = typeof brand === 'string' ? { name: brand } : brand;
                       return (
                         <div
                           key={brandObj.brand_code || idx}
-                          className="bg-white rounded-2xl p-5 md:p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group"
+                          className="bg-white rounded-2xl p-3 sm:p-4 md:p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group min-w-0"
                           onClick={() => {
                             if (onBrandClick) {
                               onBrandClick(
@@ -300,19 +366,19 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                           }}
                         >
                           <div className="flex flex-col items-center text-center">
-                            <div className="w-full aspect-square bg-gray-50 rounded-2xl flex items-center justify-center mb-4 p-6 md:p-8 group-hover:bg-gray-100 transition-colors">
+                            <div className="w-full h-32 sm:h-36 md:h-40 bg-gray-50 rounded-2xl flex items-center justify-center mb-3 md:mb-4 p-3 sm:p-4 md:p-6 group-hover:bg-gray-100 transition-colors">
                               <img
                                 src={brandObj.image || "https://via.placeholder.com/150"}
                                 alt={`${brandObj.name} Logo`}
-                                className="w-full h-full object-contain"
+                                className="w-auto h-auto max-w-full max-h-full object-contain object-center"
                               />
                             </div>
                             {language === "ar" ? (
-                              <h4 className="text-gray-900 mb-1.5 text-base md:text-lg">
+                              <h4 className="text-gray-900 mb-1.5 text-xs sm:text-sm md:text-lg break-words">
                                 {brandObj.name}
                               </h4>
                             ) : (
-                              <h4 className="text-gray-900 mb-1.5 text-base md:text-lg">
+                              <h4 className="text-gray-900 mb-1.5 text-xs sm:text-sm md:text-lg break-words">
                                 {brandObj.englishName || brandObj.name}
                               </h4>
                             )}
