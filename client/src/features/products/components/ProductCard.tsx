@@ -7,11 +7,13 @@ import { useNavigate } from "react-router-dom";
 import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
+import { getProductRef } from "../../../utils/entityRefs";
+import { getOfferPricing } from "../../../data/products";
 
 export interface ProductCardProps {
   product: Product;
-  toggleCompare: (productId: number) => void;
-  compareItems: number[];
+  toggleCompare: (productId: string) => void;
+  compareItems: string[];
   language: "ar" | "en";
   onQuickView?: () => void;
   topBadge?: React.ReactNode;
@@ -28,24 +30,43 @@ const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const { addToCart } = useCart();
   const navigate = useNavigate();
+  const resolveNumericId = (value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value.replace(/[^\d]/g, ""));
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return null;
+  };
+  const resolvedProductId =
+    resolveNumericId((product as any).id) ??
+    resolveNumericId((product as any).stk_code) ??
+    resolveNumericId((product as any).sku);
+  const productRef = getProductRef(product);
+  const resolvedCartId = productRef || resolvedProductId || `product-${product.name}`;
+  const safeColorVariants = Array.isArray(product.colorVariants)
+    ? product.colorVariants
+    : [];
+  const safeChargeOptions = Array.isArray(product.chargeOptions)
+    ? product.chargeOptions
+    : [];
   const [selectedColor, setSelectedColor] = useState(
-    product.colorVariants?.[0]?.name || "",
+    safeColorVariants[0]?.name || "",
   );
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [selectedChargeOption, setSelectedChargeOption] = useState(
-    product.chargeOptions?.[0]?.id || null,
+    safeChargeOptions[0]?.id || null,
   );
   const [isHovered, setIsHovered] = useState(false);
 
   // Use hovered color if available, otherwise use selected color
   const displayColor = hoveredColor || selectedColor;
   const currentImage =
-    product.colorVariants?.find((v) => v.name === displayColor)?.image ||
+    safeColorVariants.find((v) => v.name === displayColor)?.image ||
     product.image;
 
-  const hasColors = product.colorVariants && product.colorVariants.length > 0;
-  const hasChargeOptions =
-    product.chargeOptions && product.chargeOptions.length > 0;
+  const hasColors = safeColorVariants.length > 0;
+  const hasChargeOptions = safeChargeOptions.length > 0;
 
   const badgeText = (() => {
     if (product.isMostSold) return language === "ar" ? "الأكثر مبيعاً" : "MOST SOLD";
@@ -79,19 +100,22 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   // Robust compare match: support string or number ids
   const isCompared = Array.isArray(compareItems)
-    ? compareItems.some((id) => String(id) === String(product.id))
+    ? compareItems.some((id) => String(id) === String(productRef))
     : false;
 
-  const currentChargeOption = product.chargeOptions?.find(
+  const currentChargeOption = safeChargeOptions.find(
     (opt) => opt.id === selectedChargeOption,
   );
 
   const handleAddToCart = () => {
     const chosenColor = hasColors ? selectedColor : undefined;
-    const chosenColorHex = product.colorVariants?.find((v) => v.name === chosenColor)?.hexCode || null;
-    const chosenVariantImage = product.colorVariants?.find((v) => v.name === chosenColor)?.image || null;
+    const chosenColorHex =
+      safeColorVariants.find((v) => v.name === chosenColor)?.hexCode || null;
+    const chosenVariantImage =
+      safeColorVariants.find((v) => v.name === chosenColor)?.image || null;
     const chargeLabel = currentChargeOption?.value || currentChargeOption?.valueAr || null;
-    addToCart(product, {
+    addToCart({ ...product, id: resolvedProductId ?? (product as any).id }, {
+      customId: String(resolvedCartId),
       color: chosenColor,
       variantColorHex: chosenColorHex,
       variantImage: chosenVariantImage,
@@ -108,16 +132,37 @@ const ProductCard: React.FC<ProductCardProps> = ({
     setHoveredColor(colorName);
   };
 
+  const parseNumericPrice = (value: unknown): number => {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    if (typeof value === "string") {
+      const cleaned = value.replace(/,/g, "").trim();
+      const parsed = Number(cleaned);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
+  const selectedSourcePrice = currentChargeOption
+    ? parseNumericPrice(currentChargeOption.price)
+    : parseNumericPrice(
+        typeof product.basePrice === "number" ? product.basePrice : product.price,
+      );
+  const offerPricing = getOfferPricing(product as any, {
+    sourcePrice: selectedSourcePrice,
+  });
+  const currentPriceNum = offerPricing.currentPrice;
+  const oldPriceNum = offerPricing.originalPrice;
+  const hasOldPrice = offerPricing.hasDiscount;
+  const hasDiscount = offerPricing.hasDiscount;
+
   const displayPrice = currentChargeOption
-    ? currentChargeOption.price.toLocaleString("en-US")
-    : typeof product.basePrice === "number"
-    ? product.basePrice.toLocaleString("en-US")
-    : product.price;
+    ? currentPriceNum.toLocaleString("en-US")
+    : currentPriceNum.toLocaleString("en-US");
   const handleNavigate = () => {
     if (onProductClick) {
       onProductClick(product);
     } else {
-      navigate(`/product/${product.id}`, { state: { product } });
+      navigate(`/product/${productRef || resolvedProductId || product.id || ""}`, { state: { product } });
     }
   };
 
@@ -150,17 +195,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   console.log("[ProductCard] compare button click", {
-                    id: product.id,
+                    id: resolvedProductId ?? product.id,
                     toggleCompareType: typeof toggleCompare,
                     toggleCompareExists: !!toggleCompare,
                   });
                   try {
-                    if (toggleCompare) {
-                      toggleCompare(product.id);
+                    if (toggleCompare && productRef) {
+                      toggleCompare(productRef);
                     } else {
                       console.warn(
-                        "[ProductCard] toggleCompare is undefined for product",
-                        product.id,
+                        "[ProductCard] compare unavailable for product",
+                        resolvedProductId ?? product.id,
                       );
                     }
                   } catch (err) {
@@ -231,7 +276,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           {hasColors && (
             <div>
               <ColorSwatch
-                variants={product.colorVariants!}
+                variants={safeColorVariants}
                 selectedColor={selectedColor}
                 onColorChange={handleColorChange}
                 onColorHover={handleColorHover}
@@ -244,7 +289,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           {hasChargeOptions && (
             <div>
               <ChargeOptionSlider
-                options={product.chargeOptions!}
+                options={safeChargeOptions}
                 selectedId={selectedChargeOption || ""}
                 onSelect={setSelectedChargeOption}
                 language={language}
@@ -255,7 +300,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           {/* Price Section */}
           <div className="space-y-2">
             <div
-              className={`flex items-center ${product.oldPrice ? "justify-between" : "justify-start"}`}
+              className={`flex items-center ${hasDiscount ? "justify-between" : "justify-start"}`}
             >
               <div className={language === "ar" ? "text-right" : "text-left"}>
                 <div className="flex items-baseline gap-1">
@@ -265,22 +310,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   <span className="text-xs text-gray-500">$</span>
                 </div>
 
-                {product.oldPrice && (
+                {hasOldPrice && (
                   <div className="text-xs text-gray-400 line-through">
-                    {product.oldPrice} $
+                    {oldPriceNum.toLocaleString("en-US")} $
                   </div>
                 )}
               </div>
 
-              {product.oldPrice && (
+              {hasDiscount && (
                 <div className="bg-gradient-to-r from-red-500 to-red-600 text-white px-2 py-1 rounded-lg text-xs font-bold shadow-sm">
                   -
-                  {Math.round(
-                    ((parseFloat(product.oldPrice.replace(/,/g, "")) -
-                      parseFloat(product.price.replace(/,/g, ""))) /
-                      parseFloat(product.oldPrice.replace(/,/g, ""))) *
-                      100,
-                  )}
+                  {Math.round(((oldPriceNum - currentPriceNum) / oldPriceNum) * 100)}
                   %
                 </div>
               )}

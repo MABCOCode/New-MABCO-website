@@ -17,7 +17,7 @@ It includes:
 2. Use **read models/materialized views** for UI pages (`home_read`, `product_detail_read`, `category_brand_read`, etc.).
 3. Keep analytics/audit append-only in dedicated collections (`admin_actions`, `web_events`, `notification_events`).
 4. Generate reports from **daily rollups** (`report_daily_kpis`) instead of scanning large raw event collections.
-5. Keep mutable hot fields (stock/price/status) small and indexed.
+5. Keep mutable hot fields (availability/price/status) small and indexed.
 
 ---
 
@@ -27,7 +27,7 @@ All current routes/features and required data sources:
 
 - `/` Home: `home_read`, `categories`, `brands`, `offers`, `products_read`, `services_catalog`, `site_content`.
 - `/products`, `/search`: `search_index` (or Atlas Search on `products`), `products_read` summaries.
-- `/product/:id`: `product_detail_read` + optional dynamic stock/price endpoint from `inventory`.
+- `/product/:id`: `product_detail_read` + optional dynamic availability/price endpoint from `inventory`.
 - `/brand/:category/:id`, `/category/:id`: `category_brand_read` + `products_read` summaries.
 - `/offers/:offerType`: `offers_read` + product snapshots.
 - `/showrooms`: `showrooms` (or cached `showrooms_read`).
@@ -54,8 +54,10 @@ Key fields:
 - `name: { en, ar }`, `description: { en, ar }`
 - `categoryIds: ObjectId[]`, `brandId: ObjectId`
 - `pricing: { base, old, currency, taxClass }`
+- `chargeOptions: [{ id, value: { en, ar }, price, oldPrice?, currency, skuSuffix?, isDefault, sortOrder, isActive }]`
 - `specs: [{ key: {en, ar}, value: {en, ar}, sortOrder }]`
-- `variants: [{ code, color: {en, ar, hex}, images: [assetId], stockQty, priceDelta }]`
+- `availability: { isAvailable, hiddenReason?, lastSyncedAt }`
+- `variants: [{ code, color: {en, ar, hex}, images: [assetId], isAvailable, priceDelta }]`
 - `media: { primaryAssetId, galleryAssetIds: [] }`
 - `status: { isActive, isHidden, hideReason, visibleFrom, visibleTo }`
 - `metrics: { ratingAvg, ratingCount, soldCount30d, viewCount30d }`
@@ -66,6 +68,9 @@ Indexes:
 - `{ sku: 1 }` unique
 - `{ slug: 1 }` unique
 - `{ brandId: 1, categoryIds: 1, 'status.isActive': 1, 'status.isHidden': 1 }`
+- `{ 'availability.isAvailable': 1, 'status.isHidden': 1 }`
+- `{ 'chargeOptions.isActive': 1, 'chargeOptions.sortOrder': 1 }`
+- `{ 'chargeOptions.id': 1 }` (multikey, optional unique with partial filter if ids must be unique per product)
 - `{ updatedAt: -1 }`
 - Atlas Search index on localized name/description/specs
 
@@ -85,27 +90,38 @@ Index: `{ slug: 1 }` unique, `{ categoryIds: 1, isActive: 1 }`
 ## 3.4 `offers`
 - `_id`, `code` unique
 - `type: direct_discount|coupon|free_product|bundle_discount`
-- `title: {en, ar}`, `description: {en, ar}`
-- `scope: { allProducts, productIds, categoryIds, brandIds }`
-- `rule`, `priority`, `stackable`
-- `window: { startsAt, endsAt }`, `isActive`
+- Current working shape (from `client/src/data/products.ts`):
+- `titleEn`, `titleAr`, `descriptionEn`, `descriptionAr`
+- `direct_discount`: `discountType`, `discountValue`
+- `coupon`: `couponValue`, `eligibleProductIds[]`, `validityDays?`
+- `free_product`: `freeProductId`
+- `bundle_discount`: `discountPercentage`, `relatedProductIds[]`
+- Optional normalized shape for backend evolution: `content` + `definition`
+- `priority`, `window: { startsAt, endsAt }`, `isActive`
+- Optional targeting layer (if needed globally): `scope: { allProducts, productIds, categoryIds, brandIds }`
 
 Indexes:
 - `{ code: 1 }` unique
-- `{ isActive: 1, 'window.startsAt': 1, 'window.endsAt': 1 }`
-- `{ 'scope.categoryIds': 1, 'scope.brandIds': 1 }`
+- `{ type: 1, isActive: 1, 'window.startsAt': 1, 'window.endsAt': 1 }`
+- `{ priority: -1, createdAt: -1 }`
+- `{ 'definition.eligibleProductIds': 1 }` (coupon)
+- `{ 'definition.relatedProductIds': 1 }` (bundle)
+- `{ 'definition.freeProductId': 1 }` (free product)
+- Optional when using scope: `{ 'scope.categoryIds': 1, 'scope.brandIds': 1 }`
 
 ## 3.5 `users`
 - `_id`, `email` unique, `phone`
 - `name: { first, last, full, fullAr }`
 - `role: customer|admin|super_admin`
-- `adminMeta: { level, privilegeSetId, isSuspended }`
+- `adminMeta: { level, privilegeSetId, isSuspended, allowAllCategories, allowAllBrands, allowedCategoryIds[], allowedBrandIds[] }`
 - `preferences: { language, notificationChannels }`
 - `stats: { totalOrders, totalSpent, lastLoginAt }`
 
 Indexes:
 - `{ email: 1 }` unique
 - `{ role: 1, 'adminMeta.isSuspended': 1 }`
+- `{ role: 1, 'adminMeta.allowAllCategories': 1, 'adminMeta.allowedCategoryIds': 1 }`
+- `{ role: 1, 'adminMeta.allowAllBrands': 1, 'adminMeta.allowedBrandIds': 1 }`
 
 ## 3.6 `orders`
 - `_id`, `orderNumber` unique
@@ -126,6 +142,7 @@ Indexes:
 ## 3.7 `carts`
 - `_id`, `userId` or `sessionId`
 - `items[]`, `totalsSnapshot`, `appliedOffersPreview`
+- `limits: { maxPurchaseQuantityPerItem: 2 }` (or enforce globally in business rules)
 - `updatedAt`, `expiresAt`
 
 Indexes:
@@ -185,6 +202,24 @@ Index: `{ transactionId: 1 }` unique, `{ status: 1, createdAt: -1 }`
 - `_id`, `type`, `userId`, `payload`, `status`, `assignedTo`, `createdAt`, `updatedAt`
 
 Index: `{ type: 1, status: 1, createdAt: -1 }`
+
+## 3.12 `saved_spec_titles` (new, for Product Content Dashboard)
+Used by admin content editor autocomplete ("Saved Specifications") to keep spec titles consistent.
+
+Fields:
+- `_id`
+- `name: { en, ar }`
+- `icon: string` (icon key from icon library)
+- `usageCount: number`
+- `category?: string`
+- `status: { isActive: boolean }`
+- `audit: { createdBy, updatedBy, createdAt, updatedAt }`
+
+Indexes:
+- `{ 'name.en': 1 }` (case-insensitive collation recommended)
+- `{ 'name.ar': 1 }`
+- `{ usageCount: -1 }`
+- Optional unique index on normalized English name: `{ nameEnNormalized: 1 }`
 
 ---
 
@@ -269,6 +304,23 @@ Indexes:
 - `{ date: 1 }` unique
 - Optional monthly partition key if very large scale
 
+--- 
+
+## 4.7 `product_visibility_events` (optional but recommended)
+Tracks hide/show operations from admin content dashboard for audit and reporting.
+
+Fields:
+- `_id`, `productId`
+- `action: hidden|shown`
+- `actorUserId`, `actorRole`
+- `reason?`
+- `createdAt`
+
+Indexes:
+- `{ productId: 1, createdAt: -1 }`
+- `{ actorUserId: 1, createdAt: -1 }`
+- `{ action: 1, createdAt: -1 }`
+
 ---
 
 ## 5) Read Models for Fast UI
@@ -295,30 +347,46 @@ To enable accurate reports and admin features, apply these object edits:
 
 1. `products` add:
 - `status.isHidden`, `status.hideReason`, `audit.updatedBy`, `version`.
+- `chargeOptions[]` with localized labels and per-option pricing (`id`, `value.en/ar`, `price`, `oldPrice`, `isDefault`, `isActive`, `sortOrder`).
+- `availability.isAvailable` (boolean only for storefront visibility).
+- `variants[].isAvailable` (boolean only). Variants with `isAvailable: false` must not be returned by read models.
+- Auto-hide rule: if all variants are unavailable, set `status.isHidden: true` until restocked in inventory DB.
 - Reason: product tracking, hidden/visible stats, edit history.
+  and support for multi-charge products in card/PDP/cart flows.
 
-2. `orders` add:
+2. Add `saved_spec_titles` collection and use it in admin content editor autocomplete:
+- save spec title on product save (`name.en/ar`, `icon`, `usageCount`++)
+- search by locale (`en`/`ar`) and return top-used first.
+- Reason: avoid duplicate spec labels and enforce naming consistency.
+
+3. `orders` add:
 - `statusHistory[]`, `appliedOffersSnapshot`, `updatedByAdminId` (for manual status updates).
+- `items[].qty` remains purchase quantity (business cap: max 2 per line item).
 - Reason: sales status-change log report + audit-safe totals.
 
-3. `users` add:
+4. `users` add:
 - `role`, `adminMeta.privilegeSetId`, `adminMeta.level`, `adminMeta.isSuspended`.
+- `adminMeta.allowAllCategories`, `adminMeta.allowAllBrands`, `adminMeta.allowedCategoryIds[]`, `adminMeta.allowedBrandIds[]`.
 - Reason: admin management page and privilege editing.
 
-4. `notifications` add:
+5. `notifications` add:
 - `metrics` counters + immutable delivery events in `notification_events`.
 - Reason: open/click/dismiss reports without heavy recompute.
 
-5. `showrooms` add:
+6. `showrooms` add:
 - geospatial `location` and normalized `isActive`.
 - Reason: performant map/filter/nearest queries.
 
-6. `offers` add:
-- `priority`, `stackable`, normalized `scope`.
-- Reason: deterministic checkout calculation and offer reports.
+7. `offers` add:
+- `content.titleEn/titleAr/descriptionEn/descriptionAr`.
+- `definition` by `type` (`direct_discount`, `coupon`, `free_product`, `bundle_discount`).
+- keep `priority` + `window` for sorting and live activation.
+- optional `scope` only if you need category/brand-wide targeting.
+- Reason: deterministic checkout calculation and exact parity with frontend offer-type models.
 
-7. Add new collections:
-- `admin_actions`, `product_revisions`, `web_events`, `cart_events`, `notification_events`, `report_daily_kpis`, `warranties`, `maintenance_tickets`, `payment_transactions`, `service_requests`.
+8. Add new collections:
+- `admin_actions`, `product_revisions`, `web_events`, `cart_events`, `notification_events`, `report_daily_kpis`, `warranties`, `maintenance_tickets`, `payment_transactions`, `service_requests`, `saved_spec_titles`.
+- Optional: `product_visibility_events` if you want dedicated visibility analytics.
 
 ---
 
@@ -342,11 +410,22 @@ To enable accurate reports and admin features, apply these object edits:
  db.products.createIndex({ sku: 1 }, { unique: true })
  db.products.createIndex({ slug: 1 }, { unique: true })
  db.products.createIndex({ brandId: 1, categoryIds: 1, 'status.isActive': 1, 'status.isHidden': 1 })
+ db.products.createIndex({ 'availability.isAvailable': 1, 'status.isHidden': 1 })
+ db.products.createIndex({ 'chargeOptions.isActive': 1, 'chargeOptions.sortOrder': 1 })
+ db.products.createIndex({ 'chargeOptions.id': 1 })
 
 // orders
  db.orders.createIndex({ orderNumber: 1 }, { unique: true })
  db.orders.createIndex({ userId: 1, createdAt: -1 })
  db.orders.createIndex({ status: 1, createdAt: -1 })
+
+// offers
+ db.offers.createIndex({ code: 1 }, { unique: true })
+ db.offers.createIndex({ type: 1, isActive: 1, 'window.startsAt': 1, 'window.endsAt': 1 })
+ db.offers.createIndex({ priority: -1, createdAt: -1 })
+ db.offers.createIndex({ 'definition.eligibleProductIds': 1 })
+ db.offers.createIndex({ 'definition.relatedProductIds': 1 })
+ db.offers.createIndex({ 'definition.freeProductId': 1 })
 
 // admin actions
  db.admin_actions.createIndex({ actorUserId: 1, createdAt: -1 })
@@ -355,6 +434,15 @@ To enable accurate reports and admin features, apply these object edits:
 // notifications + events
  db.notifications.createIndex({ status: 1, scheduleAt: 1 })
  db.notification_events.createIndex({ notificationId: 1, eventType: 1, eventAt: -1 })
+
+// saved specification titles
+ db.saved_spec_titles.createIndex({ 'name.en': 1 })
+ db.saved_spec_titles.createIndex({ 'name.ar': 1 })
+ db.saved_spec_titles.createIndex({ usageCount: -1 })
+ db.saved_spec_titles.createIndex({ nameEnNormalized: 1 }, { unique: true, sparse: true })
+
+// visibility audit
+ db.product_visibility_events.createIndex({ productId: 1, createdAt: -1 })
 
 // report rollups
  db.report_daily_kpis.createIndex({ date: 1 }, { unique: true })
@@ -371,6 +459,7 @@ To enable accurate reports and admin features, apply these object edits:
 5. Start collecting web/cart/notification events.
 6. Build `report_daily_kpis` job and switch super-admin pages to rollups.
 7. Add TTL/retention policies to raw events.
+8. Migrate local saved spec titles (`savedSpecTitlesData`) into `saved_spec_titles` and switch autocomplete API to DB-backed search.
 
 ---
 

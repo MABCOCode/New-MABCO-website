@@ -6,7 +6,9 @@ interface ColorVariant {
   nameAr: string;
   hexCode: string;
   image: string;
-  stock: number;
+  inStock?: boolean;
+  isAvailable?: boolean;
+  stock?: number;
 }
 
 interface ColorSwatchProps {
@@ -39,8 +41,14 @@ export function ColorSwatch({
     lg: "w-10 h-10",
   };
 
-  const visibleVariants = showAll ? variants : variants.slice(0, maxVisible);
-  const hasMore = variants.length > maxVisible;
+  const availableVariants = variants.filter((variant) => {
+    if (variant.isAvailable !== undefined) return variant.isAvailable;
+    if (variant.inStock !== undefined) return variant.inStock;
+    if (typeof variant.stock === "number") return variant.stock > 0;
+    return true;
+  });
+  const visibleVariants = showAll ? availableVariants : availableVariants.slice(0, maxVisible);
+  const hasMore = availableVariants.length > maxVisible;
 
   const handleMouseEnter = (colorName: string) => {
     setHoveredColorName(colorName);
@@ -58,7 +66,7 @@ export function ColorSwatch({
         <div className="text-sm font-medium text-gray-700">
           {language === "ar" ? "اللون" : "Color"}:{" "}
           <span className="text-gray-900">
-            {variants.find((v) => v.name === selectedColor)?.[
+            {availableVariants.find((v) => v.name === selectedColor)?.[
               language === "ar" ? "nameAr" : "name"
             ] || selectedColor}
           </span>
@@ -68,7 +76,7 @@ export function ColorSwatch({
       <div className="flex items-center gap-2 flex-wrap">
         {visibleVariants.map((variant) => {
           const isSelected = variant.name === selectedColor;
-          const isOutOfStock = variant.stock === 0;
+          const isOutOfStock = false;
           const isHovered = hoveredColorName === variant.name;
 
           return (
@@ -126,7 +134,7 @@ export function ColorSwatch({
             onClick={() => setShowAll(true)}
             className="text-xs text-[#009FE3] hover:text-[#007BC7] font-medium transition-colors duration-200 flex items-center gap-1"
           >
-            +{variants.length - maxVisible}{" "}
+            +{availableVariants.length - maxVisible}{" "}
             {language === "ar" ? "المزيد" : "more"}
           </button>
         )}

@@ -8,10 +8,10 @@ import { useCart } from "../../../context/CartContext";
 
 interface CartItem {
   id: number | string;
-  productId?: number;
+  productId?: number | string;
   name: string;
-  price: string | undefined;
-  oldPrice?: string;
+  price: string | number | undefined;
+  oldPrice?: string | number | null;
   image?: string;
   quantity: number;
   variant?: string;
@@ -64,9 +64,10 @@ export function ShoppingCart({
   }, [cartItems]);
 
   // Calculate totals
-  const parsePrice = (price: string | undefined) => {
-    if (!price || typeof price !== 'string') return 0;
-    return parseInt(price.replace(/,/g, "")) || 0;
+  const parsePrice = (price: string | number | undefined | null) => {
+    if (typeof price === "number") return Number.isFinite(price) ? price : 0;
+    if (typeof price !== "string" || !price.trim()) return 0;
+    return parseFloat(price.replace(/,/g, "")) || 0;
   };
 
   const subtotal = cartItems.reduce((sum, item) => {
@@ -96,6 +97,7 @@ export function ShoppingCart({
   };
 
   const handleIncreaseQuantity = (item: CartItem) => {
+    if (item.quantity >= 2) return;
     onUpdateQuantity(item.id, item.quantity + 1);
   };
 
@@ -297,7 +299,8 @@ export function ShoppingCart({
                           </span>
                           <button
                             onClick={() => handleIncreaseQuantity(item)}
-                            className="w-8 h-8 rounded-md bg-white hover:bg-gray-50 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                            disabled={item.quantity >= 2}
+                            className="w-8 h-8 rounded-md bg-white hover:bg-gray-50 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Plus className="w-4 h-4 text-gray-700" />
                           </button>

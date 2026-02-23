@@ -3,27 +3,44 @@ import { X, Check, ShoppingCart, Filter } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { Product } from "../../../types/product";
 import { ComparePageProps } from "../../../types/compare";
-import { products } from "../../../data/products";
+import { products, productsBySection } from "../../../data/products";
 import translations from '../../../i18n/translations';
+import { getProductRef, toSafeCode } from "../../../utils/entityRefs";
+import { useCart } from "../../../context/CartContext";
 
 export function ComparePage(props: ComparePageProps) {
   const { compareItems, onClose, onRemoveItem, onAddItem, language } = props;
+  const { addToCart } = useCart();
 
-  const [allProducts] = useState<Product[]>(products);
+  const normalizeCompareProductId = (product: any, index: number) => {
+    const resolved =
+      toSafeCode(product?.stk_code) ||
+      toSafeCode(product?.sku) ||
+      toSafeCode(product?.id) ||
+      String(990000 + index);
+    return { ...product, id: resolved, stk_code: toSafeCode(product?.stk_code) || resolved } as Product;
+  };
+
+  const sectionProducts = Object.values(productsBySection || {}).flat() as Product[];
+  const mergedProducts = [...products, ...sectionProducts].map((p, index) =>
+    normalizeCompareProductId(p, index),
+  );
+  const uniqueProducts = Array.from(
+    new Map(mergedProducts.map((p) => [getProductRef(p), p])).values(),
+  );
+  const [allProducts] = useState<Product[]>(uniqueProducts);
   
   const t = translations[language];
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
 
   // Get compared products
-  const comparedProducts = allProducts.filter((p) =>
-    compareItems.includes(p.id)
-  );
+  const comparedProducts = allProducts.filter((p) => compareItems.includes(getProductRef(p)));
 
   // Get available products for selection (excluding already compared)
   const availableProducts = allProducts.filter(
     (p) =>
-      !compareItems.includes(p.id) &&
+      !compareItems.includes(getProductRef(p)) &&
       (!selectedCategory || p.category === selectedCategory) &&
       (!selectedBrand || p.brand === selectedBrand)
   );
@@ -81,14 +98,23 @@ export function ComparePage(props: ComparePageProps) {
 
   // Helper function to get best price
   const getBestPrice = () => {
-    const prices = comparedProducts.map((p) =>
-      parseFloat(p.price.replace(/,/g, ""))
-    );
+    const prices = comparedProducts.map((p) => {
+      if (typeof p.price === "number") return p.price;
+      return parseFloat(String(p.price || "").replace(/,/g, "")) || 0;
+    });
     const minPrice = Math.min(...prices);
     return prices.map((p) => p === minPrice);
   };
 
   const bestPrices = getBestPrice();
+
+  const handleAddProductToCart = (product: Product) => {
+    const productRef = getProductRef(product);
+    addToCart(product, {
+      customId: productRef || String(product.id),
+      quantity: 1,
+    });
+  };
 
   return (
     <div
@@ -154,7 +180,7 @@ export function ComparePage(props: ComparePageProps) {
                         >
                           <div className="relative flex flex-col gap-3">
                             <button
-                              onClick={() => onRemoveItem(product.id)}
+                              onClick={() => onRemoveItem(getProductRef(product))}
                               className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-300 shadow-lg z-10"
                             >
                               <X className="w-4 h-4" />
@@ -169,6 +195,7 @@ export function ComparePage(props: ComparePageProps) {
                             </h3>
                             <button
                               type="button"
+                              onClick={() => handleAddProductToCart(product)}
                               className="w-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white py-2 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
                             >
                               <ShoppingCart className="w-4 h-4" />
@@ -294,7 +321,11 @@ export function ComparePage(props: ComparePageProps) {
                       <td className="sticky left-0 p-4 bg-gray-50 z-20"></td>
                       {comparedProducts.map((product) => (
                         <td key={product.id} className="p-4 bg-gray-50">
-                          <button className="w-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white py-3 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAddProductToCart(product)}
+                            className="w-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white py-3 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+                          >
                             <ShoppingCart className="w-5 h-5" />
                             {t.addToCart || "Add to Cart"}
                           </button>
@@ -378,7 +409,7 @@ export function ComparePage(props: ComparePageProps) {
                         {product.price} {t.syp || "SYP"}
                       </p>
                       <button
-                        onClick={() => onAddItem(product.id)}
+                        onClick={() => onAddItem(getProductRef(product))}
                         className="w-full mt-auto bg-gradient-to-r from-purple-500 to-purple-700 text-white py-2 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
                       >
                         <svg

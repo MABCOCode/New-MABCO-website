@@ -94,6 +94,9 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   };
 
   const navigateToSection = (sectionId: string) => {
+    window.dispatchEvent(
+      new CustomEvent('mabco:navigate-section', { detail: { sectionId } }),
+    );
     const currentPath = window.location.pathname;
     
     if (currentPath === '/' || currentPath === '') {

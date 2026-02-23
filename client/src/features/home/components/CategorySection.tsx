@@ -8,7 +8,7 @@ import { iconsMap } from '../../../utils/iconMap';
 
 interface CategorySectionProps {
   language: 'ar' | 'en';
-  onBrandClick?: (brandName: string, categoryName: string, categoryNameEn: string) => void;
+  onBrandClick?: (brandCode: string, categoryCode: string, categoryNameEn: string) => void;
   selectedCategory?: number | null;
   selectedCategoryCode?: string | null;
   onSelectCategory?: (index: number | null) => void;
@@ -21,7 +21,9 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   selectedCategoryCode = null,
   onSelectCategory 
 }) => {
+  const sectionRef = useRef<HTMLDivElement>(null);
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
+  const animationTimerRef = useRef<number | null>(null);
   const lastAppliedCategoryCodeRef = useRef<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -29,6 +31,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [centerItems, setCenterItems] = useState(false);
+  const [animateIn, setAnimateIn] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -95,6 +98,38 @@ const CategorySection: React.FC<CategorySectionProps> = ({
       mounted = false;
       if (retryTimer) {
         clearTimeout(retryTimer);
+      }
+    };
+  }, []);
+
+  const triggerAnimation = () => {
+    if (animationTimerRef.current) {
+      window.clearTimeout(animationTimerRef.current);
+    }
+    setAnimateIn(false);
+    animationTimerRef.current = window.setTimeout(() => {
+      window.requestAnimationFrame(() => setAnimateIn(true));
+    }, 160);
+  };
+
+  useEffect(() => {
+    // Trigger motion when category data is actually rendered (after loading).
+    if (isLoading) return;
+    triggerAnimation();
+  }, [isLoading]);
+
+  useEffect(() => {
+    const onNavigateSection = (event: Event) => {
+      const customEvent = event as CustomEvent<{ sectionId?: string }>;
+      if (customEvent.detail?.sectionId === 'categories') {
+        triggerAnimation();
+      }
+    };
+    window.addEventListener('mabco:navigate-section', onNavigateSection as EventListener);
+    return () => {
+      window.removeEventListener('mabco:navigate-section', onNavigateSection as EventListener);
+      if (animationTimerRef.current) {
+        window.clearTimeout(animationTimerRef.current);
       }
     };
   }, []);
@@ -196,7 +231,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   return (
-    <div className="w-full">
+    <div ref={sectionRef} className="w-full">
       {/* Categories Carousel */}
       <div className="relative mb-8 w-full">
         {/* Left Scroll Button */}
@@ -253,6 +288,13 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                     ? "border-[#009FE3] bg-blue-50"
                     : "border-gray-100 hover:border-[#009FE3]/30"
                 }`}
+                style={{
+                  transform: animateIn
+                    ? "translate3d(0, 0, 0)"
+                    : "translate3d(0, 28px, 0)",
+                  transition: "transform 560ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  transitionDelay: `${index * 55}ms`,
+                }}
               >
                 <div className="flex flex-col items-center text-center">
                   <div
@@ -355,11 +397,19 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                         <div
                           key={brandObj.brand_code || idx}
                           className="bg-white rounded-2xl p-3 sm:p-4 md:p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group min-w-0"
+                          style={{
+                            transform: animateIn
+                              ? "translate3d(0, 0, 0)"
+                              : "translate3d(0, 24px, 0)",
+                            transition:
+                              "transform 520ms cubic-bezier(0.22, 1, 0.36, 1)",
+                            transitionDelay: `${idx * 45}ms`,
+                          }}
                           onClick={() => {
                             if (onBrandClick) {
                               onBrandClick(
-                                brandObj.name,
-                                categories[selectedCategory]?.name,
+                                String(brandObj.brand_code || brandObj.name || ""),
+                                String(categories[selectedCategory]?.cat_code || ""),
                                 categories[selectedCategory]?.nameEn,
                               );
                             }

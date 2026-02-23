@@ -11,7 +11,9 @@ export interface ColorVariant {
   hexCode: string;
   image: string;
   images?: string[];
-  stock: number;
+  inStock?: boolean;
+  isAvailable?: boolean;
+  stock?: number; // legacy field for migration only
   sku: string;
 }
 
@@ -24,22 +26,28 @@ export interface ChargeOption {
 }
 
 export interface Product {
-  id: number;
+  id?: number | string;
+  stk_code?: string;
   name: string;
   nameAr: string;
   basePrice: number;
-  price: string;
-  oldPrice?: string;
+  price: string | number;
+  oldPrice?: string | number | null;
   image: string;
   category: string;
   categoryAr: string;
+  cat_code?: string;
+  cat_codes?: string[];
   brand: string;
+  brand_code?: string;
+  brand_codes?: string[];
   rating?: number;
   reviews?: number;
   badge?: string;
   isMostSold?: boolean;
   isNew?: boolean;
   isHot?: boolean;
+  isAvailable?: boolean;
   description: string;
   descriptionAr: string;
   colorVariants?: ColorVariant[];

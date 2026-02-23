@@ -6,6 +6,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { ChevronRight } from 'lucide-react';
 import { useCompareStore } from '../../compare/state';
 import { products as allProducts } from "../../../data/products";
+import { getProductRef } from "../../../utils/entityRefs";
 
 const CategoryPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,11 +50,22 @@ const CategoryPage: React.FC = () => {
       .replace(/[^a-z0-9\-\u0600-\u06FF]/gi, '');
 
   const termSlug = slug(term);
+  const categoryByCode = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const c of categorySource) {
+      if (c?.cat_code != null) {
+        map.set(String(c.cat_code).toLowerCase(), c);
+      }
+    }
+    return map;
+  }, [categorySource]);
 
   const matchedCategory = categorySource.find((c) => {
     const en = String(c.nameEn || '');
     const ar = String(c.name || '');
+    const code = String(c.cat_code || '');
     return (
+      code.toLowerCase() === term.toLowerCase() ||
       en.toLowerCase() === term.toLowerCase() ||
       ar.toLowerCase() === term.toLowerCase() ||
       slug(en) === termSlug ||
@@ -61,22 +73,29 @@ const CategoryPage: React.FC = () => {
     );
   });
 
-  const displayCategoryName = matchedCategory
-    ? (language === 'ar' ? matchedCategory.name : matchedCategory.nameEn)
-    : term;
-
-  const categoryRouteName = matchedCategory
-    ? matchedCategory.nameEn || matchedCategory.name
-    : term;
-
   const products = (allProducts as any[]).filter(
     (p) =>
-      p?.category &&
-      String(p.category).toLowerCase().includes(String(term).toLowerCase()),
+      (
+        (p?.cat_code && String(p.cat_code).toLowerCase() === String(term).toLowerCase()) ||
+        (p?.category && String(p.category).toLowerCase().includes(String(term).toLowerCase()))
+      ),
   );
 
-  const compareItems = useCompareStore((s: any) => s.items) as number[];
-  const toggleCompare = useCompareStore((s: any) => s.toggleCompare) as (id: number) => void;
+  const fallbackCategory =
+    matchedCategory ||
+    categoryByCode.get(String(products[0]?.cat_code || '').toLowerCase()) ||
+    null;
+
+  const displayCategoryName = fallbackCategory
+    ? (language === 'ar' ? fallbackCategory.name : fallbackCategory.nameEn)
+    : term;
+
+  const categoryRouteName = fallbackCategory
+    ? (fallbackCategory.cat_code || fallbackCategory.nameEn || fallbackCategory.name)
+    : term;
+
+  const compareItems = useCompareStore((s: any) => s.items) as string[];
+  const toggleCompare = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;
 
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
@@ -105,13 +124,13 @@ const CategoryPage: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {products.map((p) => (
               <ProductCard
-                key={p.id}
+                key={getProductRef(p) || String(p.id)}
                 product={p}
                 toggleCompare={toggleCompare}
                 compareItems={compareItems}
                 language={language === 'ar' ? 'ar' : 'en'}
                 onProductClick={(product) =>
-                  navigate(`/product/${product.id}`, {
+                  navigate(`/product/${getProductRef(product) || (product as any).id}`, {
                     state: {
                       product,
                       breadcrumbs: [

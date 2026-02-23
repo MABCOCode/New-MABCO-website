@@ -19,8 +19,8 @@ interface ProductsSliderProps {
   products: Product[];
   onProductClick?: (product: Product) => void;
   onAddToCart?: (product: Product) => void;
-  onToggleCompare?: (productId: number) => void;
-  compareItems?: number[];
+  onToggleCompare?: (productId: string) => void;
+  compareItems?: string[];
 }
 
 const ProductsSlider: React.FC<ProductsSliderProps> = ({
@@ -34,6 +34,7 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
   compareItems = [],
 }) => {
   const [maxHeight, setMaxHeight] = useState<number>(0);
+  const [isLoaded, setIsLoaded] = useState(false);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   React.useEffect(() => {
@@ -115,6 +116,11 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
 
   // Effect to calculate and set max height
   useEffect(() => {
+    const timer = window.setTimeout(() => setIsLoaded(true), 60);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     const updateMaxHeight = () => {
       if (cardRefs.current.length === 0) return;
 
@@ -184,17 +190,19 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
           >
             {products.map((product, index) => (
               <CarouselItem
-                key={product.id}
+                key={`${product.id}-${(product as any).sku || (product as any).stk_code || index}`}
                 className="basis-full md:basis-1/3 lg:basis-1/5 px-4 md:px-0"
-                style={
-                  maxHeight > 0
-                    ? {
-                        minHeight: `${maxHeight}px`,
-                        overflow: "visible",
-                        position: "relative",
-                      }
-                    : { overflow: "visible", position: "relative" }
-                }
+                style={{
+                  ...(maxHeight > 0
+                    ? { minHeight: `${maxHeight}px` }
+                    : {}),
+                  overflow: "visible",
+                  position: "relative",
+                  opacity: isLoaded ? 1 : 0,
+                  transform: isLoaded ? "translateY(0)" : "translateY(20px)",
+                  transition: `opacity 520ms ease, transform 520ms ease`,
+                  transitionDelay: `${Math.min(index, 7) * 70}ms`,
+                }}
               >
                 <div
                   ref={(el) => (cardRefs.current[index] = el)}
@@ -206,7 +214,7 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
                     return (
                       <ProductCard
                         product={product}
-                        toggleCompare={onToggleCompare}
+                        toggleCompare={onToggleCompare || (() => {})}
                         compareItems={compareItems}
                         language={language}
                         onQuickView={() => onProductClick && onProductClick(product)}

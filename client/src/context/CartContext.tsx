@@ -3,10 +3,10 @@ import { Product } from "../types/product";
 
 type CartItem = {
   id: number | string;
-  productId?: number;
+  productId?: number | string;
   name: string;
-  price: string | undefined;
-  oldPrice?: string;
+  price: string | number | undefined;
+  oldPrice?: string | number | null;
   image?: string;
   quantity: number;
   variant?: string;
@@ -50,6 +50,7 @@ type CartContextType = {
 };
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+const MAX_PURCHASE_QUANTITY = 2;
 
 export const useCart = () => {
   const ctx = useContext(CartContext);
@@ -73,7 +74,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const variantImage = options?.variantImage ?? null;
     const chargeOptionId = options?.chargeOptionId ?? null;
     const chargeOptionLabel = options?.chargeOptionLabel ?? null;
-    const qty = options?.quantity ?? 1;
+    const qty = Math.min(MAX_PURCHASE_QUANTITY, Math.max(1, options?.quantity ?? 1));
 
     const existing = cartItems.find(
       (it) =>
@@ -83,7 +84,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     if (existing) {
-      setCartItems((prev) => prev.map((it) => (it === existing ? { ...it, quantity: it.quantity + qty } : it)));
+      setCartItems((prev) =>
+        prev.map((it) =>
+          it === existing
+            ? { ...it, quantity: Math.min(MAX_PURCHASE_QUANTITY, it.quantity + qty) }
+            : it,
+        ),
+      );
     } else {
       // If a charge option was selected, prefer its numeric price
       const selectedCharge = chargeOptionId
@@ -96,6 +103,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             : options.overridePrice
           : selectedCharge && typeof selectedCharge.price === "number"
           ? selectedCharge.price.toLocaleString("en-US")
+          : typeof product.price === "number"
+          ? product.price.toLocaleString("en-US")
+          : typeof product.basePrice === "number"
+          ? product.basePrice.toLocaleString("en-US")
           : product.price;
       const itemOldPrice =
         options?.overrideOldPrice !== undefined
@@ -113,7 +124,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           price: itemPrice,
           oldPrice: itemOldPrice,
           image: variantImage ?? product.image ?? product.thumbnail ?? "",
-          quantity: qty,
+          quantity: Math.min(MAX_PURCHASE_QUANTITY, qty),
           variant: variant,
           variantColor: variantColorHex ?? variant,
           chargeOption: chargeOptionId ? { optionId: chargeOptionId, value: chargeOptionLabel ?? chargeOptionId } : null,
@@ -133,7 +144,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       removeFromCart(id);
       return;
     }
-    setCartItems((prev) => prev.map((it) => (String(it.id) === String(id) ? { ...it, quantity } : it)));
+    const safeQuantity = Math.min(MAX_PURCHASE_QUANTITY, quantity);
+    setCartItems((prev) =>
+      prev.map((it) =>
+        String(it.id) === String(id) ? { ...it, quantity: safeQuantity } : it,
+      ),
+    );
   };
 
   const removeFromCart = (id: number | string) => {

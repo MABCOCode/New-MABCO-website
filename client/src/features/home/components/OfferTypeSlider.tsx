@@ -1,3 +1,4 @@
+import React, { useEffect, useRef, useState } from "react";
 import { Tag, Gift, Ticket, Package, ArrowRight, Sparkles, TrendingDown, Zap,BadgePercent  } from "lucide-react";
 import {
   Carousel,
@@ -78,6 +79,68 @@ const offerTypes: OfferType[] = [
 ];
 
 export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderProps) {
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const animationTimerRef = useRef<number | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const [animateCards, setAnimateCards] = useState(false);
+
+  const triggerAnimation = () => {
+    if (animationTimerRef.current) {
+      window.clearTimeout(animationTimerRef.current);
+    }
+    setAnimateCards(false);
+    animationTimerRef.current = window.setTimeout(() => {
+      requestAnimationFrame(() => setAnimateCards(true));
+    }, 160);
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsLoaded(true), 40);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const node = sectionRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+      },
+      { threshold: 0.2, rootMargin: "0px 0px -10% 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded && isInView) {
+      triggerAnimation();
+    }
+  }, [isLoaded, isInView]);
+
+  useEffect(() => {
+    const onNavigateSection = (event: Event) => {
+      const customEvent = event as CustomEvent<{ sectionId?: string }>;
+      if (customEvent.detail?.sectionId === "special-offers-carousel") {
+        triggerAnimation();
+      }
+    };
+
+    window.addEventListener("mabco:navigate-section", onNavigateSection as EventListener);
+    return () => {
+      window.removeEventListener("mabco:navigate-section", onNavigateSection as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (animationTimerRef.current) {
+        window.clearTimeout(animationTimerRef.current);
+      }
+    };
+  }, []);
+
   const getOfferIcon = (type: string) => {
     switch (type) {
       case "direct_discount":
@@ -133,8 +196,10 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
     }
   };
 
+  const shouldAnimate = isLoaded && isInView && animateCards;
+
   return (
-    <div className="relative">
+    <div ref={sectionRef} className="relative">
       <Carousel
         opts={{
           align: "start",
@@ -149,7 +214,7 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
         className="w-full"
       >
         <CarouselContent className="-ml-2 md:-ml-4">
-          {offerTypes.map((offer) => {
+          {offerTypes.map((offer, index) => {
             const Icon = getOfferIcon(offer.type);
 
             return (
@@ -157,6 +222,14 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
                 <div
                   onClick={() => onOfferTypeClick?.(offer.type)}
                   className="relative h-[450px] sm:h-[500px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-[1.02]"
+                  style={{
+                    transform: shouldAnimate
+                      ? "translate3d(0, 0, 0)"
+                      : "translate3d(0, 28px, 0)",
+                    transition:
+                      "transform 560ms cubic-bezier(0.22, 1, 0.36, 1)",
+                    transitionDelay: `${Math.min(index, 7) * 85}ms`,
+                  }}
                 >
                   {/* Gradient Background */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${offer.gradient}`}></div>

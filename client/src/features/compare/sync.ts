@@ -1,4 +1,5 @@
 import { CompareProduct } from './types';
+import { getProductRef } from '../../utils/entityRefs';
 
 export const compareUtils = {
   // Get all unique spec titles from compared products
@@ -31,9 +32,10 @@ export const compareUtils = {
 
   // Find best price (lower is better)
   getBestPrice: (products: CompareProduct[]): boolean[] => {
-    const prices = products.map((p) =>
-      parseFloat(p.price.replace(/,/g, ""))
-    );
+    const prices = products.map((p) => {
+      if (typeof p.price === 'number') return p.price;
+      return parseFloat(String(p.price || '').replace(/,/g, '')) || 0;
+    });
     const minPrice = Math.min(...prices);
     return prices.map((p) => p === minPrice);
   },
@@ -41,13 +43,13 @@ export const compareUtils = {
   // Filter available products for comparison
   getAvailableProducts: (
     allProducts: CompareProduct[],
-    compareItems: number[],
+    compareItems: string[],
     selectedCategory?: string | null,
     selectedBrand?: string | null
   ): CompareProduct[] => {
     return allProducts.filter(
       (p) =>
-        !compareItems.includes(p.id) &&
+        !compareItems.includes(getProductRef(p)) &&
         (!selectedCategory || p.category === selectedCategory) &&
         (!selectedBrand || p.brand === selectedBrand)
     );

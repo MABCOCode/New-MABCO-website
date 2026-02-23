@@ -1,7 +1,7 @@
 import { Product, ProductOffer, DirectDiscountOffer, CouponOffer, FreeProductOffer, BundleDiscountOffer } from "../types/product";
 
 export interface ProductWithOffers extends Product { offers?: ProductOffer[]; }
-export interface ProductOfferEntry { productId: number; offers: ProductOffer[]; }
+export interface ProductOfferEntry { productId: number | string; offers: ProductOffer[]; }
 
 export const offersDatabase: ProductOfferEntry[] = [
   {
@@ -213,7 +213,7 @@ export const offersDatabase: ProductOfferEntry[] = [
   }
 ];
 
-export const products: ProductWithOffers[] = [
+const rawProducts: ProductWithOffers[] = [
   {
     "id": 101,
     "name": "Apple ID Account",
@@ -30817,7 +30817,42 @@ export const products: ProductWithOffers[] = [
 ];
 
 export const productsBySection = {
-  mostBought: [
+  mostBought: [{
+    "stk_code": "471524358527396",
+    "slug": "yookie-tc-to-loghting-cable",
+    "name": "Yookie TC to loghting Cable",
+    "nameAr": "Yookie TC to loghting Cable",
+    "description": "",
+    "descriptionAr": "",
+    "basePrice": 3.0,
+    "price": 3.0,
+    "oldPrice": null,
+    "image": "https:\/\/mabcoonline.com\/images\/471524358527396 b.jpg",
+    "category": "ACCESSORIES",
+    "categoryAr": "اكسسوار",
+    "cat_code": "01",
+    "cat_codes": [],
+    "brand": "Chargers + Cables",
+    "brand_code": "1006",
+    "brand_codes": [],
+    "badge": "",
+    "isMostSold": false,
+    "isNew": false,
+    "isHot": false,
+    "colorVariants": [],
+    "chargeOptions": [],
+    "specs": [],
+    "offers": [],
+    "availability": { "isAvailable": false },
+    "status": { "isActive": true },
+    "audit": {
+      "createdAt": { "$date": "2026-02-22T10:17:52.320" },
+      "updatedAt": { "$date": "2026-02-22T10:17:52.320" },
+      "createdBy": "sql_sync",
+      "source": "erp_database"
+    },
+    "version": 1
+  },
   {
     "id": 101,
     "name": "Apple ID Account",
@@ -31809,14 +31844,151 @@ export const productsBySection = {
 ]
 };
 
-export const getProductById = (id: number | string) => products.find((p) => String(p.id) === String(id));
-
-export const getProductOffers = (productId: number): ProductOffer[] => {
-  return offersDatabase.find((p) => p.productId === productId)?.offers || [];
+const isVariantAvailable = (variant: any): boolean => {
+  if (!variant) return false;
+  if (typeof variant.isAvailable === "boolean") return variant.isAvailable;
+  if (typeof variant.inStock === "boolean") return variant.inStock;
+  if (typeof variant.stock === "number") return variant.stock > 0;
+  return true;
 };
 
-export const hasOffers = (productId: number): boolean => {
-  return getProductOffers(productId).length > 0;
+const toNumericProductId = (product: any, index: number): number => {
+  if (typeof product?.id === "number" && Number.isFinite(product.id)) {
+    return product.id;
+  }
+
+  const candidates = [product?.id, product?.stk_code, product?.sku];
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) continue;
+    const parsed = Number(String(candidate).replace(/[^\d]/g, ""));
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+
+  return 900000 + index;
+};
+
+const normalizeProductAvailability = (product: ProductWithOffers, index: number): ProductWithOffers | null => {
+  const normalizedVariants = (product.colorVariants || [])
+    .map((variant: any) => ({
+      ...variant,
+      isAvailable: isVariantAvailable(variant),
+      inStock: isVariantAvailable(variant),
+    }))
+    .filter((variant: any) => variant.isAvailable);
+
+  const hasColorVariants = (product.colorVariants || []).length > 0;
+  const availabilityFlag =
+    typeof (product as any)?.availability?.isAvailable === "boolean"
+      ? Boolean((product as any).availability.isAvailable)
+      : undefined;
+  const isProductAvailable =
+    typeof availabilityFlag === "boolean"
+      ? availabilityFlag
+      : typeof product.isAvailable === "boolean"
+      ? product.isAvailable
+      : hasColorVariants
+      ? normalizedVariants.length > 0
+      : true;
+
+  if (!isProductAvailable) {
+    return null;
+  }
+
+  return {
+    ...product,
+    id: toNumericProductId(product, index),
+    stk_code: String((product as any).stk_code || (product as any).sku || toNumericProductId(product, index)),
+    isAvailable: true,
+    colorVariants: hasColorVariants ? normalizedVariants : product.colorVariants,
+  };
+};
+
+export const products: ProductWithOffers[] = rawProducts
+  .map((product, index) => normalizeProductAvailability(product, index))
+  .filter((product): product is ProductWithOffers => Boolean(product));
+
+export const getProductById = (id: number | string) =>
+  products.find(
+    (p: any) =>
+      String(p.stk_code) === String(id) ||
+      String(p.sku) === String(id) ||
+      String(p.id) === String(id),
+  );
+
+const toKey = (value: unknown): string => String(value ?? "").trim();
+
+const parsePriceValue = (value: unknown): number => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const cleaned = value.replace(/,/g, "").trim();
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const getOfferLookupKeys = (productOrId: number | string | ProductWithOffers): string[] => {
+  if (typeof productOrId === "number" || typeof productOrId === "string") {
+    const key = toKey(productOrId);
+    return key ? [key] : [];
+  }
+
+  const keys = [
+    toKey((productOrId as any)?.stk_code),
+    toKey((productOrId as any)?.sku),
+    toKey((productOrId as any)?.id),
+  ].filter(Boolean);
+
+  return Array.from(new Set(keys));
+};
+
+export const getProductOffers = (
+  productOrId: number | string | ProductWithOffers,
+): ProductOffer[] => {
+  const keys = getOfferLookupKeys(productOrId);
+  const fromDb = offersDatabase.find((entry) =>
+    keys.includes(toKey(entry.productId)),
+  )?.offers;
+
+  if (fromDb?.length) return fromDb;
+  if (typeof productOrId === "object" && Array.isArray(productOrId.offers)) {
+    return productOrId.offers;
+  }
+  return [];
+};
+
+export const hasOffers = (productOrId: number | string | ProductWithOffers): boolean => {
+  return getProductOffers(productOrId).length > 0;
+};
+
+export const getOfferPricing = (
+  product: ProductWithOffers,
+  options?: { sourcePrice?: number },
+) => {
+  const offers = getProductOffers(product);
+  const sourcePrice =
+    typeof options?.sourcePrice === "number"
+      ? options.sourcePrice
+      : typeof product.basePrice === "number" && product.basePrice > 0
+      ? product.basePrice
+      : parsePriceValue(product.price);
+
+  const currentPrice = calculateDiscountedPrice(sourcePrice, offers);
+  const hasDiscount = currentPrice < sourcePrice;
+  const savings = Math.max(0, sourcePrice - currentPrice);
+  const discountPercentage =
+    hasDiscount && sourcePrice > 0
+      ? Math.round((savings / sourcePrice) * 100)
+      : 0;
+
+  return {
+    offers,
+    originalPrice: sourcePrice,
+    currentPrice,
+    savings,
+    hasDiscount,
+    discountPercentage,
+  };
 };
 
 export const getOfferBadgeText = (offers: ProductOffer[], language: "ar" | "en"): string => {

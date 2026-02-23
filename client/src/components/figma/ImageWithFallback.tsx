@@ -22,7 +22,7 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
       style={style}
     />
   ) : (
-    <div className="relative w-full h-full overflow-hidden" style={style}>
+    <div className="relative h-full overflow-hidden" style={style}>
       {!didLoad && <div className="absolute inset-0 shimmer-surface" />}
       <img
         src={src}

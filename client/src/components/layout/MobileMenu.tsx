@@ -85,7 +85,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
 
           {/* Shopping Cart and Compare in Menu */}
           <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
-            <div
+            {/* <div
               className={`transition-all duration-500 delay-100 ${
                 menuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
               }`}
@@ -102,7 +102,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                   </span>
                 )}
               </button>
-            </div>
+            </div> */}
 
             {compareCount > 0 && (
               <div
@@ -404,14 +404,13 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                             key={brandIndex}
                             className="bg-white rounded-2xl p-5 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 group hover:border-[#009FE3]/30 cursor-pointer"
                             onClick={() => {
-                              const brandName =
-                                typeof brand === "string" ? brand : brand.name;
-                              const categoryName =
-                                typeof category.nameEn === "string" && category.nameEn
-                                  ? category.nameEn
-                                  : category.name;
+                              const brandCode =
+                                typeof brand === "string"
+                                  ? brand
+                                  : String(brand.brand_code || brand.name || "");
+                              const categoryCode = String(category.cat_code || category.nameEn || category.name || "");
                               navigateTo(
-                                `/brand/${encodeURIComponent(categoryName)}/${encodeURIComponent(brandName)}`,
+                                `/brand/${encodeURIComponent(categoryCode)}/${encodeURIComponent(brandCode)}`,
                               );
                               setMenuOpen(false);
                             }}

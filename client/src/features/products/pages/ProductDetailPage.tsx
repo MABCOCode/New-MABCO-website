@@ -22,12 +22,14 @@ import {
   Minus,
   Plus,Tag,Badge,
   Star,
-  Edit3
+  Edit3,
+  GitCompare
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useCart } from "../../../context/CartContext";
+import { useCompareStore } from "../../compare/state";
 import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { OfferDetailsCard } from "../../offer/components/OfferDetailsCard";
@@ -43,9 +45,11 @@ import {
 import {
   calculateDiscountedPrice,
   getProductById,
+  getOfferPricing,
   getProductOffers,
   products,
 } from "../../../data/products";
+import { getProductRef } from "../../../utils/entityRefs";
 import { EditableText } from "../../../components/ui/EditableText";
 import { EditableImage } from "../../../components/ui/EditableImage";
 import { KeyFeaturesEditor } from "../../../components/ui/KeyFeaturesEditor";
@@ -83,6 +87,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const cart = useCart();
+  const compareItems = useCompareStore((s) => s.items);
+  const toggleCompare = useCompareStore((s) => s.toggleCompare);
   const { id } = useParams<{ id?: string }>();
   const location = useLocation();
 
@@ -102,14 +108,21 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   }, [id, product, location, localProduct]);
 
   const prod = product ?? localProduct;
-  const productOffers = prod?.id ? getProductOffers(prod.id) : [];
+  const productOffers = prod ? getProductOffers(prod as any) : [];
   const hasOffers = productOffers.length > 0;
 
-  const hasColors = !!prod?.colorVariants?.length;
+  const availableColorVariants = (prod?.colorVariants || []).filter(
+    (variant: any) =>
+      variant?.isAvailable !== false &&
+      variant?.inStock !== false &&
+      (typeof variant?.stock !== "number" || variant.stock > 0),
+  );
+
+  const hasColors = availableColorVariants.length > 0;
   const hasChargeOptions = !!prod?.chargeOptions?.length;
 
   const [selectedColor, setSelectedColor] = useState(
-    prod?.colorVariants?.[0]?.name || "",
+    availableColorVariants?.[0]?.name || "",
   );
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [selectedChargeOption, setSelectedChargeOption] = useState(
@@ -126,7 +139,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   const displayColor = hoveredColor || selectedColor;
   const currentColorVariant = hasColors
-    ? prod?.colorVariants?.find((v: any) => v.name === displayColor)
+    ? availableColorVariants.find((v: any) => v.name === displayColor)
     : null;
 
   // Get images array for current color (support both single image and images array)
@@ -143,9 +156,6 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const currentChargeOption = prod?.chargeOptions?.find(
     (opt: any) => opt.id === selectedChargeOption,
   );
-  const displayPrice = currentChargeOption
-    ? currentChargeOption.price.toLocaleString("en-US")
-    : prod?.price;
 
   const numericPrice = (value: any) => {
     if (typeof value === "number") return value;
@@ -153,28 +163,39 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     return parseFloat(String(value).replace(/,/g, "")) || 0;
   };
 
-  const basePrice =
-    typeof prod?.basePrice === "number"
-      ? prod.basePrice
-      : numericPrice(prod?.price);
-  const currentPrice = currentChargeOption
-    ? currentChargeOption.price
+  const sourcePriceForSelection = currentChargeOption
+    ? numericPrice(currentChargeOption.price)
+    : typeof prod?.basePrice === "number"
+    ? prod.basePrice
     : numericPrice(prod?.price);
 
-  const savingsAmount = prod?.oldPrice
-    ? numericPrice(prod.oldPrice) - currentPrice
-    : 0;
+  const offerPricing = prod
+    ? getOfferPricing(prod as any, { sourcePrice: sourcePriceForSelection })
+    : {
+        offers: [],
+        originalPrice: 0,
+        currentPrice: 0,
+        savings: 0,
+        hasDiscount: false,
+        discountPercentage: 0,
+      };
 
-  const discountPercentage = prod?.oldPrice
-    ? Math.round(((numericPrice(prod.oldPrice) - currentPrice) / numericPrice(prod.oldPrice)) * 100)
-    : 0;
+  const basePrice = offerPricing.originalPrice;
+  const currentPrice = offerPricing.currentPrice;
+  const savingsAmount = offerPricing.savings;
+  const discountPercentage = offerPricing.discountPercentage;
+  const displayPrice = currentPrice.toLocaleString("en-US");
 
   const inStock = currentColorVariant
-    ? currentColorVariant.inStock !== false
+    ? currentColorVariant.isAvailable !== false && currentColorVariant.inStock !== false
     : true;
 
+  const productRef = getProductRef(prod);
+  const isInComparison =
+    !!productRef && compareItems.some((itemId) => String(itemId) === String(productRef));
+
   const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) => Math.max(1, Math.min(10, prev + delta)));
+    setQuantity((prev) => Math.max(1, Math.min(2, prev + delta)));
   };
 
   const handleAddToCart = () => {
@@ -182,7 +203,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
     const chosenColor = hasColors ? selectedColor : undefined;
     const currentColorVar = hasColors
-      ? prod?.colorVariants?.find((v: any) => v.name === chosenColor)
+      ? availableColorVariants.find((v: any) => v.name === chosenColor)
       : null;
     const chosenColorHex = currentColorVar?.hexCode ?? null;
     const chosenVariantImage = currentImage ?? prod?.image ?? null;
@@ -207,6 +228,11 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       quantity,
     });
     setHeroProductInCart(true);
+  };
+
+  const handleToggleCompare = () => {
+    if (!productRef) return;
+    toggleCompare(productRef);
   };
 
   const isHeroInCart = !!prod?.id && cart.cartItems?.some((item) => {
@@ -251,6 +277,16 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const markImageLoaded = (key: string) => {
     setLoadedImages((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
   };
+
+  useEffect(() => {
+    if (!hasColors) return;
+    const hasSelected = availableColorVariants.some(
+      (variant: any) => variant.name === selectedColor,
+    );
+    if (!hasSelected) {
+      setSelectedColor(availableColorVariants[0]?.name || "");
+    }
+  }, [hasColors, availableColorVariants, selectedColor]);
 
   if (!prod) {
     return (
@@ -354,7 +390,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-3">
           <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 text-white px-3 py-1 rounded-full shadow-2xl">
             <Edit3 className="w-4 h-4" />
-            <span className="font-bold text-sm">{language === "ar" ? "وضع التعديل مُفعّل" : "Edit Mode Active"}</span>
+            <span className="font-bold text-sm">
+              {language === "ar" ? "وضع التعديل مُفعّل" : "Edit Mode Active"}
+            </span>
           </div>
         </div>
       )}
@@ -377,32 +415,49 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   <CarouselContent className="w-full">
                     {currentImages && currentImages.length > 0 ? (
                       currentImages.map((image, index) => (
-                        <CarouselItem key={`img-${prod?.id}-${displayColor}-${index}`} className="w-full flex-shrink-0">
+                        <CarouselItem
+                          key={`img-${prod?.id}-${displayColor}-${index}`}
+                          className="w-full flex-shrink-0"
+                        >
                           <div className="relative">
-                           <div className="relative aspect-square rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 shadow-xl border border-gray-200">
+                            <div className="relative aspect-square rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 shadow-xl border border-gray-200">
                               {userPermissions.canEditContent ? (
                                 <EditableImage
                                   src={image}
                                   alt={`${prod?.name} - ${index + 1}`}
                                   onSave={(newImageUrl) => {
                                     if (onSaveProductContent) {
-                                      if (hasColors && selectedColor && prod?.colorVariants) {
-                                        const updatedColorVariants = prod.colorVariants.map((variant: any) => {
-                                          if (variant.name === selectedColor) {
-                                            const updatedImages = variant.images 
-                                              ? [...variant.images]
-                                              : [variant.image];
-                                            updatedImages[index] = newImageUrl;
-                                            
-                                            return {
-                                              ...variant,
-                                              image: index === 0 ? newImageUrl : variant.image,
-                                              images: updatedImages,
-                                            };
-                                          }
-                                          return variant;
-                                        });
-                                        
+                                      if (
+                                        hasColors &&
+                                        selectedColor &&
+                                        prod?.colorVariants
+                                      ) {
+                                        const updatedColorVariants =
+                                          prod.colorVariants.map(
+                                            (variant: any) => {
+                                              if (
+                                                variant.name === selectedColor
+                                              ) {
+                                                const updatedImages =
+                                                  variant.images
+                                                    ? [...variant.images]
+                                                    : [variant.image];
+                                                updatedImages[index] =
+                                                  newImageUrl;
+
+                                                return {
+                                                  ...variant,
+                                                  image:
+                                                    index === 0
+                                                      ? newImageUrl
+                                                      : variant.image,
+                                                  images: updatedImages,
+                                                };
+                                              }
+                                              return variant;
+                                            },
+                                          );
+
                                         onSaveProductContent(prod.id, {
                                           ...prod,
                                           colorVariants: updatedColorVariants,
@@ -421,15 +476,25 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                 />
                               ) : (
                                 <div className="relative w-full h-full">
-                                  {!loadedImages[`main-${index}-${displayColor}`] && (
+                                  {!loadedImages[
+                                    `main-${index}-${displayColor}`
+                                  ] && (
                                     <div className="absolute inset-0 shimmer-surface rounded-2xl" />
                                   )}
                                   <img
                                     src={image}
                                     alt={`${prod?.name} - ${index + 1}`}
                                     className="w-full h-full object-cover"
-                                    onLoad={() => markImageLoaded(`main-${index}-${displayColor}`)}
-                                    onError={() => markImageLoaded(`main-${index}-${displayColor}`)}
+                                    onLoad={() =>
+                                      markImageLoaded(
+                                        `main-${index}-${displayColor}`,
+                                      )
+                                    }
+                                    onError={() =>
+                                      markImageLoaded(
+                                        `main-${index}-${displayColor}`,
+                                      )
+                                    }
                                   />
                                 </div>
                               )}
@@ -466,8 +531,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                   src={prod?.image}
                                   alt={prod?.name}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                                  onLoad={() => markImageLoaded("main-fallback")}
-                                  onError={() => markImageLoaded("main-fallback")}
+                                  onLoad={() =>
+                                    markImageLoaded("main-fallback")
+                                  }
+                                  onError={() =>
+                                    markImageLoaded("main-fallback")
+                                  }
                                 />
                               </div>
                             )}
@@ -480,12 +549,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   {/* Navigation Arrows - Only show if multiple images */}
                   {currentImages && currentImages.length > 1 && (
                     <>
-                          <CarouselPrevious
-                                 className={`${language === "ar" ? "translate-x-1/2" : "-translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
-                               />
-                               <CarouselNext
-                                 className={`${language === "ar" ? "-translate-x-1/2" : "translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
-                               />
+                      <CarouselPrevious
+                        className={`${language === "ar" ? "translate-x-1/2" : "-translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
+                      />
+                      <CarouselNext
+                        className={`${language === "ar" ? "-translate-x-1/2" : "translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
+                      />
                       {/* Image Counter */}
                       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-xs sm:text-sm font-medium backdrop-blur-sm z-10">
                         {currentSlide + 1} / {currentImages.length}
@@ -510,7 +579,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 </Carousel>
 
                 {discountPercentage > 0 && (
-                  <div className={`absolute top-4 ${language === "ar" ? "left-6" : "right-6"} flex items-start justify-end`}>
+                  <div
+                    className={`absolute top-4 ${language === "ar" ? "left-6" : "right-6"} flex items-start justify-end`}
+                  >
                     <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-2 rounded-xl font-bold shadow-lg">
                       {language === "ar" ? "خصم" : "SAVE"} {discountPercentage}%
                     </div>
@@ -518,25 +589,29 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 )}
 
                 {/* Colors Section - Under Image */}
-                {hasColors && prod?.colorVariants && prod.colorVariants.length > 0 && (
-                  <div className="mt-6">
-                    <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-md">
-                      <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
-                        <Sparkles className="w-5 h-5 text-[#009FE3]" />
-                        {language === "ar" ? "الألوان المتاحة" : "Available Colors"}
-                      </h3>
-                      <ColorSwatch
-                        variants={prod.colorVariants}
-                        selectedColor={selectedColor}
-                        onColorChange={handleColorChange}
-                        onColorHover={handleColorHover}
-                        language={language}
-                        size="lg"
-                        showLabel={true}
-                      />
+                {hasColors &&
+                  prod?.colorVariants &&
+                  prod.colorVariants.length > 0 && (
+                    <div className="mt-6">
+                      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-md">
+                        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
+                          <Sparkles className="w-5 h-5 text-[#009FE3]" />
+                          {language === "ar"
+                            ? "الألوان المتاحة"
+                            : "Available Colors"}
+                        </h3>
+                        <ColorSwatch
+                          variants={availableColorVariants}
+                          selectedColor={selectedColor}
+                          onColorChange={handleColorChange}
+                          onColorHover={handleColorHover}
+                          language={language}
+                          size="lg"
+                          showLabel={true}
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Image Thumbnails Pagination - When no colors but multiple images */}
                 {showImagePagination && (
@@ -560,15 +635,25 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             }`}
                           >
                             <div className="relative w-full h-full">
-                              {!loadedImages[`thumb-${index}-${displayColor}`] && (
+                              {!loadedImages[
+                                `thumb-${index}-${displayColor}`
+                              ] && (
                                 <div className="absolute inset-0 shimmer-surface" />
                               )}
                               <img
                                 src={image}
                                 alt={`${prod?.name} - Image ${index + 1}`}
                                 className="w-full h-full object-cover"
-                                onLoad={() => markImageLoaded(`thumb-${index}-${displayColor}`)}
-                                onError={() => markImageLoaded(`thumb-${index}-${displayColor}`)}
+                                onLoad={() =>
+                                  markImageLoaded(
+                                    `thumb-${index}-${displayColor}`,
+                                  )
+                                }
+                                onError={() =>
+                                  markImageLoaded(
+                                    `thumb-${index}-${displayColor}`,
+                                  )
+                                }
                               />
                             </div>
                           </button>
@@ -599,7 +684,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 language={language}
                 userPermissions={userPermissions}
                 maxLength={150}
-                placeholder={language === "ar" ? "اسم المنتج..." : "Product name..."}
+                placeholder={
+                  language === "ar" ? "اسم المنتج..." : "Product name..."
+                }
               />
             </div>
 
@@ -615,10 +702,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     </span>
                   </div>
 
-                  {prod?.oldPrice && (
+                  {offerPricing.hasDiscount && (
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="text-lg text-gray-400 line-through">
-                        {prod?.oldPrice} $
+                        {offerPricing.originalPrice.toLocaleString("en-US")} $
                       </span>
                       <span className="bg-green-100 text-green-700 border border-green-200 px-2 py-1 rounded-lg text-sm font-semibold">
                         {language === "ar" ? "توفير" : "Save"}{" "}
@@ -642,40 +729,72 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                         ? "متوفر"
                         : "In Stock"
                       : language === "ar"
-                      ? "غير متوفر"
-                      : "Out of Stock"}
+                        ? "غير متوفر"
+                        : "Out of Stock"}
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-stretch gap-3 flex-wrap">
-                <div className="flex items-center bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
-                  <button
-                    onClick={() => handleQuantityChange(-1)}
-                    className="px-4 py-3 hover:bg-gray-100 transition-colors"
-                    disabled={quantity <= 1}
-                  >
-                    <Minus className="w-5 h-5 text-gray-600" />
-                  </button>
-                  <div className="px-6 py-3 font-bold text-lg border-x-2 border-gray-200">
-                    {quantity}
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-stretch gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
+                  {/* Quantity Selector */}
+                  <div className="flex items-center bg-white rounded-lg sm:rounded-xl border-2 border-gray-200 overflow-hidden">
+                    <button
+                      onClick={() => handleQuantityChange(-1)}
+                      className="px-4 py-3 hover:bg-gray-100 transition-colors"
+                      disabled={quantity <= 1}
+                    >
+                      <Minus className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <div className="px-6 py-3 font-bold text-lg border-x-2 border-gray-200">
+                      {quantity}
+                    </div>
+                    <button
+                      onClick={() => handleQuantityChange(1)}
+                      className="px-4 py-3 hover:bg-gray-100 transition-colors"
+                      disabled={quantity >= 2}
+                    >
+                      <Plus className="w-5 h-5 text-gray-600" />
+                    </button>
                   </div>
+
                   <button
-                    onClick={() => handleQuantityChange(1)}
-                    className="px-4 py-3 hover:bg-gray-100 transition-colors"
-                    disabled={quantity >= 10}
+                    onClick={handleAddToCart}
+                    disabled={!inStock}
+                    className="flex-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white px-4 sm:px-8 py-3 sm:py-4 rounded-lg sm:rounded-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 sm:gap-3 font-bold text-sm sm:text-base lg:text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 min-w-[140px]"
                   >
-                    <Plus className="w-5 h-5 text-gray-600" />
+                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
+                    {t("addToCart")}
                   </button>
                 </div>
-
                 <button
-                  onClick={handleAddToCart}
-                  disabled={!inStock}
-                  className="flex-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white px-8 py-4 rounded-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  onClick={handleToggleCompare}
+                                     className={`w-full px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-base transition-all duration-300 flex items-center justify-center gap-2 border-2 ${
+
+                    isInComparison
+                      ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-purple-500 hover:from-purple-600 hover:to-indigo-600 shadow-lg"
+                      : "bg-white text-gray-700 border-gray-300 hover:border-[#009FE3] hover:text-[#009FE3] hover:shadow-md"
+                  }`}
                 >
-                  <ShoppingCart className="w-6 h-6" />
-                  {t("addToCart")}
+                  <GitCompare className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">
+                    {isInComparison
+                      ? language === "ar"
+                        ? "إزالة من المقارنة"
+                        : "Remove from Comparison"
+                      : language === "ar"
+                        ? "إضافة للمقارنة"
+                        : "Add to Comparison"}
+                  </span>
+                  <span className="sm:hidden">
+                    {isInComparison
+                      ? language === "ar"
+                        ? "إزالة"
+                        : "Remove"
+                      : language === "ar"
+                        ? "قارن"
+                        : "Compare"}
+                  </span>
                 </button>
               </div>
             </div>
@@ -703,7 +822,11 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   userPermissions={userPermissions}
                   multiline={true}
                   maxLength={300}
-                  placeholder={language === "ar" ? "وصف المنتج..." : "Product description..."}
+                  placeholder={
+                    language === "ar"
+                      ? "وصف المنتج..."
+                      : "Product description..."
+                  }
                 />
               </div>
             )}
@@ -771,17 +894,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     );
                   })}
                 </div>
-                {userPermissions.canEditContent  && (
+                {userPermissions.canEditContent && (
                   <KeyFeaturesEditor
                     specs={prod.specs}
                     selectedSpecs={prod.specs.slice(0, 4)}
                     onSave={(selectedSpecs) => {
                       onSaveProductContent(prod.id, {
                         ...prod,
-                        specs: [
-                          ...selectedSpecs,
-                          ...prod.specs.slice(4),
-                        ],
+                        specs: [...selectedSpecs, ...prod.specs.slice(4)],
                       });
                     }}
                     language={language}
@@ -826,7 +946,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               )}
             </button>
 
-          <button
+            <button
               onClick={() => setTabState("offers")}
               className={`flex-1 px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 shadow-lg ${
                 tabState === "offers"
@@ -857,11 +977,16 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                         offers={productOffers}
                         language={language}
                         basePrice={basePrice}
-                        currentPrice={calculateDiscountedPrice(basePrice, productOffers)}
+                        currentPrice={calculateDiscountedPrice(
+                          basePrice,
+                          productOffers,
+                        )}
                       />
                     </div>
 
-                    {productOffers.some((o) => o.type === "bundle_discount") && (
+                    {productOffers.some(
+                      (o) => o.type === "bundle_discount",
+                    ) && (
                       <div className="mb-6">
                         <RelatedProductsWithDiscount
                           products={(() => {
@@ -871,7 +996,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             if (!bundleOffer) return [];
                             return bundleOffer.relatedProductIds
                               .map((relatedId: number) => {
-                                const rel = products.find((p) => p.id === relatedId);
+                                const rel = products.find(
+                                  (p) => p.id === relatedId,
+                                );
                                 if (!rel) return null;
                                 return {
                                   id: rel.id,
@@ -880,8 +1007,11 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                   image: rel.image,
                                   originalPrice:
                                     rel.basePrice ||
-                                    parseFloat((rel.price || "0").replace(/,/g, "")),
-                                  discountPercentage: bundleOffer.discountPercentage,
+                                    parseFloat(
+                                      (rel.price || "0").replace(/,/g, ""),
+                                    ),
+                                  discountPercentage:
+                                    bundleOffer.discountPercentage,
                                 };
                               })
                               .filter(Boolean);
@@ -889,16 +1019,21 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                           language={language}
                           heroProductAdded={heroProductInCart || isHeroInCart}
                           onAddToCart={(productId) => {
-                            const rel = products.find((p) => p.id === productId);
+                            const rel = products.find(
+                              (p) => p.id === productId,
+                            );
                             if (!rel || !cart.addToCart || !prod?.id) return;
-                            const alreadyAdded = cart.cartItems?.some((item) => {
-                              const itemProductId = item.productId ?? Number(item.id);
-                              return (
-                                itemProductId === productId &&
-                                item.isBundleItem &&
-                                item.linkedToProductId === prod.id
-                              );
-                            });
+                            const alreadyAdded = cart.cartItems?.some(
+                              (item) => {
+                                const itemProductId =
+                                  item.productId ?? Number(item.id);
+                                return (
+                                  itemProductId === productId &&
+                                  item.isBundleItem &&
+                                  item.linkedToProductId === prod.id
+                                );
+                              },
+                            );
                             if (alreadyAdded) return;
 
                             const bundleOffer = productOffers.find(
@@ -906,10 +1041,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             ) as any;
                             if (!bundleOffer) return;
 
-                            const base = rel.basePrice || numericPrice(rel.price);
+                            const base =
+                              rel.basePrice || numericPrice(rel.price);
                             const discounted = Math.max(
                               0,
-                              Math.round(base * (1 - bundleOffer.discountPercentage / 100)),
+                              Math.round(
+                                base *
+                                  (1 - bundleOffer.discountPercentage / 100),
+                              ),
                             );
 
                             cart.addToCart(rel, {
@@ -927,11 +1066,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     )}
                   </>
                 ) : (
-                    <div className="text-center py-16">
+                  <div className="text-center py-16">
                     <div className="bg-gradient-to-br from-gray-100 to-gray-50 rounded-2xl p-12 inline-block">
                       <Tag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-500 text-lg font-semibold">
-                        {language === "ar" ? "لا توجد عروض متاحة لهذا المنتج" : "No offers available for this product"}
+                        {language === "ar"
+                          ? "لا توجد عروض متاحة لهذا المنتج"
+                          : "No offers available for this product"}
                       </p>
                     </div>
                   </div>
@@ -942,11 +1083,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             {tabState === "description" && (
               <div className="animate-fadeIn">
                 {/* Inline Editor for Description Only */}
-                {userPermissions.canEditContent  && (
+                {userPermissions.canEditContent && (
                   <InlineProductEditor
                     product={prod}
                     userPermissions={userPermissions}
-                    onSave={(updatedContent) => onSaveProductContent(prod.id, updatedContent)}
+                    onSave={(updatedContent) =>
+                      onSaveProductContent(prod.id, updatedContent)
+                    }
                     mode="description"
                   />
                 )}
@@ -965,42 +1108,78 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
                       <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
                         <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                            <PackageCheck className="w-5 h-5 text-[#009FE3]" />
-                            {t("admin.content.boxTitle") || (language === "ar" ? "ما يأتي في العلبة" : "What's in the box")}
-                          </h4>
-                          {userPermissions.canEditContent && (
-                            <InlineProductEditor
-                              product={prod}
-                              userPermissions={userPermissions}
-                              onSave={(updatedContent) => onSaveProductContent(prod.id, updatedContent)}
-                              mode="box"
-                            />
-                          )}
+                          <PackageCheck className="w-5 h-5 text-[#009FE3]" />
+                          {t("admin.content.boxTitle") ||
+                            (language === "ar"
+                              ? "ما يأتي في العلبة"
+                              : "What's in the box")}
+                        </h4>
+                        {userPermissions.canEditContent && (
+                          <InlineProductEditor
+                            product={prod}
+                            userPermissions={userPermissions}
+                            onSave={(updatedContent) =>
+                              onSaveProductContent(prod.id, updatedContent)
+                            }
+                            mode="box"
+                          />
+                        )}
 
-                          <ul className="space-y-2 text-gray-600">
-                            {(() => {
-                              const raw = prod?.inTheBox || prod?.box || prod?.boxItems || [prod?.name, language === "ar" ? "دليل المستخدم" : "User Manual", language === "ar" ? "بطاقة الضمان" : "Warranty Card", language === "ar" ? "ملحقات إضافية" : "Accessories"];
-                              return (raw || []).filter(Boolean).map((item: any) => {
+                        <ul className="space-y-2 text-gray-600">
+                          {(() => {
+                            const raw = prod?.inTheBox ||
+                              prod?.box ||
+                              prod?.boxItems || [
+                                prod?.name,
+                                language === "ar"
+                                  ? "دليل المستخدم"
+                                  : "User Manual",
+                                language === "ar"
+                                  ? "بطاقة الضمان"
+                                  : "Warranty Card",
+                                language === "ar"
+                                  ? "ملحقات إضافية"
+                                  : "Accessories",
+                              ];
+                            return (raw || [])
+                              .filter(Boolean)
+                              .map((item: any) => {
                                 if (typeof item === "string") return item;
                                 if (item && (item.en || item.ar)) {
                                   return language === "ar"
                                     ? `${item.ar || item.en}${item.en ? " / " + item.en : ""}`
                                     : `${item.en || item.ar}${item.ar ? " / " + item.ar : ""}`;
                                 }
-                                if (item && (item.nameEn || item.valueEn || item.nameAr || item.valueAr)) {
+                                if (
+                                  item &&
+                                  (item.nameEn ||
+                                    item.valueEn ||
+                                    item.nameAr ||
+                                    item.valueAr)
+                                ) {
                                   return language === "ar"
-                                    ? item.nameAr || item.valueAr || item.nameEn || item.valueEn
-                                    : item.nameEn || item.valueEn || item.nameAr || item.valueAr;
+                                    ? item.nameAr ||
+                                        item.valueAr ||
+                                        item.nameEn ||
+                                        item.valueEn
+                                    : item.nameEn ||
+                                        item.valueEn ||
+                                        item.nameAr ||
+                                        item.valueAr;
                                 }
                                 return String(item);
-                              }).map((display: any, idx: number) => (
-                                <li key={idx} className="flex items-center gap-2">
+                              })
+                              .map((display: any, idx: number) => (
+                                <li
+                                  key={idx}
+                                  className="flex items-center gap-2"
+                                >
                                   <CheckCircle2 className="w-4 h-4 text-green-600" />
                                   {display}
                                 </li>
                               ));
-                            })()}
-                          </ul>
+                          })()}
+                        </ul>
                       </div>
                     </div>
                   ) : (
@@ -1017,11 +1196,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             {tabState === "specs" && (
               <div className="animate-fadeIn">
                 {/* Inline Editor for Specifications Only */}
-                {userPermissions.canEditContent  && (
+                {userPermissions.canEditContent && (
                   <InlineProductEditor
                     product={prod}
                     userPermissions={userPermissions}
-                    onSave={(updatedContent) => onSaveProductContent(prod.id, updatedContent)}
+                    onSave={(updatedContent) =>
+                      onSaveProductContent(prod.id, updatedContent)
+                    }
                     mode="specifications"
                   />
                 )}
@@ -1081,7 +1262,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                               <h4 className="font-bold text-green-700 mb-2 text-lg">
                                 {offer.title}
                               </h4>
-                              <p className="text-gray-700">{offer.description}</p>
+                              <p className="text-gray-700">
+                                {offer.description}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -1099,5 +1282,6 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 }
 
 export default ProductDetailPage;
+
 
 

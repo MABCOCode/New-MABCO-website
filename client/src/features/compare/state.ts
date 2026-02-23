@@ -4,9 +4,9 @@ import { persist } from 'zustand/middleware';
 import { CompareState } from './types';
 
 interface CompareStore extends CompareState {
-  toggleCompare: (productId: number) => void;
-  removeItem: (productId: number) => void;
-  addItem: (productId: number) => void;
+  toggleCompare: (productId: string | number) => void;
+  removeItem: (productId: string | number) => void;
+  addItem: (productId: string | number) => void;
   openCompare: () => void;
   closeCompare: () => void;
   setSelectedCategory: (category: string | null) => void;
@@ -23,21 +23,31 @@ export const useCompareStore = create<CompareStore>()(
       selectedBrand: null,
 
       toggleCompare: (productId) =>
-        set((state) => ({
-          items: state.items.includes(productId)
-            ? state.items.filter((id) => id !== productId)
-            : [...state.items, productId],
-        })),
+        set((state) => {
+          const key = String(productId);
+          return {
+            items: state.items.includes(key)
+              ? state.items.filter((id) => id !== key)
+              : [...state.items, key],
+          };
+        }),
 
       removeItem: (productId) =>
-        set((state) => ({
-          items: state.items.filter((id) => id !== productId),
-        })),
+        set((state) => {
+          const key = String(productId);
+          return {
+            items: state.items.filter((id) => id !== key),
+          };
+        }),
 
       addItem: (productId) =>
-        set((state) => ({
-          items: [...state.items, productId],
-        })),
+        set((state) => {
+          const key = String(productId);
+          if (state.items.includes(key)) return state;
+          return {
+            items: [...state.items, key],
+          };
+        }),
 
       openCompare: () => set({ isOpen: true }),
       
@@ -51,6 +61,16 @@ export const useCompareStore = create<CompareStore>()(
     }),
     {
       name: 'compare-storage',
+      merge: (persistedState: any, currentState) => {
+        const persistedItems = Array.isArray(persistedState?.items)
+          ? persistedState.items.map((item: any) => String(item))
+          : [];
+        return {
+          ...currentState,
+          ...persistedState,
+          items: persistedItems,
+        };
+      },
     }
   )
 );

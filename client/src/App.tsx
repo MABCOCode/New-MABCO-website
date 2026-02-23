@@ -146,8 +146,8 @@ const AppContent: React.FC = () => {
             isOpen={cartOpen}
             onClose={() => closeCart()}
             cartItems={cartItems}
-            onUpdateQuantity={(id:number, qty:number) => updateQuantity(id, qty)}
-            onRemoveItem={(id:number) => removeFromCart(id)}
+            onUpdateQuantity={(id: number | string, qty: number) => updateQuantity(id, qty)}
+            onRemoveItem={(id: number | string) => removeFromCart(id)}
             onProceedToCheckout={handleProceedToCheckout}
             language={language}
           />

@@ -2,7 +2,7 @@ const COMPARE_STORAGE_KEY = 'mabco_compare_items';
 
 export const compareStorage = {
   // Save compare items to localStorage
-  saveItems: (items: number[]): void => {
+  saveItems: (items: string[]): void => {
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(items));
@@ -13,7 +13,7 @@ export const compareStorage = {
   },
 
   // Load compare items from localStorage
-  loadItems: (): number[] => {
+  loadItems: (): string[] => {
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem(COMPARE_STORAGE_KEY);

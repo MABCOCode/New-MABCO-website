@@ -6,6 +6,7 @@ import ProductCard from "../components/ProductCard";
 import { useLanguage } from '../../../context/LanguageContext';
 import { ChevronRight } from 'lucide-react';
 import { useCompareStore } from '../../compare/state';
+import { getProductRef } from '../../../utils/entityRefs';
 
 const BrandPage: React.FC = () => {
   const { id, category } = useParams<{ id: string; category?: string }>();
@@ -52,13 +53,52 @@ const BrandPage: React.FC = () => {
 
   const products = (allProducts as any[]).filter(
     (p) =>
-      p?.brand &&
-      String(p.brand).toLowerCase().includes(String(term).toLowerCase()),
+      (
+        (p?.brand_code && String(p.brand_code).toLowerCase() === String(term).toLowerCase()) ||
+        (p?.brand && String(p.brand).toLowerCase().includes(String(term).toLowerCase()))
+      ),
   );
 
-  const matchedCategoryByBrand = categorySource.find((c) =>
-    (c.brands || []).some((b: string) => slug(b) === termSlug),
-  );
+  const matchedBrandMeta = (() => {
+    for (const c of categorySource) {
+      const brand = (c.brands || []).find((b: any) => {
+        if (typeof b === 'string') return slug(b) === termSlug;
+        const code = String(b?.brand_code || '').toLowerCase();
+        const nameAr = String(b?.name || '');
+        const nameEn = String(b?.englishName || '');
+        return (
+          code === String(term).toLowerCase() ||
+          slug(nameAr) === termSlug ||
+          slug(nameEn) === termSlug
+        );
+      });
+      if (brand) return { brand, category: c };
+    }
+    return null;
+  })();
+
+  const matchedCategoryByBrand = matchedBrandMeta?.category || null;
+  const brandByCode = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const c of categorySource) {
+      for (const b of c.brands || []) {
+        if (b && typeof b === 'object' && b.brand_code != null) {
+          map.set(String(b.brand_code).toLowerCase(), b);
+        }
+      }
+    }
+    return map;
+  }, [categorySource]);
+
+  const categoryByCode = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const c of categorySource) {
+      if (c?.cat_code != null) {
+        map.set(String(c.cat_code).toLowerCase(), c);
+      }
+    }
+    return map;
+  }, [categorySource]);
 
   const inferredCategory = (() => {
     if (categoryParam) {
@@ -67,15 +107,18 @@ const BrandPage: React.FC = () => {
           const nameEn = String(c.nameEn || '');
           const nameAr = String(c.name || '');
           return (
+            String(c.cat_code || '').toLowerCase() === String(categoryParam).toLowerCase() ||
             slug(nameEn) === slug(categoryParam) ||
             slug(nameAr) === slug(categoryParam)
           );
-        }) || { name: categoryParam, nameEn: categoryParam }
+        }) || { name: categoryParam, nameEn: categoryParam, cat_code: categoryParam }
       );
     }
     if (matchedCategoryByBrand) return matchedCategoryByBrand;
     if (products.length === 0) return null;
     const first = products[0];
+    const categoryByCodeMatch = categoryByCode.get(String(first?.cat_code || '').toLowerCase());
+    if (categoryByCodeMatch) return categoryByCodeMatch;
     const raw = String(
       language === 'ar'
         ? first.categoryAr || first.category || ''
@@ -96,16 +139,36 @@ const BrandPage: React.FC = () => {
     : '';
 
   const categoryRouteName = inferredCategory
-    ? inferredCategory.nameEn || inferredCategory.name
+    ? inferredCategory.cat_code || inferredCategory.nameEn || inferredCategory.name
     : '';
 
-  const compareItems = useCompareStore((s: any) => s.items) as number[];
-  const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: number) => void;
+  const displayBrandName = (() => {
+    if (matchedBrandMeta?.brand) {
+      const b: any = matchedBrandMeta.brand;
+      return language === 'ar' ? (b.name || b.englishName || term) : (b.englishName || b.name || term);
+    }
+    if (products.length > 0) {
+      const fromProduct = products[0];
+      const fromCode = brandByCode.get(String(fromProduct?.brand_code || '').toLowerCase());
+      if (fromCode) {
+        return language === 'ar'
+          ? String(fromCode.name || fromCode.englishName || term)
+          : String(fromCode.englishName || fromCode.name || term);
+      }
+      return language === 'ar'
+        ? String(fromProduct.brandAr || fromProduct.brand || term)
+        : String(fromProduct.brand || fromProduct.brandAr || term);
+    }
+    return term;
+  })();
+
+  const compareItems = useCompareStore((s: any) => s.items) as string[];
+  const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;
   const openCompare = useCompareStore((s: any) => s.openCompare) as () => void;
 
-  const handleToggleCompare = (productId: number) => {
+  const handleToggleCompare = (productId: string) => {
     const isAdding = !compareItems.some((id) => String(id) === String(productId));
-    toggleCompareStore(productId);
+    toggleCompareStore(String(productId));
     if (isAdding) {
       openCompare();
     }
@@ -138,7 +201,7 @@ const BrandPage: React.FC = () => {
               </>
             )}
             <span className="text-[#009FE3] font-semibold truncate max-w-[300px]">
-              {term}
+              {displayBrandName}
             </span>
           </div>
         </div>
@@ -147,7 +210,7 @@ const BrandPage: React.FC = () => {
       <div className="container mx-auto px-4 py-8 md:py-10">
         <div className="mb-6">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-            {term}
+            {displayBrandName}
           </h1>
           {displayCategoryName && (
             <p className="text-gray-600 mt-2 text-base md:text-lg">
@@ -167,13 +230,13 @@ const BrandPage: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {products.map((p) => (
               <ProductCard
-                key={p.id}
+                key={getProductRef(p) || String(p.id)}
                 product={p}
                 toggleCompare={handleToggleCompare}
                 compareItems={compareItems}
                 language={language === 'ar' ? 'ar' : 'en'}
                 onProductClick={(product) =>
-                  navigate(`/product/${product.id}`, {
+                  navigate(`/product/${getProductRef(product) || (product as any).id}`, {
                     state: {
                       product,
                       breadcrumbs: [
@@ -186,10 +249,10 @@ const BrandPage: React.FC = () => {
                             ]
                           : []),
                         {
-                          label: term,
+                          label: displayBrandName,
                           href: categoryRouteName
-                            ? `/brand/${encodeURIComponent(categoryRouteName)}/${encodeURIComponent(term)}`
-                            : `/brand/${encodeURIComponent(term)}`,
+                            ? `/brand/${encodeURIComponent(categoryRouteName)}/${encodeURIComponent(String((product as any).brand_code || term))}`
+                            : `/brand/${encodeURIComponent(String((product as any).brand_code || term))}`,
                         },
                       ],
                     },

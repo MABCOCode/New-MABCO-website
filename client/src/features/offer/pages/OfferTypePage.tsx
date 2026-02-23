@@ -5,6 +5,7 @@ import { useCompareStore } from "../../compare/state";
 import { useLanguage } from "../../../context/LanguageContext";
 import  ProductCard  from "../../products/components/ProductCard";
 import { getProductOffers, products } from "../../../data/products";
+import { getProductRef } from "../../../utils/entityRefs";
 
 interface OfferTypePageProps {
   offerType: "direct_discount" | "coupon" | "free_product" | "bundle_discount";
@@ -12,8 +13,8 @@ interface OfferTypePageProps {
   onClose: () => void;
   onProductClick: (product: any) => void;
   addToCart: (product: any, color?: string, planId?: string | null) => void;
-  toggleCompare: (id: number) => void;
-  compareItems: number[];
+  toggleCompare: (id: string) => void;
+  compareItems: string[];
 }
 
 const offerTypeInfo = (offerType: OfferTypePageProps["offerType"]) => {
@@ -76,7 +77,7 @@ export function OfferTypePage({
 }: OfferTypePageProps) {
   // Get all products that have this offer type
   const heroProducts = products.filter((product) => {
-    const offers = getProductOffers(product.id);
+    const offers = getProductOffers(product as any);
     return offers.some((offer) => offer.type === offerType);
   });
 
@@ -292,12 +293,12 @@ export function OfferTypePage({
             {/* Products Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {heroProducts.map((product) => {
-                const offers = getProductOffers(product.id);
+                const offers = getProductOffers(product as any);
                 const currentOffer = offers.find((o) => o.type === offerType);
 
                 return (
                   <div
-                    key={product.id}
+                    key={getProductRef(product) || String((product as any).id)}
                     className="group relative"
                     onClick={() => onProductClick(product)}
                   >
@@ -403,8 +404,8 @@ export function OfferTypeRoute() {
   const { offerType } = useParams<{ offerType?: OfferTypePageProps["offerType"] }>();
   const { language } = useLanguage();
   const { addToCart } = useCart();
-  const compareItems = useCompareStore((s: any) => s.items) as number[];
-  const toggleCompare = useCompareStore((s: any) => s.toggleCompare) as (id: number) => void;
+  const compareItems = useCompareStore((s: any) => s.items) as string[];
+  const toggleCompare = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;
 
   const normalizedType =
     offerType === "direct_discount" ||
@@ -420,7 +421,7 @@ export function OfferTypeRoute() {
       language={language}
       onClose={() => navigate(-1)}
       onProductClick={(product) =>
-        navigate(`/product/${product.id}`, {
+        navigate(`/product/${getProductRef(product) || (product as any).id}`, {
           state: {
             product,
             breadcrumbs: [
@@ -445,3 +446,4 @@ export function OfferTypeRoute() {
     />
   );
 }
+

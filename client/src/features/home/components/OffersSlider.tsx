@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '../../../components/ui/carousel';
 import translations from '../../../i18n/translations';
 
@@ -15,6 +15,20 @@ interface OfferSliderProps {
 }
 
 const OfferSlider: React.FC<OfferSliderProps> = ({ language }) => {
+  const sectionRef = useRef<HTMLElement>(null);
+  const animationTimerRef = useRef<number | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const [animateCards, setAnimateCards] = useState(false);
+  const triggerAnimation = () => {
+    if (animationTimerRef.current) {
+      window.clearTimeout(animationTimerRef.current);
+    }
+    setAnimateCards(false);
+    animationTimerRef.current = window.setTimeout(() => {
+      requestAnimationFrame(() => setAnimateCards(true));
+    }, 160);
+  };
   const offers: Offer[] = [
     {
       id: 1,
@@ -61,9 +75,56 @@ const OfferSlider: React.FC<OfferSliderProps> = ({ language }) => {
   ];
 
   const t = translations[language];
+  const shouldAnimate = isLoaded && isInView && animateCards;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsLoaded(true), 40);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const node = sectionRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+      },
+      { threshold: 0.2, rootMargin: '0px 0px -10% 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded && isInView) {
+      triggerAnimation();
+    }
+  }, [isLoaded, isInView]);
+
+  useEffect(() => {
+    const onNavigateSection = (event: Event) => {
+      const customEvent = event as CustomEvent<{ sectionId?: string }>;
+      if (customEvent.detail?.sectionId === 'special-offers-carousel') {
+        triggerAnimation();
+      }
+    };
+
+    window.addEventListener('mabco:navigate-section', onNavigateSection as EventListener);
+    return () => {
+      window.removeEventListener('mabco:navigate-section', onNavigateSection as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (animationTimerRef.current) {
+        window.clearTimeout(animationTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
-    <section className="container mx-auto px-4 py-8">
+    <section ref={sectionRef} className="container mx-auto px-4 py-8">
       
       <Carousel
         opts={{
@@ -74,10 +135,17 @@ const OfferSlider: React.FC<OfferSliderProps> = ({ language }) => {
         className="w-full"
       >
         <CarouselContent className="-ml-4">
-          {offers.map((offer) => (
+          {offers.map((offer, index) => (
             <CarouselItem
               key={offer.id}
               className="pl-4 basis-full md:basis-1/3 lg:basis-1/4"
+              style={{
+                transform: shouldAnimate
+                  ? 'translate3d(0, 0, 0)'
+                  : 'translate3d(0, 24px, 0)',
+                transition: 'transform 520ms cubic-bezier(0.22, 1, 0.36, 1)',
+                transitionDelay: `${Math.min(index, 8) * 70}ms`,
+              }}
             >
               <div className="relative group cursor-pointer h-full">
                 {/* 9:16 Aspect Ratio Container */}

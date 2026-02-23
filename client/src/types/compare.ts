@@ -6,16 +6,16 @@ export interface CompareProduct extends Product {
 }
 
 export interface ComparePageProps {
-  compareItems: number[];
+  compareItems: string[];
   allProducts: CompareProduct[];
   onClose: () => void;
-  onRemoveItem: (id: number) => void;
-  onAddItem: (id: number) => void;
+  onRemoveItem: (id: string) => void;
+  onAddItem: (id: string) => void;
   language: 'ar' | 'en';
 }
 
 export interface CompareState {
-  items: number[];
+  items: string[];
   isOpen: boolean;
   selectedCategory: string | null;
   selectedBrand: string | null;

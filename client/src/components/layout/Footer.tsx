@@ -14,7 +14,7 @@ import { translations } from '../../i18n/translations';
 
 interface ModernFooterProps {
   language: 'ar' | 'en';
-  onBrandClick?: (brandName: string, categoryName: string, categoryNameEn: string) => void;
+  onBrandClick?: (brandCode: string, categoryCode: string, categoryNameEn: string) => void;
   onCategoryClick?: (categoryCode: string, categoryName: string, categoryNameEn: string) => void;
   onAboutClick?: () => void;
   onShowroomsClick?: () => void;
@@ -135,6 +135,8 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
       return {
         name: language === 'ar' ? (brand.name || brand.englishName || '') : (brand.englishName || brand.name || ''),
         routeName: brand.englishName || brand.name || '',
+        brandCode: String(brand.brand_code || ''),
+        categoryCode: String(brand.category_code || ''),
         category: language === 'ar' ? categoryAr : categoryEn,
         categoryAr,
         categoryEn
@@ -272,7 +274,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
               {brands.map((brand, index) => (
                 <button
                   key={index}
-                  onClick={() => onBrandClick && onBrandClick(brand.routeName, brand.categoryAr, brand.categoryEn)}
+                  onClick={() => onBrandClick && onBrandClick(brand.brandCode || brand.routeName, brand.categoryCode || '', brand.categoryEn)}
                   className={`bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg p-3 transition-all hover:scale-105 group `}
                 >
                   <div className="font-medium group-hover:text-[#009FE3] transition-colors">

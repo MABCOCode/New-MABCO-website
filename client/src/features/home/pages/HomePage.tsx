@@ -22,6 +22,7 @@ import { PrintingService } from "../components/PrintingService";
 import { EPaymentService } from "../components/EPaymentService";
 import { WarrantyCheckService } from "../components/WarrantyCheckService";
 import { MaintenanceStatusService } from "../components/MaintenanceStatusService";
+import { getProductRef } from "../../../utils/entityRefs";
 
 const HomePage: React.FC = () => {
   const { t, language, navigateToSection } = useLanguage();
@@ -29,8 +30,8 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const openCategoryCode = new URLSearchParams(location.search).get('openCategory');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const compareItems = useCompareStore((s: any) => s.items) as number[];
-  const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: number) => void;
+  const compareItems = useCompareStore((s: any) => s.items) as string[];
+  const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;
   const { addToCart, openCart, closeCart, updateQuantity: cartUpdateQuantity, removeFromCart: cartRemoveFromCart } = useCart();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderConfirmationOpen, setOrderConfirmationOpen] = useState(false);
@@ -136,14 +137,14 @@ const HomePage: React.FC = () => {
   }, []);
 
   const handleBrandClick = (
-    brandName: string,
-    categoryName: string,
+    brandCode: string,
+    categoryCode: string,
     categoryNameEn: string,
   ) => {
-    console.log("Brand clicked:", brandName, categoryName);
-    const categoryForRoute = categoryNameEn || categoryName || '';
+    console.log("Brand clicked:", brandCode, categoryCode);
+    const categoryForRoute = categoryCode || categoryNameEn || '';
     const encodedCategory = encodeURIComponent(categoryForRoute);
-    const encodedBrand = encodeURIComponent(brandName);
+    const encodedBrand = encodeURIComponent(brandCode);
     navigate(`/brand/${encodedCategory}/${encodedBrand}`);
   };
 
@@ -157,10 +158,11 @@ const HomePage: React.FC = () => {
     openCart();
   };
 
-  const handleToggleCompare = (productId: number) => {
-    const isAdding = !compareItems.includes(productId);
-    console.log('[HomePage] handleToggleCompare -> toggleCompareStore', { productId, isAdding });
-    toggleCompareStore(productId);
+  const handleToggleCompare = (productId: string) => {
+    const key = String(productId);
+    const isAdding = !compareItems.includes(key);
+    console.log('[HomePage] handleToggleCompare -> toggleCompareStore', { productId: key, isAdding });
+    toggleCompareStore(key);
 
     // Show animation when adding a product
     if (isAdding) {
