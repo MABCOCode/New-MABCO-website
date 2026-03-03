@@ -382,7 +382,7 @@ export function CheckoutPage() {
     const freeProduct = products.find((p) => p.id === freeProductId);
     if (!freeProduct) return;
 
-    const basePrice = freeProduct.basePrice ?? parsePrice(freeProduct.price);
+    const basePrice = parsePrice(freeProduct.price);
     addToCart(freeProduct, {
       customId: `free-${productId}-${freeProductId}`,
       quantity: 1,
@@ -410,7 +410,7 @@ export function CheckoutPage() {
     const offers = getProductOffers(productId);
     const bundleOffer = offers.find((offer) => offer.type === "bundle_discount") as BundleDiscountOffer | undefined;
     const discountPercentage = bundleOffer?.discountPercentage ?? 0;
-    const basePrice = bundleProduct.basePrice ?? parsePrice(bundleProduct.price);
+    const basePrice = parsePrice(bundleProduct.price);
     const discountedPrice = Math.max(0, Math.round(basePrice * (1 - discountPercentage / 100)));
 
     addToCart(bundleProduct, {
@@ -1262,3 +1262,4 @@ export function CheckoutPage() {
     </div>
   );
 }
+

@@ -68,7 +68,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const closeCart = () => setCartOpen(false);
 
   const addToCart: AddToCartFn = (product, options) => {
-    const id = options?.customId ?? product.id ?? product.productId ?? product.sku ?? Math.random();
+    const id = options?.customId ?? product.id ?? product.productId ?? product.stk_code ?? Math.random();
     const variant = options?.color;
     const variantColorHex = options?.variantColorHex ?? null;
     const variantImage = options?.variantImage ?? null;
@@ -105,15 +105,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           ? selectedCharge.price.toLocaleString("en-US")
           : typeof product.price === "number"
           ? product.price.toLocaleString("en-US")
-          : typeof product.basePrice === "number"
-          ? product.basePrice.toLocaleString("en-US")
           : product.price;
       const itemOldPrice =
         options?.overrideOldPrice !== undefined
           ? typeof options.overrideOldPrice === "number"
             ? options.overrideOldPrice.toLocaleString("en-US")
             : options.overrideOldPrice
-          : product.oldPrice;
+          : undefined;
 
       setCartItems((prev) => [
         ...prev,

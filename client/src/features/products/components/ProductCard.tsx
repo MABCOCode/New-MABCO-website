@@ -40,8 +40,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   };
   const resolvedProductId =
     resolveNumericId((product as any).id) ??
-    resolveNumericId((product as any).stk_code) ??
-    resolveNumericId((product as any).sku);
+    resolveNumericId((product as any).stk_code);
   const productRef = getProductRef(product);
   const resolvedCartId = productRef || resolvedProductId || `product-${product.name}`;
   const safeColorVariants = Array.isArray(product.colorVariants)
@@ -144,9 +143,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   const selectedSourcePrice = currentChargeOption
     ? parseNumericPrice(currentChargeOption.price)
-    : parseNumericPrice(
-        typeof product.basePrice === "number" ? product.basePrice : product.price,
-      );
+    : parseNumericPrice(product.price);
   const offerPricing = getOfferPricing(product as any, {
     sourcePrice: selectedSourcePrice,
   });
@@ -303,15 +300,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
               className={`flex items-center ${hasDiscount ? "justify-between" : "justify-start"}`}
             >
               <div className={language === "ar" ? "text-right" : "text-left"}>
-                <div className="flex items-baseline gap-1">
-                  <span className="font-bold text-[#009FE3] text-xl">
+                <div className={`mx-3 ${hasOldPrice ?  "":"mb-3" }  flex items-baseline gap-1`}>
+                  <span className="font-bold why text-[#009FE3] text-2xl">
                     {displayPrice}
                   </span>
-                  <span className="text-xs text-gray-500">$</span>
+                  <span className="font-bold text-m text-[#000000]">$</span>
                 </div>
 
                 {hasOldPrice && (
-                  <div className="text-xs text-gray-400 line-through">
+                  <div className="mx-3 mb-3  text-xs text-gray-400 line-through">
                     {oldPriceNum.toLocaleString("en-US")} $
                   </div>
                 )}

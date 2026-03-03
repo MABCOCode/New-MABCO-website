@@ -69,9 +69,10 @@ export function AppliedOffersSection({
 
   const formatPrice = (price: number) => price.toLocaleString("en-US");
 
-  const parsePrice = (price: string | undefined) => {
+  const parsePrice = (price: string | number | undefined) => {
+    if (typeof price === "number") return Number.isFinite(price) ? price : 0;
     if (!price || typeof price !== "string") return 0;
-    return parseInt(price.replace(/,/g, "")) || 0;
+    return parseInt(price.replace(/,/g, ""), 10) || 0;
   };
 
   const collectOffers = (): AppliedOffer[] => {
@@ -170,7 +171,7 @@ export function AppliedOffersSection({
     }
     if (offer.offerType === "free_product" && offer.freeProductId) {
       const freeProduct = products.find((p) => p.id === offer.freeProductId);
-      return sum + (freeProduct?.basePrice || 0);
+      return sum + parsePrice(freeProduct?.price as any);
     }
     return sum;
   }, 0);
@@ -302,7 +303,7 @@ export function AppliedOffersSection({
                           {language === "ar" ? product.nameAr : product.name}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {formatPrice(product.basePrice)} {displayCurrency}
+                          {formatPrice(parsePrice(product.price as any))} {displayCurrency}
                         </p>
                       </div>
                     </div>
@@ -369,7 +370,7 @@ export function AppliedOffersSection({
                     </p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 line-through">
-                        {formatPrice(freeProduct.basePrice)} {displayCurrency}
+                        {formatPrice(parsePrice(freeProduct.price as any))} {displayCurrency}
                       </span>
                       <span className="text-sm font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
                         {translation.offers_free}
@@ -436,8 +437,9 @@ export function AppliedOffersSection({
                   const product = products.find((p) => p.id === relatedId);
                   if (!product) return null;
 
+                  const productPrice = parsePrice(product.price as any);
                   const discountedPrice =
-                    product.basePrice * (1 - offer.discountPercentage / 100);
+                    productPrice * (1 - offer.discountPercentage / 100);
                   const isAdded = appliedOffer.bundleProductIds?.includes(relatedId);
 
                   return (
@@ -459,7 +461,7 @@ export function AppliedOffersSection({
                             {formatPrice(discountedPrice)} {displayCurrency}
                           </span>
                           <span className="text-xs text-gray-400 line-through">
-                            {formatPrice(product.basePrice)}
+                            {formatPrice(productPrice)}
                           </span>
                         </div>
                       </div>

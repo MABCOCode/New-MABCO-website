@@ -2,27 +2,43 @@ export interface ProductSpec {
   icon: string;
   title: string;
   value: string;
+  titleAr?: string;
+  valueAr?: string;
+  isKeyFeature?: boolean;
 }
 // Enhanced Product Data with Color Variants and Charge Options
 
 export interface ColorVariant {
-  name: string;
-  nameAr: string;
-  hexCode: string;
-  image: string;
+  stk_code?: string;
+  price?: number;
+  offers?: LegacyOffer[];
+  color_name?: string;
+  color_name_ar?: string;
+  color_hex?: string;
+  in_stock?: boolean;
+  active?: boolean;
+  name?: string; // legacy
+  nameAr?: string; // legacy
+  hexCode?: string; // legacy
+  image?: string; // legacy
   images?: string[];
-  inStock?: boolean;
-  isAvailable?: boolean;
+  inStock?: boolean; // legacy
+  isAvailable?: boolean; // legacy
   stock?: number; // legacy field for migration only
-  sku: string;
 }
 
 // New: Charge Options for Account Products
 export interface ChargeOption {
-  id: string;
-  value: string;
-  valueAr: string;
-  price: number;
+  stk_code?: string;
+  price?: number;
+  offers?: LegacyOffer[];
+  name?: string;
+  name_ar?: string;
+  in_stock?: boolean;
+  active?: boolean;
+  id?: string; // legacy
+  value?: string; // legacy
+  valueAr?: string; // legacy
 }
 
 export interface Product {
@@ -30,9 +46,7 @@ export interface Product {
   stk_code?: string;
   name: string;
   nameAr: string;
-  basePrice: number;
   price: string | number;
-  oldPrice?: string | number | null;
   image: string;
   category: string;
   categoryAr: string;
@@ -110,3 +124,21 @@ export type ProductOffer =
   | CouponOffer
   | FreeProductOffer
   | BundleDiscountOffer;
+
+export interface LegacyOffer {
+  offer_no: string;
+  offer_type: "direct_discount" | "coupon" | "free_product" | "bundle_discount";
+  mainproductstk_code?: string;
+  discount: number;
+  discount_type: "p" | "v";
+  title: string;
+  title_ar: string;
+  description?: string;
+  description_ar?: string;
+  products: string[];
+  window: {
+    start: string;
+    end: string;
+  };
+  is_active: boolean;
+}

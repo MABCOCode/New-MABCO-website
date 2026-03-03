@@ -50,6 +50,14 @@ export function CartOfferDisplay({
   const displayCurrency = currencyLabel || (language === "ar" ? "د.ع" : "IQD");
 
   const formatPrice = (price: number) => price.toLocaleString("en-US");
+  const numericPrice = (value: unknown) => {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    if (typeof value === "string") {
+      const parsed = Number(value.replace(/,/g, "").trim());
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
 
   const getOfferIcon = (type: string) => {
     switch (type) {
@@ -88,7 +96,7 @@ export function CartOfferDisplay({
     const gradient = getOfferGradient("direct_discount");
 
     let savingsAmount = 0;
-    const basePrice = product?.basePrice ?? 0;
+    const basePrice = numericPrice(product?.price);
     if (offer.discountType === "percentage") {
       savingsAmount = (basePrice * offer.discountValue) / 100 * quantity;
     } else {
@@ -212,7 +220,7 @@ export function CartOfferDisplay({
                       : freeProduct.name}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {formatPrice(freeProduct.basePrice || 0)} {displayCurrency} × {quantity}
+                    {formatPrice(numericPrice(freeProduct.price))} {displayCurrency} × {quantity}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
@@ -264,7 +272,7 @@ export function CartOfferDisplay({
                 const isAdded = appliedBundleItems.includes(relatedId);
 
                 const discountedPrice =
-                  (relatedProduct.basePrice || 0) * (1 - offer.discountPercentage / 100);
+                  numericPrice(relatedProduct.price) * (1 - offer.discountPercentage / 100);
 
                 return (
                   <div
@@ -287,7 +295,7 @@ export function CartOfferDisplay({
                           {formatPrice(discountedPrice)} {displayCurrency}
                         </span>
                         <span className="text-xs text-gray-400 line-through">
-                          {formatPrice(relatedProduct.basePrice || 0)}
+                          {formatPrice(numericPrice(relatedProduct.price))}
                         </span>
                       </div>
                     </div>
@@ -332,3 +340,4 @@ export function CartOfferDisplay({
     </div>
   );
 }
+

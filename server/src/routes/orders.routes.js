@@ -2,6 +2,7 @@ const express = require('express');
 const { ObjectId } = require('mongodb');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
+const { hydrateCollection } = require('../models');
 
 const router = express.Router();
 
@@ -22,7 +23,11 @@ router.get('/', asyncHandler(async (req, res) => {
     db.collection('orders').countDocuments(query),
   ]);
 
-  res.json({ success: true, data: items, pagination: { page, limit, total } });
+  res.json({
+    success: true,
+    data: hydrateCollection('orders', items),
+    pagination: { page, limit, total },
+  });
 }));
 
 module.exports = router;

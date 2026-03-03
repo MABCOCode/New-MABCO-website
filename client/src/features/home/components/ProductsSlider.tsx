@@ -190,7 +190,7 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
           >
             {products.map((product, index) => (
               <CarouselItem
-                key={`${product.id}-${(product as any).sku || (product as any).stk_code || index}`}
+                key={`${product.id}-${(product as any).stk_code || index}`}
                 className="basis-full md:basis-1/3 lg:basis-1/5 px-4 md:px-0"
                 style={{
                   ...(maxHeight > 0

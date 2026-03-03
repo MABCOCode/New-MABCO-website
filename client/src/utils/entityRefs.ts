@@ -13,7 +13,6 @@ export const getProductRef = (product: Partial<Product> | string | number | null
   if (!product) return "";
   return (
     toSafeCode((product as any).stk_code) ||
-    toSafeCode((product as any).sku) ||
     toSafeCode((product as any).id)
   );
 };

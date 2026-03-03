@@ -38,7 +38,9 @@ export function KeyFeaturesEditor({
 }: KeyFeaturesEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [selected, setSelected] = useState<number[]>(
-    selectedSpecs.map((spec) => specs.findIndex((s) => s.title === spec.title))
+    selectedSpecs
+      .map((spec) => specs.findIndex((s) => s.title === spec.title))
+      .filter((index) => index >= 0),
   );
 
   if (!userPermissions.canEditContent) {
@@ -48,10 +50,11 @@ export function KeyFeaturesEditor({
   const handleToggleSpec = (index: number) => {
     if (selected.includes(index)) {
       setSelected(selected.filter((i) => i !== index));
-    } else {
-      if (selected.length < 4) {
-        setSelected([...selected, index]);
-      }
+      return;
+    }
+
+    if (selected.length < 4) {
+      setSelected([...selected, index]);
     }
   };
 
@@ -63,7 +66,9 @@ export function KeyFeaturesEditor({
 
   const handleCancel = () => {
     setSelected(
-      selectedSpecs.map((spec) => specs.findIndex((s) => s.title === spec.title))
+      selectedSpecs
+        .map((spec) => specs.findIndex((s) => s.title === spec.title))
+        .filter((index) => index >= 0),
     );
     setIsEditing(false);
   };
@@ -86,51 +91,59 @@ export function KeyFeaturesEditor({
     <div className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-2xl p-6 z-20 animate-fadeIn overflow-auto border-2 border-purple-500 shadow-2xl">
       <h4 className="font-bold text-gray-900 mb-4 text-lg">
         {language === "ar"
-          ? "اختر 4 مميزات رئيسية من المواصفات"
-          : "Select 4 key features from specifications"}
+         ? "اختر 4 مميزات رئيسية من المواصفات"
+          : "Select up to 4 key features from specifications"}
       </h4>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-        {specs.map((spec, index) => {
-          const IconComponent = iconMap[spec.icon] || Settings;
-          const isSelected = selected.includes(index);
+      {specs.length === 0 ? (
+        <div className="mb-6 rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">
+          {language === "ar"
+          ? "اختر 4 مميزات رئيسية من المواصفات"
+            : "Add specifications first, then select key features."}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          {specs.map((spec, index) => {
+            const IconComponent = iconMap[spec.icon] || Settings;
+            const isSelected = selected.includes(index);
 
-          return (
-            <button
-              key={index}
-              onClick={() => handleToggleSpec(index)}
-              className={`p-4 rounded-xl border-2 transition-all text-left flex items-center gap-3 ${
-                isSelected
-                  ? "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-500 shadow-md"
-                  : "bg-white border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <div
-                className={`p-2.5 rounded-lg flex-shrink-0 ${
+            return (
+              <button
+                key={index}
+                onClick={() => handleToggleSpec(index)}
+                className={`p-4 rounded-xl border-2 transition-all text-left flex items-center gap-3 ${
                   isSelected
-                    ? "bg-gradient-to-br from-[#009FE3] to-[#007BC7]"
-                    : "bg-gray-100"
+                    ? "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-500 shadow-md"
+                    : "bg-white border-gray-200 hover:border-gray-300"
                 }`}
               >
-                <IconComponent
-                  className={`w-5 h-5 ${
-                    isSelected ? "text-white" : "text-gray-600"
+                <div
+                  className={`p-2.5 rounded-lg flex-shrink-0 ${
+                    isSelected
+                      ? "bg-gradient-to-br from-[#009FE3] to-[#007BC7]"
+                      : "bg-gray-100"
                   }`}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-500 mb-0.5">{spec.title}</p>
-                <p className="font-bold text-gray-900 truncate">{spec.value}</p>
-              </div>
-              {isSelected && (
-                <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Check className="w-4 h-4 text-white" />
+                >
+                  <IconComponent
+                    className={`w-5 h-5 ${
+                      isSelected ? "text-white" : "text-gray-600"
+                    }`}
+                  />
                 </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 mb-0.5">{spec.title}</p>
+                  <p className="font-bold text-gray-900 truncate">{spec.value}</p>
+                </div>
+                {isSelected && (
+                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4">
         <p className="text-sm text-blue-700">
@@ -143,7 +156,7 @@ export function KeyFeaturesEditor({
       <div className="flex gap-3">
         <button
           onClick={handleSave}
-          disabled={selected.length !== 4}
+          disabled={specs.length === 0}
           className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Check className="w-5 h-5" />

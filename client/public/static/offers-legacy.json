@@ -1,0 +1,94 @@
+﻿[
+  {
+    "offer_type": "direct_discount",
+    "title": "Direct Discount",
+    "title_ar": "خصم مباشر",
+    "description": "Save instantly on the main product price.",
+    "description_ar": "وفر فوراً على سعر المنتج الأساسي.",
+    "image": "https://images.unsplash.com/photo-1567690187548-f07b1d7bf5a9?auto=format&fit=crop&w=900&q=80",
+    "color": "from-blue-500 to-purple-600",
+    "details": {
+      "headline": "Instant Savings",
+      "headline_ar": "توفير فوري",
+      "bullets": [
+        "Applied automatically on eligible products",
+        "Visible discount badge on product cards",
+        "Best price shown in checkout"
+      ],
+      "bullets_ar": [
+        "يطبق تلقائياً على المنتجات المؤهلة",
+        "شارة خصم واضحة على بطاقات المنتجات",
+        "أفضل سعر يظهر في صفحة الدفع"
+      ]
+    }
+  },
+  {
+    "offer_type": "coupon",
+    "title": "Coupon Offer",
+    "title_ar": "عرض كوبون",
+    "description": "Get a coupon value to use later.",
+    "description_ar": "احصل على قيمة كوبون لاستخدامها لاحقاً.",
+    "image": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=900&q=80",
+    "color": "from-green-500 to-teal-600",
+    "details": {
+      "headline": "Bonus Value",
+      "headline_ar": "قيمة إضافية",
+      "bullets": [
+        "Coupon added after purchase",
+        "Use on eligible products",
+        "Valid for limited days"
+      ],
+      "bullets_ar": [
+        "يضاف الكوبون بعد الشراء",
+        "يستخدم على المنتجات المؤهلة",
+        "صالحة لفترة محدودة"
+      ]
+    }
+  },
+  {
+    "offer_type": "free_product",
+    "title": "Free Gift",
+    "title_ar": "هدية مجانية",
+    "description": "Receive a free item with purchase.",
+    "description_ar": "احصل على منتج مجاني عند الشراء.",
+    "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&q=80",
+    "color": "from-red-500 to-pink-600",
+    "details": {
+      "headline": "Free Item",
+      "headline_ar": "منتج مجاني",
+      "bullets": [
+        "Free product added to cart",
+        "Limited stock gifts",
+        "One per order"
+      ],
+      "bullets_ar": [
+        "يضاف المنتج المجاني إلى السلة",
+        "الهدايا بكميات محدودة",
+        "هدية واحدة لكل طلب"
+      ]
+    }
+  },
+  {
+    "offer_type": "bundle_discount",
+    "title": "Bundle Discount",
+    "title_ar": "خصم حزمة",
+    "description": "Buy together and save more.",
+    "description_ar": "اشترِ معاً ووفر أكثر.",
+    "image": "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=900&q=80",
+    "color": "from-purple-500 to-indigo-600",
+    "details": {
+      "headline": "Bundle Savings",
+      "headline_ar": "توفير الحزمة",
+      "bullets": [
+        "Discount applies to related items",
+        "Mix and match eligible products",
+        "Best value on bundles"
+      ],
+      "bullets_ar": [
+        "الخصم يطبق على المنتجات المرتبطة",
+        "امزج واختر من المنتجات المؤهلة",
+        "أفضل قيمة مع الحزم"
+      ]
+    }
+  }
+]

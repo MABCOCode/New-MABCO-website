@@ -1,6 +1,7 @@
 const express = require('express');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
+const { hydrateCollection } = require('../models');
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get('/', asyncHandler(async (req, res) => {
   }
 
   const items = await db.collection('offers').find(query).sort({ priority: -1, createdAt: -1 }).toArray();
-  res.json({ success: true, data: items });
+  res.json({ success: true, data: hydrateCollection('offers', items) });
 }));
 
 module.exports = router;

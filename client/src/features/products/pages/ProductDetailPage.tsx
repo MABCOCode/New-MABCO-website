@@ -25,7 +25,7 @@ import {
   Edit3,
   GitCompare
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useCart } from "../../../context/CartContext";
@@ -89,8 +89,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const cart = useCart();
   const compareItems = useCompareStore((s) => s.items);
   const toggleCompare = useCompareStore((s) => s.toggleCompare);
+  const openCompare = useCompareStore((s) => s.openCompare);
   const { id } = useParams<{ id?: string }>();
   const location = useLocation();
+  const locationState = (location.state as any) || {};
 
   const [localProduct, setLocalProduct] = useState<any | null>(
     product ?? (location.state && (location.state as any).product) ?? null,
@@ -108,6 +110,36 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   }, [id, product, location, localProduct]);
 
   const prod = product ?? localProduct;
+  const breadcrumbs = useMemo(() => {
+    if (Array.isArray(locationState?.breadcrumbs) && locationState.breadcrumbs.length) {
+      return locationState.breadcrumbs.filter((item: any) => item && item.label);
+    }
+
+    const fallback: Array<{ label: string; href?: string }> = [];
+    if (categoryName) fallback.push({ label: categoryName });
+    if (brandName) fallback.push({ label: brandName });
+    return fallback;
+  }, [locationState, categoryName, brandName]);
+
+  const handleNavigateBack = () => {
+    const lastCrumb = breadcrumbs[breadcrumbs.length - 1];
+    if (lastCrumb?.href) {
+      navigate(lastCrumb.href);
+      return;
+    }
+    navigate(-1);
+  };
+
+  const specsList = Array.isArray(prod?.specs) ? prod.specs : [];
+  const populatedSpecs = specsList.filter((spec: any) => {
+    const title = String(spec?.title ?? spec?.titleAr ?? "").trim();
+    const value = String(spec?.value ?? spec?.valueAr ?? "").trim();
+    return title.length > 0 && value.length > 0;
+  });
+  const selectedKeyFeatures = populatedSpecs.filter((spec: any) => spec?.isKeyFeature).slice(0, 4);
+  const displayKeyFeatures = selectedKeyFeatures.length > 0 ? selectedKeyFeatures : populatedSpecs.slice(0, 4);
+  const shouldShowKeyFeatures = userPermissions.canEditContent || displayKeyFeatures.length > 0;
+
   const productOffers = prod ? getProductOffers(prod as any) : [];
   const hasOffers = productOffers.length > 0;
 
@@ -232,7 +264,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   const handleToggleCompare = () => {
     if (!productRef) return;
+    const isAdding = !compareItems.some((itemId) => String(itemId) === String(productRef));
     toggleCompare(productRef);
+    if (isAdding) openCompare();
   };
 
   const isHeroInCart = !!prod?.id && cart.cartItems?.some((item) => {
@@ -340,7 +374,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate("/")}
                 className="group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0"
               >
                 <ChevronRight
@@ -351,23 +385,23 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
               <span className="text-gray-300 flex-shrink-0">/</span>
 
-              {categoryName && (
-                <>
-                  <span className="text-gray-500 font-medium whitespace-nowrap">
-                    {categoryName}
-                  </span>
+              {breadcrumbs.map((crumb: any, index: number) => (
+                <div key={`crumb-${index}-${crumb.label}`} className="contents">
+                  {crumb?.href ? (
+                    <button
+                      onClick={() => navigate(crumb.href)}
+                      className="text-gray-500 hover:text-[#009FE3] font-medium whitespace-nowrap transition-colors duration-200"
+                    >
+                      {crumb.label}
+                    </button>
+                  ) : (
+                    <span className="text-gray-500 font-medium whitespace-nowrap">
+                      {crumb.label}
+                    </span>
+                  )}
                   <span className="text-gray-300 flex-shrink-0">/</span>
-                </>
-              )}
-
-              {brandName && (
-                <>
-                  <span className="text-gray-500 font-medium whitespace-nowrap">
-                    {brandName}
-                  </span>
-                  <span className="text-gray-300 flex-shrink-0">/</span>
-                </>
-              )}
+                </div>
+              ))}
 
               <span className="text-[#009FE3] font-semibold truncate max-w-[200px] sm:max-w-md">
                 {prod?.name}
@@ -375,7 +409,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             </div>
 
             <button
-              onClick={() => navigate(-1)}
+              onClick={handleNavigateBack}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200 flex-shrink-0"
               aria-label="Close"
             >
@@ -865,43 +899,61 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             )}
 
             {/* Key Features */}
-            {prod?.specs && prod.specs.length > 0 && (
+            {shouldShowKeyFeatures && (
               <div className="mb-6 bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-200 relative group">
                 <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
                   <TrendingUp className="w-5 h-5 text-[#009FE3]" />
                   {language === "ar" ? "المميزات الرئيسية" : "Key Features"}
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {prod.specs.slice(0, 4).map((spec: any, index: number) => {
-                    const IconComponent = iconMap[spec.icon] || Settings;
-                    return (
-                      <div
-                        key={index}
-                        className="bg-white rounded-xl p-4 border border-gray-200 hover:border-[#009FE3] transition-colors flex items-center gap-3"
-                      >
-                        <div className="bg-gradient-to-br from-[#009FE3] to-[#007BC7] p-2.5 rounded-lg flex-shrink-0">
-                          <IconComponent className="w-5 h-5 text-white" />
+
+                {displayKeyFeatures.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {displayKeyFeatures.map((spec: any, index: number) => {
+                      const IconComponent = iconMap[spec.icon] || Settings;
+                      return (
+                        <div
+                          key={index}
+                          className="bg-white rounded-xl p-4 border border-gray-200 hover:border-[#009FE3] transition-colors flex items-center gap-3"
+                        >
+                          <div className="bg-gradient-to-br from-[#009FE3] to-[#007BC7] p-2.5 rounded-lg flex-shrink-0">
+                            <IconComponent className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500 mb-0.5">{spec.title}</p>
+                            <p className="font-bold text-gray-900 truncate">{spec.value}</p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-gray-500 mb-0.5">
-                            {spec.title}
-                          </p>
-                          <p className="font-bold text-gray-900 truncate">
-                            {spec.value}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-600">
+                    {language === "ar" ? "لم يتم اختيار أي مميزات رئيسية" : "No key features selected yet."}
+                  </div>
+                )}
+
                 {userPermissions.canEditContent && (
                   <KeyFeaturesEditor
-                    specs={prod.specs}
-                    selectedSpecs={prod.specs.slice(0, 4)}
-                    onSave={(selectedSpecs) => {
+                    specs={populatedSpecs}
+                    selectedSpecs={selectedKeyFeatures}
+                    onSave={(newSelectedSpecs) => {
+                      if (!onSaveProductContent) return;
+                      const selectedKeys = new Set(
+                        newSelectedSpecs.map(
+                          (spec: any) =>
+                            `${spec.title}__${spec.titleAr || ""}__${spec.value}__${spec.valueAr || ""}`,
+                        ),
+                      );
+                      const updatedSpecs = specsList.map((spec: any) => {
+                        const key = `${spec.title}__${spec.titleAr || ""}__${spec.value}__${spec.valueAr || ""}`;
+                        return {
+                          ...spec,
+                          isKeyFeature: selectedKeys.has(key),
+                        };
+                      });
                       onSaveProductContent(prod.id, {
                         ...prod,
-                        specs: [...selectedSpecs, ...prod.specs.slice(4)],
+                        specs: updatedSpecs,
                       });
                     }}
                     language={language}
@@ -1006,7 +1058,6 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                   nameAr: rel.nameAr,
                                   image: rel.image,
                                   originalPrice:
-                                    rel.basePrice ||
                                     parseFloat(
                                       (rel.price || "0").replace(/,/g, ""),
                                     ),
@@ -1041,8 +1092,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             ) as any;
                             if (!bundleOffer) return;
 
-                            const base =
-                              rel.basePrice || numericPrice(rel.price);
+                            const base = numericPrice(rel.price);
                             const discounted = Math.max(
                               0,
                               Math.round(
@@ -1182,11 +1232,38 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                         </ul>
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-12 text-gray-500">
-                      {language === "ar"
-                        ? "لا يوجد وصف متاح"
-                        : "No description available"}
+                   ) : (
+                    <div>
+                      <div className="text-center py-8 text-gray-500">
+                        {language === "ar"
+                         ? "لا يوجد وصف متاح"
+                          : "No description available"}
+                      </div>
+
+                      <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
+                        <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                          <PackageCheck className="w-5 h-5 text-[#009FE3]" />
+                          {t("admin.content.boxTitle") ||
+                            (language === "ar"
+                            ? "لا يوجد وصف متاح"
+                              : "What's in the box")}
+                        </h4>
+                        {userPermissions.canEditContent && (
+                          <InlineProductEditor
+                            product={prod}
+                            userPermissions={userPermissions}
+                            onSave={(updatedContent) =>
+                              onSaveProductContent(prod.id, updatedContent)
+                            }
+                            mode="box"
+                          />
+                        )}
+                        <p className="text-sm text-gray-500">
+                          {language === "ar"
+                            ? "لا يوجد وصف متاح"
+                            : "No box items added yet."}
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1207,9 +1284,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   />
                 )}
 
-                {prod?.specs && prod.specs.length > 0 ? (
+                {populatedSpecs.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {prod.specs.map((spec: any, index: number) => {
+                    {populatedSpecs.map((spec: any, index: number) => {
                       const IconComponent = iconMap[spec.icon] || Settings;
                       return (
                         <div

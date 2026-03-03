@@ -1,4 +1,18 @@
 # MongoDB Collections
-This folder contains the consolidated schema note file used by the server init script (`server/scripts/createMongoDB.js`).
-Validation and index choices were aligned with the currently used frontend example data in `client/src/data/products.ts` (not random/generated shapes).
-- [All Collections](./collections.md)
+
+Source of truth for validators/indexes is `server/scripts/createMongoDB.js`.
+
+Docs are now split per collection under:
+- `server/docs/mongodb/collections/`
+
+Entry points:
+- [products](./collections/products.md)
+- [offers](./collections/offers.md)
+- [orders](./collections/orders.md)
+- [carts](./collections/carts.md)
+- [users](./collections/users.md)
+
+Notes:
+- Product structure is offer-driven for discounts (`offers` + `price`).
+- Product specs are in `specs[]` and support icon key or URL payload.
+- Product box contents are stored in `inTheBox[]`.

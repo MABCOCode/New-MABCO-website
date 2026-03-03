@@ -15,6 +15,8 @@ const BrandPage: React.FC = () => {
   const term = id ? decodeURIComponent(id) : '';
   const categoryParam = category ? decodeURIComponent(category) : '';
   const [staticCategories, setStaticCategories] = useState<any[]>([]);
+  const [apiProducts, setApiProducts] = useState<any[] | null>(null);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -35,6 +37,38 @@ const BrandPage: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    const params = new URLSearchParams();
+    if (term) params.set('brand_code', term);
+    if (categoryParam) params.set('cat_code', categoryParam);
+    params.set('limit', '200');
+    params.set('lite', '1');
+    setIsLoadingProducts(true);
+
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/products?${params.toString()}`);
+        if (!res.ok) throw new Error('Failed to load products');
+        const json = await res.json();
+        if (mounted) {
+          setApiProducts(Array.isArray(json?.data) ? json.data : []);
+          setIsLoadingProducts(false);
+        }
+      } catch {
+        if (mounted) {
+          setApiProducts(null);
+          setIsLoadingProducts(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [term, categoryParam]);
+
   const categorySource = useMemo(
     () => (staticCategories.length > 0 ? staticCategories : (categoriesData as any[])),
     [staticCategories],
@@ -51,7 +85,8 @@ const BrandPage: React.FC = () => {
 
   const termSlug = slug(term);
 
-  const products = (allProducts as any[]).filter(
+  const sourceProducts = apiProducts ?? (allProducts as any[]);
+  const products = sourceProducts.filter(
     (p) =>
       (
         (p?.brand_code && String(p.brand_code).toLowerCase() === String(term).toLowerCase()) ||
@@ -224,10 +259,21 @@ const BrandPage: React.FC = () => {
           </p>
         </div>
 
-        {products.length === 0 ? (
+        {isLoadingProducts ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+            {Array.from({ length: 8 }).map((_, idx) => (
+              <div key={`brand-product-skeleton-${idx}`} className="rounded-2xl border border-gray-200 p-3 md:p-4 bg-white">
+                <div className="aspect-square rounded-xl shimmer-surface mb-3" />
+                <div className="h-4 w-3/4 skeleton-line shimmer-surface mb-2" />
+                <div className="h-4 w-1/2 skeleton-line shimmer-surface mb-3" />
+                <div className="h-9 w-full rounded-lg shimmer-surface" />
+              </div>
+            ))}
+          </div>
+        ) : products.length === 0 ? (
           <div className="py-12 text-center text-gray-600">{language === 'ar' ? 'لا توجد منتجات' : 'No products found'}</div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {products.map((p) => (
               <ProductCard
                 key={getProductRef(p) || String(p.id)}

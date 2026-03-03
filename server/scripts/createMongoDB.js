@@ -21,6 +21,9 @@ const colors = {
 };
 
 async function createCollections(db) {
+  const legacyIndexesToDrop = {
+    products: ['sku_1', 'slug_1'],
+  };
   const collections = [
     { name: 'products', validator: getProductValidator(), indexes: getProductIndexes() },
     { name: 'categories', validator: getCategoryValidator(), indexes: getCategoryIndexes() },
@@ -108,6 +111,19 @@ async function createCollections(db) {
 
       if (collection.indexes?.length) {
         const col = db.collection(collection.name);
+        const staleIndexes = legacyIndexesToDrop[collection.name] || [];
+        for (const staleIndex of staleIndexes) {
+          try {
+            const existingIndexes = await col.indexes();
+            if (existingIndexes.some((idx) => idx.name === staleIndex)) {
+              await col.dropIndex(staleIndex);
+              console.log(`${colors.blue}  - Dropped legacy index: ${staleIndex}${colors.reset}`);
+            }
+          } catch (dropError) {
+            console.warn(`${colors.yellow}  - Could not drop legacy index "${staleIndex}": ${dropError.message}${colors.reset}`);
+          }
+        }
+
         for (const index of collection.indexes) {
           try {
             await col.createIndex(index.spec, index.options || {});
@@ -131,14 +147,11 @@ function getProductValidator() {
       required: ['name', 'stk_code'],
       properties: {
         stk_code: { bsonType: 'string' },
-        id: { bsonType: ['int', 'long'] },
-        sku: { bsonType: 'string' },
+        id: { bsonType: ['int', 'long', 'string'] },
         slug: { bsonType: 'string' },
         name: { bsonType: ['string', 'object'] },
         nameAr: { bsonType: 'string' },
-        basePrice: { bsonType: ['number', 'int', 'long'] },
         price: { bsonType: ['string', 'number', 'int', 'long'] },
-        oldPrice: { bsonType: ['string', 'number', 'int', 'long'] },
         image: { bsonType: 'string' },
         category: { bsonType: 'string' },
         categoryAr: { bsonType: 'string' },
@@ -167,17 +180,40 @@ function getProductValidator() {
           bsonType: 'array',
           items: {
             bsonType: 'object',
-            required: ['name', 'nameAr', 'hexCode', 'image', 'sku'],
+            required: ['stk_code', 'price'],
             properties: {
-              name: { bsonType: 'string' },
-              nameAr: { bsonType: 'string' },
-              hexCode: { bsonType: 'string' },
-              image: { bsonType: 'string' },
+              stk_code: { bsonType: 'string' },
+              price: { bsonType: ['number', 'int', 'long'] },
+              color_name: { bsonType: 'string' },
+              color_name_ar: { bsonType: 'string' },
+              color_hex: { bsonType: 'string' },
+              in_stock: { bsonType: 'bool' },
+              active: { bsonType: 'bool' },
               images: { bsonType: 'array', items: { bsonType: 'string' } },
-              sku: { bsonType: 'string' },
-              stock: { bsonType: ['int', 'long'] },
-              inStock: { bsonType: 'bool' },
-              isAvailable: { bsonType: 'bool' }
+              offers: {
+                bsonType: 'array',
+                items: {
+                  bsonType: 'object',
+                  required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'window', 'is_active'],
+                  properties: {
+                    offer_no: { bsonType: 'string' },
+                    offer_type: { bsonType: 'string', enum: ['direct_discount', 'coupon', 'free_product', 'bundle_discount'] },
+                    discount: { bsonType: ['number', 'int', 'long'] },
+                    discount_type: { bsonType: 'string', enum: ['p', 'v'] },
+                    title: { bsonType: 'string' },
+                    title_ar: { bsonType: 'string' },
+                    description: { bsonType: 'string' },
+                    description_ar: { bsonType: 'string' },
+                    products: { bsonType: 'array', items: { bsonType: 'string' } },
+                    window: {
+                      bsonType: 'object',
+                      required: ['start', 'end'],
+                      properties: { start: { bsonType: 'date' }, end: { bsonType: 'date' } }
+                    },
+                    is_active: { bsonType: 'bool' }
+                  }
+                }
+              }
             }
           }
         },
@@ -185,12 +221,38 @@ function getProductValidator() {
           bsonType: 'array',
           items: {
             bsonType: 'object',
-            required: ['id', 'value', 'valueAr', 'price'],
+            required: ['stk_code', 'price'],
             properties: {
-              id: { bsonType: 'string' },
-              value: { bsonType: 'string' },
-              valueAr: { bsonType: 'string' },
-              price: { bsonType: ['number', 'int', 'long'] }
+              stk_code: { bsonType: 'string' },
+              price: { bsonType: ['number', 'int', 'long'] },
+              name: { bsonType: 'string' },
+              name_ar: { bsonType: 'string' },
+              in_stock: { bsonType: 'bool' },
+              active: { bsonType: 'bool' },
+              offers: {
+                bsonType: 'array',
+                items: {
+                  bsonType: 'object',
+                  required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'window', 'is_active'],
+                  properties: {
+                    offer_no: { bsonType: 'string' },
+                    offer_type: { bsonType: 'string', enum: ['direct_discount', 'coupon', 'free_product', 'bundle_discount'] },
+                    discount: { bsonType: ['number', 'int', 'long'] },
+                    discount_type: { bsonType: 'string', enum: ['p', 'v'] },
+                    title: { bsonType: 'string' },
+                    title_ar: { bsonType: 'string' },
+                    description: { bsonType: 'string' },
+                    description_ar: { bsonType: 'string' },
+                    products: { bsonType: 'array', items: { bsonType: 'string' } },
+                    window: {
+                      bsonType: 'object',
+                      required: ['start', 'end'],
+                      properties: { start: { bsonType: 'date' }, end: { bsonType: 'date' } }
+                    },
+                    is_active: { bsonType: 'bool' }
+                  }
+                }
+              }
             }
           }
         },
@@ -198,25 +260,49 @@ function getProductValidator() {
           bsonType: 'array',
           items: {
             bsonType: 'object',
-            required: ['icon', 'title', 'value'],
+            required: ['title', 'titleAr', 'value', 'valueAr'],
             properties: {
-              icon: { bsonType: 'string' },
+              icon: {
+                oneOf: [
+                  // React icon key, e.g. "Battery", "Smartphone"
+                  { bsonType: 'string' },
+                  // Custom image/icon payload
+                  {
+                    bsonType: 'object',
+                    required: ['type'],
+                    properties: {
+                      type: { bsonType: 'string', enum: ['react_icon', 'url'] },
+                      key: { bsonType: 'string' },
+                      url: { bsonType: 'string' }
+                    }
+                  }
+                ]
+              },
               title: { bsonType: 'string' },
-              value: { bsonType: 'string' }
+              titleAr: { bsonType: 'string' },
+              value: { bsonType: 'string' },
+              valueAr: { bsonType: 'string' },
+              isKeyFeature: { bsonType: 'bool' }
             }
           }
         },
-        specifications: {
+        inTheBox: {
           bsonType: 'array',
           items: {
-            bsonType: 'object',
-            required: ['key', 'keyAr', 'value', 'valueAr'],
-            properties: {
-              key: { bsonType: 'string' },
-              keyAr: { bsonType: 'string' },
-              value: { bsonType: 'string' },
-              valueAr: { bsonType: 'string' }
-            }
+            oneOf: [
+              { bsonType: 'string' },
+              {
+                bsonType: 'object',
+                properties: {
+                  en: { bsonType: 'string' },
+                  ar: { bsonType: 'string' },
+                  valueEn: { bsonType: 'string' },
+                  valueAr: { bsonType: 'string' },
+                  nameEn: { bsonType: 'string' },
+                  nameAr: { bsonType: 'string' }
+                }
+              }
+            ]
           }
         },
         offers: {
@@ -332,87 +418,25 @@ function getOfferValidator() {
   return {
     $jsonSchema: {
       bsonType: 'object',
-      required: ['type'],
+      required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'window', 'is_active'],
       properties: {
-        code: { bsonType: 'string' },
-        type: { bsonType: 'string', enum: ['direct_discount', 'coupon', 'free_product', 'bundle_discount'] },
-        titleEn: { bsonType: 'string' },
-        titleAr: { bsonType: 'string' },
-        descriptionEn: { bsonType: 'string' },
-        descriptionAr: { bsonType: 'string' },
-        discountType: { bsonType: 'string', enum: ['value', 'percentage'] },
-        discountValue: { bsonType: ['number', 'int', 'long'] },
-        couponValue: { bsonType: ['number', 'int', 'long'] },
-        eligibleProductIds: { bsonType: 'array', items: { bsonType: ['objectId', 'int', 'long'] } },
-        validityDays: { bsonType: ['int', 'long'] },
-        freeProductId: { bsonType: ['objectId', 'int', 'long'] },
-        discountPercentage: { bsonType: ['number', 'int', 'long'] },
-        relatedProductIds: { bsonType: 'array', items: { bsonType: ['objectId', 'int', 'long'] } },
-        content: {
-          bsonType: 'object',
-          properties: {
-            titleEn: { bsonType: 'string' },
-            titleAr: { bsonType: 'string' },
-            descriptionEn: { bsonType: 'string' },
-            descriptionAr: { bsonType: 'string' }
-          }
-        },
-        definition: {
-          bsonType: 'object',
-          oneOf: [
-            {
-              required: ['discountType', 'discountValue'],
-              properties: {
-                discountType: { bsonType: 'string', enum: ['value', 'percentage'] },
-                discountValue: { bsonType: ['number', 'int', 'long'] }
-              }
-            },
-            {
-              required: ['couponValue', 'eligibleProductIds'],
-              properties: {
-                couponValue: { bsonType: ['number', 'int', 'long'] },
-                eligibleProductIds: { bsonType: 'array', items: { bsonType: 'objectId' } },
-                validityDays: { bsonType: ['int', 'long'] }
-              }
-            },
-            {
-              required: ['freeProductId'],
-              properties: { freeProductId: { bsonType: 'objectId' } }
-            },
-            {
-              required: ['discountPercentage', 'relatedProductIds'],
-              properties: {
-                discountPercentage: { bsonType: ['number', 'int', 'long'] },
-                relatedProductIds: { bsonType: 'array', items: { bsonType: 'objectId' } }
-              }
-            }
-          ]
-        },
-        priority: { bsonType: ['int', 'long'] },
+        offer_no: { bsonType: 'string' },
+        offer_type: { bsonType: 'string', enum: ['direct_discount', 'coupon', 'free_product', 'bundle_discount'] },
+        mainproductstk_code: { bsonType: 'string' },
+        discount: { bsonType: ['number', 'int', 'long'] },
+        discount_type: { bsonType: 'string', enum: ['p', 'v'] },
+        title: { bsonType: 'string' },
+        title_ar: { bsonType: 'string' },
+        description: { bsonType: 'string' },
+        description_ar: { bsonType: 'string' },
+        products: { bsonType: 'array', items: { bsonType: 'string' } },
         window: {
           bsonType: 'object',
-          required: ['startsAt', 'endsAt'],
-          properties: { startsAt: { bsonType: 'date' }, endsAt: { bsonType: 'date' } }
+          required: ['start', 'end'],
+          properties: { start: { bsonType: 'date' }, end: { bsonType: 'date' } }
         },
-        scope: {
-          bsonType: 'object',
-          properties: {
-            allProducts: { bsonType: 'bool' },
-            productIds: { bsonType: 'array', items: { bsonType: 'objectId' } },
-            categoryIds: { bsonType: 'array', items: { bsonType: 'objectId' } },
-            brandIds: { bsonType: 'array', items: { bsonType: 'objectId' } }
-          }
-        },
-        isActive: { bsonType: 'bool' }
-      },
-      oneOf: [
-        {
-          required: ['type', 'titleEn', 'titleAr', 'descriptionEn', 'descriptionAr']
-        },
-        {
-          required: ['type', 'content', 'definition']
-        }
-      ]
+        is_active: { bsonType: 'bool' }
+      }
     }
   };
 }
@@ -663,12 +687,14 @@ function getSavedSpecTitlesValidator() {
 function getProductIndexes() {
   return [
     { spec: { stk_code: 1 }, options: { unique: true } },
-    { spec: { sku: 1 }, options: { unique: true, sparse: true } },
-    { spec: { slug: 1 }, options: { unique: true, sparse: true } },
+    { spec: { slug: 1 }, options: { sparse: true } },
     { spec: { id: 1 }, options: { unique: true, sparse: true } },
     { spec: { cat_code: 1 } },
+    { spec: { cat_code: 1, updatedAt: -1 } },
     { spec: { cat_codes: 1 } },
     { spec: { brand_code: 1 } },
+    { spec: { brand_code: 1, updatedAt: -1 } },
+    { spec: { cat_code: 1, brand_code: 1, updatedAt: -1 } },
     { spec: { brand_codes: 1 } },
     { spec: { brandId: 1, categoryIds: 1, 'status.isActive': 1, 'status.isHidden': 1 } },
     { spec: { category: 1, brand: 1 } },
@@ -696,16 +722,10 @@ function getBrandIndexes() {
 }
 function getOfferIndexes() {
   return [
-    { spec: { code: 1 }, options: { unique: true, sparse: true } },
-    { spec: { type: 1, isActive: 1, 'window.startsAt': 1, 'window.endsAt': 1 } },
-    { spec: { priority: -1, createdAt: -1 } },
-    { spec: { eligibleProductIds: 1 } },
-    { spec: { relatedProductIds: 1 } },
-    { spec: { freeProductId: 1 } },
-    { spec: { 'definition.eligibleProductIds': 1 } },
-    { spec: { 'definition.relatedProductIds': 1 } },
-    { spec: { 'definition.freeProductId': 1 } },
-    { spec: { 'scope.categoryIds': 1, 'scope.brandIds': 1 } }
+    { spec: { offer_no: 1 }, options: { unique: true } },
+    { spec: { offer_type: 1, is_active: 1, 'window.start': 1, 'window.end': 1 } },
+    { spec: { mainproductstk_code: 1 } },
+    { spec: { products: 1 } }
   ];
 }
 function getUserIndexes() {

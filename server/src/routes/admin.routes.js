@@ -2,6 +2,7 @@ const express = require('express');
 const { ObjectId } = require('mongodb');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
+const { hydrateCollection, hydrateDocument } = require('../models');
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get('/users', asyncHandler(async (req, res) => {
   if (req.query.role) query.role = req.query.role;
 
   const items = await db.collection('users').find(query).sort({ createdAt: -1 }).toArray();
-  res.json({ success: true, data: items });
+  res.json({ success: true, data: hydrateCollection('users', items) });
 }));
 
 router.get('/users/:id/permissions', asyncHandler(async (req, res) => {
@@ -91,7 +92,7 @@ router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Admin user not found' });
   }
 
-  res.json({ success: true, data: result });
+  res.json({ success: true, data: hydrateDocument('users', result) });
 }));
 
 router.get('/orders', asyncHandler(async (req, res) => {
@@ -100,7 +101,7 @@ router.get('/orders', asyncHandler(async (req, res) => {
   if (req.query.status) query.status = req.query.status;
 
   const items = await db.collection('orders').find(query).sort({ createdAt: -1 }).toArray();
-  res.json({ success: true, data: items });
+  res.json({ success: true, data: hydrateCollection('orders', items) });
 }));
 
 router.get('/notifications', asyncHandler(async (req, res) => {
@@ -109,7 +110,7 @@ router.get('/notifications', asyncHandler(async (req, res) => {
   if (req.query.status) query.status = req.query.status;
 
   const items = await db.collection('notifications').find(query).sort({ createdAt: -1 }).toArray();
-  res.json({ success: true, data: items });
+  res.json({ success: true, data: hydrateCollection('notifications', items) });
 }));
 
 router.get('/reports/daily-kpis', asyncHandler(async (req, res) => {
@@ -123,7 +124,7 @@ router.get('/reports/daily-kpis', asyncHandler(async (req, res) => {
   }
 
   const data = await db.collection('report_daily_kpis').find(query).sort({ date: 1 }).toArray();
-  res.json({ success: true, data });
+  res.json({ success: true, data: hydrateCollection('report_daily_kpis', data) });
 }));
 
 router.get('/actions', asyncHandler(async (req, res) => {
@@ -144,7 +145,11 @@ router.get('/actions', asyncHandler(async (req, res) => {
     db.collection('admin_actions').countDocuments(query),
   ]);
 
-  res.json({ success: true, data: items, pagination: { page, limit, total } });
+  res.json({
+    success: true,
+    data: hydrateCollection('admin_actions', items),
+    pagination: { page, limit, total },
+  });
 }));
 
 router.get('/analytics/visitor-sessions', asyncHandler(async (req, res) => {
@@ -164,7 +169,7 @@ router.get('/analytics/visitor-sessions', asyncHandler(async (req, res) => {
     .limit(5000)
     .toArray();
 
-  res.json({ success: true, data: items });
+  res.json({ success: true, data: hydrateCollection('web_events', items) });
 }));
 
 router.get('/analytics/cart-events', asyncHandler(async (req, res) => {
@@ -184,7 +189,7 @@ router.get('/analytics/cart-events', asyncHandler(async (req, res) => {
     .limit(5000)
     .toArray();
 
-  res.json({ success: true, data: items });
+  res.json({ success: true, data: hydrateCollection('cart_events', items) });
 }));
 
 router.get('/product-revisions/:productId', asyncHandler(async (req, res) => {
@@ -199,7 +204,7 @@ router.get('/product-revisions/:productId', asyncHandler(async (req, res) => {
   }
 
   const data = await db.collection('product_revisions').find(query).sort({ version: -1 }).toArray();
-  res.json({ success: true, data });
+  res.json({ success: true, data: hydrateCollection('product_revisions', data) });
 }));
 
 module.exports = router;

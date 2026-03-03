@@ -31857,7 +31857,7 @@ const toNumericProductId = (product: any, index: number): number => {
     return product.id;
   }
 
-  const candidates = [product?.id, product?.stk_code, product?.sku];
+  const candidates = [product?.id, product?.stk_code];
   for (const candidate of candidates) {
     if (candidate === null || candidate === undefined) continue;
     const parsed = Number(String(candidate).replace(/[^\d]/g, ""));
@@ -31897,7 +31897,7 @@ const normalizeProductAvailability = (product: ProductWithOffers, index: number)
   return {
     ...product,
     id: toNumericProductId(product, index),
-    stk_code: String((product as any).stk_code || (product as any).sku || toNumericProductId(product, index)),
+    stk_code: String((product as any).stk_code || toNumericProductId(product, index)),
     isAvailable: true,
     colorVariants: hasColorVariants ? normalizedVariants : product.colorVariants,
   };
@@ -31911,7 +31911,6 @@ export const getProductById = (id: number | string) =>
   products.find(
     (p: any) =>
       String(p.stk_code) === String(id) ||
-      String(p.sku) === String(id) ||
       String(p.id) === String(id),
   );
 
@@ -31935,7 +31934,6 @@ const getOfferLookupKeys = (productOrId: number | string | ProductWithOffers): s
 
   const keys = [
     toKey((productOrId as any)?.stk_code),
-    toKey((productOrId as any)?.sku),
     toKey((productOrId as any)?.id),
   ].filter(Boolean);
 
@@ -31969,8 +31967,6 @@ export const getOfferPricing = (
   const sourcePrice =
     typeof options?.sourcePrice === "number"
       ? options.sourcePrice
-      : typeof product.basePrice === "number" && product.basePrice > 0
-      ? product.basePrice
       : parsePriceValue(product.price);
 
   const currentPrice = calculateDiscountedPrice(sourcePrice, offers);

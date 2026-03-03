@@ -14,6 +14,8 @@ const CategoryPage: React.FC = () => {
   const { language, t } = useLanguage();
   const term = id ? decodeURIComponent(id) : '';
   const [staticCategories, setStaticCategories] = useState<any[]>([]);
+  const [apiProducts, setApiProducts] = useState<any[] | null>(null);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -33,6 +35,37 @@ const CategoryPage: React.FC = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    const params = new URLSearchParams();
+    if (term) params.set('cat_code', term);
+    params.set('limit', '200');
+    params.set('lite', '1');
+    setIsLoadingProducts(true);
+
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/products?${params.toString()}`);
+        if (!res.ok) throw new Error('Failed to load products');
+        const json = await res.json();
+        if (mounted) {
+          setApiProducts(Array.isArray(json?.data) ? json.data : []);
+          setIsLoadingProducts(false);
+        }
+      } catch {
+        if (mounted) {
+          setApiProducts(null);
+          setIsLoadingProducts(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [term]);
 
   const categorySource = useMemo(
     () => (staticCategories.length > 0 ? staticCategories : (categoriesData as any[])),
@@ -73,7 +106,8 @@ const CategoryPage: React.FC = () => {
     );
   });
 
-  const products = (allProducts as any[]).filter(
+  const sourceProducts = apiProducts ?? (allProducts as any[]);
+  const products = sourceProducts.filter(
     (p) =>
       (
         (p?.cat_code && String(p.cat_code).toLowerCase() === String(term).toLowerCase()) ||
@@ -95,7 +129,13 @@ const CategoryPage: React.FC = () => {
     : term;
 
   const compareItems = useCompareStore((s: any) => s.items) as string[];
-  const toggleCompare = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;
+  const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;
+  const openCompare = useCompareStore((s: any) => s.openCompare) as () => void;
+  const handleToggleCompare = (productId: string) => {
+    const isAdding = !compareItems.some((id) => String(id) === String(productId));
+    toggleCompareStore(String(productId));
+    if (isAdding) openCompare();
+  };
 
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
@@ -118,7 +158,18 @@ const CategoryPage: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-4">{displayCategoryName}</h1>
 
-        {products.length === 0 ? (
+        {isLoadingProducts ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, idx) => (
+              <div key={`category-product-skeleton-${idx}`} className="rounded-2xl border border-gray-200 p-3 md:p-4 bg-white">
+                <div className="aspect-square rounded-xl shimmer-surface mb-3" />
+                <div className="h-4 w-3/4 skeleton-line shimmer-surface mb-2" />
+                <div className="h-4 w-1/2 skeleton-line shimmer-surface mb-3" />
+                <div className="h-9 w-full rounded-lg shimmer-surface" />
+              </div>
+            ))}
+          </div>
+        ) : products.length === 0 ? (
           <div className="py-12 text-center text-gray-600">{language === 'ar' ? 'لا توجد منتجات' : 'No products found'}</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -126,7 +177,7 @@ const CategoryPage: React.FC = () => {
               <ProductCard
                 key={getProductRef(p) || String(p.id)}
                 product={p}
-                toggleCompare={toggleCompare}
+                toggleCompare={handleToggleCompare}
                 compareItems={compareItems}
                 language={language === 'ar' ? 'ar' : 'en'}
                 onProductClick={(product) =>

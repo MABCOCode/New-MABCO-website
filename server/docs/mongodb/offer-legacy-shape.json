@@ -1,0 +1,58 @@
+﻿[
+  {
+    "offer_no": "OFF-0001",
+    "offer_type": "direct_discount",
+    "discount": 15,
+    "discount_type": "p",
+    "title": "15% OFF Special Deal",
+    "title_ar": "خصم 15% عرض خاص",
+    "products": ["471524358527396"],
+    "window": {
+      "start": "2026-02-26T00:00:00.000Z",
+      "end": "2026-03-05T23:59:59.999Z"
+    },
+    "is_active": true
+  },
+  {
+    "offer_no": "OFF-0002",
+    "offer_type": "coupon",
+    "discount": 100000,
+    "discount_type": "v",
+    "title": "Buy & Get 100,000 Coupon",
+    "title_ar": "اشترِ واحصل على كوبون 100,000",
+    "products": ["471524358527504", "471524358529018"],
+    "window": {
+      "start": "2026-02-26T00:00:00.000Z",
+      "end": "2026-03-05T23:59:59.999Z"
+    },
+    "is_active": true
+  },
+  {
+    "offer_no": "OFF-0003",
+    "offer_type": "free_product",
+    "discount": 0,
+    "discount_type": "v",
+    "title": "Free Gift",
+    "title_ar": "هدية مجانية",
+    "products": ["471524358527396"],
+    "window": {
+      "start": "2026-02-26T00:00:00.000Z",
+      "end": "2026-03-05T23:59:59.999Z"
+    },
+    "is_active": true
+  },
+  {
+    "offer_no": "OFF-0004",
+    "offer_type": "bundle_discount",
+    "discount": 25,
+    "discount_type": "p",
+    "title": "25% OFF Bundle",
+    "title_ar": "خصم 25% على الحزمة",
+    "products": ["471524358527396", "471524358527504"],
+    "window": {
+      "start": "2026-02-26T00:00:00.000Z",
+      "end": "2026-03-05T23:59:59.999Z"
+    },
+    "is_active": true
+  }
+]

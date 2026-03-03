@@ -118,7 +118,7 @@ export function ShoppingCart({
     const bundleOffer = offers.find((offer) => offer.type === "bundle_discount") as any;
     if (!bundleOffer) return;
 
-    const basePrice = bundleProduct.basePrice ?? parsePrice(bundleProduct.price);
+    const basePrice = parsePrice(bundleProduct.price);
     const discountedPrice = Math.max(
       0,
       Math.round(basePrice * (1 - bundleOffer.discountPercentage / 100)),
@@ -376,3 +376,4 @@ export function ShoppingCart({
     </>
   );
 }
+

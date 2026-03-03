@@ -86,7 +86,10 @@ export function OfferTypePage({
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-white fixed inset-0 overflow-y-auto z-[100]">
+    <div
+      dir={language === "ar" ? "rtl" : "ltr"}
+      className="min-h-screen bg-white fixed inset-0 overflow-y-auto z-[100]"
+    >
       {/* Custom Navigation Bar */}
       <nav className={`sticky top-0 z-50 bg-gradient-to-r ${offerInfo.gradient} shadow-2xl`}>
         <div className="container mx-auto px-4">
@@ -128,7 +131,7 @@ export function OfferTypePage({
             {/* Stats Badge */}
             <div className="hidden md:flex items-center gap-2 bg-white/20 backdrop-blur-md rounded-xl px-4 py-2">
               <Sparkles className="w-5 h-5 text-white" />
-              <div className="text-right">
+              <div className={language === "ar" ? "text-right" : "text-left"}>
                 <p className="text-2xl font-bold text-white">{heroProducts.length}</p>
                 <p className="text-xs text-white/80">
                   {language === "ar" ? "منتج متاح" : "Products"}
@@ -148,7 +151,7 @@ export function OfferTypePage({
       </nav>
 
       {/* Breadcrumb */}
-      <div className="sticky top-20 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
+      <div className="sticky top-20 z-[10001] bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
             <button
@@ -377,7 +380,7 @@ export function OfferTypePage({
                 <div className="bg-white rounded-2xl px-8 py-6 shadow-2xl">
                   <div className="flex items-center gap-4">
                     <TrendingDown className="w-8 h-8 text-green-600" />
-                    <div className="text-left">
+                    <div className={language === "ar" ? "text-right" : "text-left"}>
                       <p className="text-sm text-gray-500">
                         {language === "ar" ? "وفّر حتى" : "Save up to"}
                       </p>
@@ -446,4 +449,3 @@ export function OfferTypeRoute() {
     />
   );
 }
-
