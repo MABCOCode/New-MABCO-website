@@ -106,7 +106,7 @@ export function InlineProductEditor({
       save: "حفظ",
       cancel: "إلغاء",
       descriptionEn: "الوصف الإنجليزي",
-      descriptionAr: "الوصف ��لعربي",
+      descriptionAr: "الوصف بالعربي",
       addSpec: "إضافة مواصفة",
       charCount: "حرف",
       optimal: "مثالي",

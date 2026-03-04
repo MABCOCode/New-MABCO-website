@@ -286,28 +286,27 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-white pt-24 pb-16">
-      <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {t('admin.content.title')}
+    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-white ">
+       {/* Header */}
+      <div className="sticky top-0 z-10 bg-white border-b-2 border-gray-200 shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                 {t('admin.content.title')}
             </h1>
-            <p className="text-gray-600">
-              {t('admin.content.subtitle')}
-            </p>
+            {/* <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="w-6 h-6 text-gray-700" />
+            </button> */}
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 transition-all duration-300"
-          >
-            <X className="w-6 h-6" />
-          </button>
         </div>
-
+      </div>
+      <div className="container mx-auto px-4">
+       
         {/* Warning Banner */}
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-4 mb-6 flex items-start gap-4">
+        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-4 mt-6 mb-6 flex items-start gap-4">
           <AlertTriangle className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="font-bold text-orange-900 mb-1">{t('admin.content.warning')}</h3>
@@ -316,7 +315,7 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-100 ">
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
             <div className="flex-1 relative">

@@ -43,7 +43,7 @@ All current routes/features and required data sources:
 - Services in home (`printing`, `epayment`, `warranty`, `maintenance-status`): `service_requests`, `payment_transactions`, `warranties`, `maintenance_tickets`.
 
 ---
-
+components/superadmin/AdminManagement.tsx
 ## 3) Core Write Collections
 
 ## 3.1 `products`
@@ -97,12 +97,12 @@ Index: `{ slug: 1 }` unique, `{ categoryIds: 1, isActive: 1 }`
 - `free_product`: `freeProductId`
 - `bundle_discount`: `discountPercentage`, `relatedProductIds[]`
 - Optional normalized shape for backend evolution: `content` + `definition`
-- `priority`, `window: { startsAt, endsAt }`, `isActive`
+- `start`, `end`, `is_active`
 - Optional targeting layer (if needed globally): `scope: { allProducts, productIds, categoryIds, brandIds }`
 
 Indexes:
 - `{ code: 1 }` unique
-- `{ type: 1, isActive: 1, 'window.startsAt': 1, 'window.endsAt': 1 }`
+- `{ offer_type: 1, is_active: 1, start: 1, end: 1 }`
 - `{ priority: -1, createdAt: -1 }`
 - `{ 'definition.eligibleProductIds': 1 }` (coupon)
 - `{ 'definition.relatedProductIds': 1 }` (bundle)
@@ -380,7 +380,7 @@ To enable accurate reports and admin features, apply these object edits:
 7. `offers` add:
 - `content.titleEn/titleAr/descriptionEn/descriptionAr`.
 - `definition` by `type` (`direct_discount`, `coupon`, `free_product`, `bundle_discount`).
-- keep `priority` + `window` for sorting and live activation.
+- keep `start/end` for sorting and live activation.
 - optional `scope` only if you need category/brand-wide targeting.
 - Reason: deterministic checkout calculation and exact parity with frontend offer-type models.
 
@@ -421,7 +421,7 @@ To enable accurate reports and admin features, apply these object edits:
 
 // offers
  db.offers.createIndex({ code: 1 }, { unique: true })
- db.offers.createIndex({ type: 1, isActive: 1, 'window.startsAt': 1, 'window.endsAt': 1 })
+ db.offers.createIndex({ offer_type: 1, is_active: 1, start: 1, end: 1 })
  db.offers.createIndex({ priority: -1, createdAt: -1 })
  db.offers.createIndex({ 'definition.eligibleProductIds': 1 })
  db.offers.createIndex({ 'definition.relatedProductIds': 1 })

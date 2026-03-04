@@ -12,6 +12,7 @@ import { InvoicesPage } from "./pages/InvoicesPage";
 import { AccountSettingsPage } from "./pages/AccountSettingsPage";
 import { ProductContentDashboard } from "./pages/admin/ProductContentDashboard";
 import { AdminOrderManagement } from "./pages/admin/AdminOrderManagement";
+import { BannerSliderManagement } from "./pages/admin/BannerSliderManagement";
 import { SuperAdminDashboard } from "./pages/superadmin/SuperAdminDashboard";
 import { AdminManagement } from "./pages/superadmin/AdminManagement";
 import { ProductTracking } from "./pages/superadmin/ProductTracking";
@@ -120,13 +121,21 @@ export const AccountRoutes = () => {
         <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b shadow-sm">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
+              
               <button
                 onClick={() => navigate('/account/admin/content')}
                 className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/content' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
               >
-                {t('admin.content.syncedProducts')}
+                
+                {language === 'ar' ? 'إدارة المتجر' : 'Store Management'}
               </button>
               <button
+                onClick={() => navigate('/account/admin/banners')}
+                className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/banners' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                {language === 'ar' ? 'إدارة البانر' : 'Banner Slider'}
+              </button>
+                  <button
                 onClick={() => navigate('/account/admin/orders')}
                 className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/orders' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
               >
@@ -249,6 +258,10 @@ export const AccountRoutes = () => {
       <Route
         path="/admin/content"
         element={<ProductContentDashboard onClose={() => navigate('/account/dashboard')} />}
+      />
+      <Route
+        path="/admin/banners"
+        element={<BannerSliderManagement language={language} onClose={() => navigate('/account/dashboard')} />}
       />
       <Route
         path="/admin/orders"

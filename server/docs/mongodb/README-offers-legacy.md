@@ -20,8 +20,8 @@ The main difference:
 - `title`: English title.
 - `title_ar`: Arabic title.
 - `products`: array of `stk_code` strings for related/eligible products.
-- `window.start`: ISO date string start.
-- `window.end`: ISO date string end.
+- `start`: ISO date string start.
+- `end`: ISO date string end.
 - `is_active`: boolean
 
 ## Example: Embedded Product Offers
@@ -36,7 +36,8 @@ The main difference:
       "title": "15% OFF Special Deal",
       "title_ar": "خصم 15% عرض خاص",
       "products": ["471524358527396"],
-      "window": { "start": "2026-02-26T00:00:00.000Z", "end": "2026-03-05T23:59:59.999Z" },
+      "start": "2026-02-26T00:00:00.000Z",
+      "end": "2026-03-05T23:59:59.999Z",
       "is_active": true
     }
   ]
@@ -54,7 +55,8 @@ The main difference:
   "title": "15% OFF Special Deal",
   "title_ar": "خصم 15% عرض خاص",
   "products": ["471524358527396"],
-  "window": { "start": "2026-02-26T00:00:00.000Z", "end": "2026-03-05T23:59:59.999Z" },
+  "start": "2026-02-26T00:00:00.000Z",
+  "end": "2026-03-05T23:59:59.999Z",
   "is_active": true
 }
 ```

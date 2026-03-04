@@ -1095,6 +1095,10 @@
   .mb-16 {
     margin-bottom: calc(var(--spacing) * 16);
   }
+  
+  .mb-40 {
+    margin-bottom: calc(var(--spacing) * 40);
+  }
 
   .-ml-2 {
     margin-left: calc(var(--spacing) * -2);
@@ -6721,7 +6725,8 @@
 
 @font-face {
   font-family: TheMixArab;
-  src: url("https://mabcoonline.com/ar/assets/corporate/TheMixArab.ttf") format("truetype");
+  src: url('https://db.onlinewebfonts.com/t/7dfdff9f5cff88cd3898ccd72c83f653.ttf') format('truetype');
+  
   font-weight: normal;
   font-style: normal;
   font-display: swap;

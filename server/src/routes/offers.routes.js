@@ -9,16 +9,16 @@ router.get('/', asyncHandler(async (req, res) => {
   const db = getDb();
   const query = {};
 
-  if (req.query.active === 'true') query.isActive = true;
-  if (req.query.type) query.type = req.query.type;
+  if (req.query.active === 'true') query.is_active = true;
+  if (req.query.type) query.offer_type = req.query.type;
 
   const now = new Date();
   if (req.query.live === 'true') {
-    query['window.startsAt'] = { $lte: now };
-    query['window.endsAt'] = { $gte: now };
+    query.start = { $lte: now };
+    query.end = { $gte: now };
   }
 
-  const items = await db.collection('offers').find(query).sort({ priority: -1, createdAt: -1 }).toArray();
+  const items = await db.collection('offers').find(query).sort({ start: -1 }).toArray();
   res.json({ success: true, data: hydrateCollection('offers', items) });
 }));
 

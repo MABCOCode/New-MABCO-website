@@ -371,8 +371,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       {/* Improved Breadcrumb */}
       <div className="sticky top-[72px] z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
+          <div className="flex items-center justify-between gap-4 ">
+            <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide ">
               <button
                 onClick={() => navigate("/")}
                 className="group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0"
@@ -1059,7 +1059,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                   image: rel.image,
                                   originalPrice:
                                     parseFloat(
-                                      (rel.price || "0").replace(/,/g, ""),
+                                      String(rel.price || "0").replace(/,/g, ""),
                                     ),
                                   discountPercentage:
                                     bundleOffer.discountPercentage,
@@ -1311,10 +1311,15 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     })}
                   </div>
                 ) : (
-                  <div className="text-center py-12 text-gray-500">
-                    {language === "ar"
-                      ? "لا توجد مواصفات متاحة"
-                      : "No specifications available"}
+                 <div className="text-center py-16">
+                    <div className="bg-gradient-to-br from-gray-100 to-gray-50 rounded-2xl p-12 inline-block">
+                      <Settings className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500 text-lg font-semibold">
+                        {language === "ar"
+                          ?" لا توجد مواصفات متاحة"
+                          : "No offers available for this product"}
+                      </p>
+                    </div>
                   </div>
                 )}
 

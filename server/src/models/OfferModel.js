@@ -1,7 +1,7 @@
 const BaseModel = require('./BaseModel');
 
 class OfferModel extends BaseModel {
-  static props = ['_id', 'code', 'type', 'titleEn', 'titleAr', 'descriptionEn', 'descriptionAr', 'discountType', 'discountValue', 'couponValue', 'eligibleProductIds', 'validityDays', 'freeProductId', 'discountPercentage', 'relatedProductIds', 'content', 'definition', 'scope', 'priority', 'window', 'isActive', 'createdAt'];
+  static props = ['_id', 'offer_no', 'offer_type', 'mainproductstk_code', 'discount', 'discount_type', 'title', 'title_ar', 'description', 'description_ar', 'products', 'start', 'end', 'is_active', 'createdAt'];
 
   constructor(data = {}) {
     super(data, OfferModel.props);

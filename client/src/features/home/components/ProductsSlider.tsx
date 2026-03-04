@@ -34,7 +34,6 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
   compareItems = [],
 }) => {
   const [maxHeight, setMaxHeight] = useState<number>(0);
-  const [isLoaded, setIsLoaded] = useState(false);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   React.useEffect(() => {
@@ -114,12 +113,6 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
     );
   };
 
-  // Effect to calculate and set max height
-  useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoaded(true), 60);
-    return () => window.clearTimeout(timer);
-  }, []);
-
   useEffect(() => {
     const updateMaxHeight = () => {
       if (cardRefs.current.length === 0) return;
@@ -198,10 +191,6 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
                     : {}),
                   overflow: "visible",
                   position: "relative",
-                  opacity: isLoaded ? 1 : 0,
-                  transform: isLoaded ? "translateY(0)" : "translateY(20px)",
-                  transition: `opacity 520ms ease, transform 520ms ease`,
-                  transitionDelay: `${Math.min(index, 7) * 70}ms`,
                 }}
               >
                 <div

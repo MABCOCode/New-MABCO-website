@@ -136,9 +136,7 @@ export interface LegacyOffer {
   description?: string;
   description_ar?: string;
   products: string[];
-  window: {
-    start: string;
-    end: string;
-  };
+  start: string;
+  end: string;
   is_active: boolean;
 }

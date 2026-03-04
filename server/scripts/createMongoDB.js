@@ -35,6 +35,7 @@ async function createCollections(db) {
     { name: 'showrooms', validator: getShowroomValidator(), indexes: getShowroomIndexes() },
     { name: 'notifications', validator: getNotificationValidator(), indexes: getNotificationIndexes() },
     { name: 'assets', validator: getAssetValidator(), indexes: getAssetIndexes() },
+    { name: 'banner_slides', validator: getBannerSlideValidator(), indexes: getBannerSlideIndexes() },
     { name: 'warranties', validator: getWarrantyValidator(), indexes: getWarrantyIndexes() },
     { name: 'maintenance_tickets', validator: getMaintenanceTicketValidator(), indexes: getMaintenanceTicketIndexes() },
     { name: 'payment_transactions', validator: getPaymentTransactionValidator(), indexes: getPaymentTransactionIndexes() },
@@ -194,7 +195,7 @@ function getProductValidator() {
                 bsonType: 'array',
                 items: {
                   bsonType: 'object',
-                  required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'window', 'is_active'],
+                  required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'start', 'end', 'is_active'],
                   properties: {
                     offer_no: { bsonType: 'string' },
                     offer_type: { bsonType: 'string', enum: ['direct_discount', 'coupon', 'free_product', 'bundle_discount'] },
@@ -205,11 +206,8 @@ function getProductValidator() {
                     description: { bsonType: 'string' },
                     description_ar: { bsonType: 'string' },
                     products: { bsonType: 'array', items: { bsonType: 'string' } },
-                    window: {
-                      bsonType: 'object',
-                      required: ['start', 'end'],
-                      properties: { start: { bsonType: 'date' }, end: { bsonType: 'date' } }
-                    },
+                    start: { bsonType: 'date' },
+                    end: { bsonType: 'date' },
                     is_active: { bsonType: 'bool' }
                   }
                 }
@@ -233,7 +231,7 @@ function getProductValidator() {
                 bsonType: 'array',
                 items: {
                   bsonType: 'object',
-                  required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'window', 'is_active'],
+                  required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'start', 'end', 'is_active'],
                   properties: {
                     offer_no: { bsonType: 'string' },
                     offer_type: { bsonType: 'string', enum: ['direct_discount', 'coupon', 'free_product', 'bundle_discount'] },
@@ -244,11 +242,8 @@ function getProductValidator() {
                     description: { bsonType: 'string' },
                     description_ar: { bsonType: 'string' },
                     products: { bsonType: 'array', items: { bsonType: 'string' } },
-                    window: {
-                      bsonType: 'object',
-                      required: ['start', 'end'],
-                      properties: { start: { bsonType: 'date' }, end: { bsonType: 'date' } }
-                    },
+                    start: { bsonType: 'date' },
+                    end: { bsonType: 'date' },
                     is_active: { bsonType: 'bool' }
                   }
                 }
@@ -418,7 +413,7 @@ function getOfferValidator() {
   return {
     $jsonSchema: {
       bsonType: 'object',
-      required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'window', 'is_active'],
+      required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'start', 'end', 'is_active'],
       properties: {
         offer_no: { bsonType: 'string' },
         offer_type: { bsonType: 'string', enum: ['direct_discount', 'coupon', 'free_product', 'bundle_discount'] },
@@ -430,11 +425,8 @@ function getOfferValidator() {
         description: { bsonType: 'string' },
         description_ar: { bsonType: 'string' },
         products: { bsonType: 'array', items: { bsonType: 'string' } },
-        window: {
-          bsonType: 'object',
-          required: ['start', 'end'],
-          properties: { start: { bsonType: 'date' }, end: { bsonType: 'date' } }
-        },
+        start: { bsonType: 'date' },
+        end: { bsonType: 'date' },
         is_active: { bsonType: 'bool' }
       }
     }
@@ -552,6 +544,28 @@ function getNotificationValidator() {
       properties: {
         type: { bsonType: 'string' },
         status: { bsonType: 'string', enum: ['draft', 'scheduled', 'sent', 'failed'] }
+      }
+    }
+  };
+}
+
+function getBannerSlideValidator() {
+  return {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['id', 'image', 'titleEn', 'titleAr', 'subtitleEn', 'subtitleAr', 'buttonTextEn', 'buttonTextAr', 'order', 'isActive'],
+      properties: {
+        id: { bsonType: ['int', 'long'] },
+        image: { bsonType: 'string' },
+        url: { bsonType: 'string' },
+        titleEn: { bsonType: 'string' },
+        titleAr: { bsonType: 'string' },
+        subtitleEn: { bsonType: 'string' },
+        subtitleAr: { bsonType: 'string' },
+        buttonTextEn: { bsonType: 'string' },
+        buttonTextAr: { bsonType: 'string' },
+        order: { bsonType: ['int', 'long'] },
+        isActive: { bsonType: 'bool' }
       }
     }
   };
@@ -723,7 +737,7 @@ function getBrandIndexes() {
 function getOfferIndexes() {
   return [
     { spec: { offer_no: 1 }, options: { unique: true } },
-    { spec: { offer_type: 1, is_active: 1, 'window.start': 1, 'window.end': 1 } },
+    { spec: { offer_type: 1, is_active: 1, start: 1, end: 1 } },
     { spec: { mainproductstk_code: 1 } },
     { spec: { products: 1 } }
   ];
@@ -740,6 +754,12 @@ function getOrderIndexes() { return [ { spec: { orderNumber: 1 }, options: { uni
 function getCartIndexes() { return [ { spec: { userId: 1 } }, { spec: { sessionId: 1 } }, { spec: { expiresAt: 1 }, options: { expireAfterSeconds: 0 } } ]; }
 function getShowroomIndexes() { return [ { spec: { code: 1 }, options: { unique: true } }, { spec: { location: '2dsphere' } }, { spec: { isActive: 1, 'city.en': 1 } } ]; }
 function getNotificationIndexes() { return [ { spec: { status: 1, scheduleAt: 1 } }, { spec: { createdBy: 1, createdAt: -1 } } ]; }
+function getBannerSlideIndexes() {
+  return [
+    { spec: { id: 1 }, options: { unique: true } },
+    { spec: { isActive: 1, order: 1 } }
+  ];
+}
 function getAssetIndexes() {
   return [
     { spec: { storageKey: 1 }, options: { unique: true } },

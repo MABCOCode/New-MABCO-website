@@ -201,11 +201,49 @@ export function AdminOrderManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50 pt-20 pb-8">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50  pb-8">
         {/* Header */}
-        <div className="mb-8">
-              <div className="flex items-center justify-between mb-6">
+        <div className="mb-8 ">
+          <div className="sticky top-0 z-10 bg-white border-b-2 border-gray-200 shadow-sm  mb-6">
+            <div className="container mx-auto px-4 py-4">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                  {t("admin.orders.title")}
+                </h1>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      loadOrders();
+                    }}
+                    className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl hover:border-[#009FE3] transition-all flex items-center gap-2 font-semibold text-gray-700"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {t("admin.common.refresh")}
+                    </span>
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-bold"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {t("admin.orders.export")}
+                    </span>
+                  </button>
+                </div>
+                {/* <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="w-6 h-6 text-gray-700" />
+            </button> */}
+              </div>
+            </div>
+          </div>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* <div className="flex items-center justify-between mb-6">
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
                     <div className="w-12 h-12 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-xl flex items-center justify-center">
@@ -215,37 +253,24 @@ export function AdminOrderManagement() {
                   </h1>
                   <p className="text-gray-600">{t('admin.orders.subtitle')}</p>
                 </div>
-                <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  loadOrders();
-                }}
-                className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl hover:border-[#009FE3] transition-all flex items-center gap-2 font-semibold text-gray-700"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('admin.common.refresh')}</span>
-              </button>
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-bold"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('admin.orders.export')}</span>
-              </button>
-            </div>
-          </div>
+                
+          </div>*/}
 
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-6 hover:border-[#009FE3] transition-all">
-                <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3">
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                   <ShoppingBag className="w-6 h-6 text-blue-600" />
                 </div>
                 <TrendingUp className="w-5 h-5 text-green-500" />
               </div>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{stats.total}</p>
-              <p className="text-sm text-gray-600">{t('admin.orders.totalOrders')}</p>
+              <p className="text-3xl font-bold text-gray-900 mb-1">
+                {stats.total}
+              </p>
+              <p className="text-sm text-gray-600">
+                {t("admin.orders.totalOrders")}
+              </p>
             </div>
 
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-6 hover:border-[#009FE3] transition-all">
@@ -258,7 +283,9 @@ export function AdminOrderManagement() {
               <p className="text-2xl font-bold text-gray-900 mb-1">
                 {formatCurrency(stats.totalRevenue)}
               </p>
-              <p className="text-sm text-gray-600">{t('admin.orders.totalRevenue')}</p>
+              <p className="text-sm text-gray-600">
+                {t("admin.orders.totalRevenue")}
+              </p>
             </div>
 
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-6 hover:border-[#009FE3] transition-all">
@@ -273,7 +300,9 @@ export function AdminOrderManagement() {
               <p className="text-3xl font-bold text-gray-900 mb-1">
                 {stats.pending + stats.confirmed + stats.processing}
               </p>
-              <p className="text-sm text-gray-600">{t('admin.orders.pendingOrders')}</p>
+              <p className="text-sm text-gray-600">
+                {t("admin.orders.pendingOrders")}
+              </p>
             </div>
 
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-6 hover:border-[#009FE3] transition-all">
@@ -285,8 +314,12 @@ export function AdminOrderManagement() {
                   {Math.round((stats.delivered / stats.total) * 100)}%
                 </span>
               </div>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{stats.delivered}</p>
-              <p className="text-sm text-gray-600">{t('admin.orders.deliveredOrders')}</p>
+              <p className="text-3xl font-bold text-gray-900 mb-1">
+                {stats.delivered}
+              </p>
+              <p className="text-sm text-gray-600">
+                {t("admin.orders.deliveredOrders")}
+              </p>
             </div>
           </div>
 
@@ -300,7 +333,7 @@ export function AdminOrderManagement() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('admin.orders.search')}
+                  placeholder={t("admin.orders.search")}
                   className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] focus:border-transparent"
                 />
               </div>
@@ -309,10 +342,12 @@ export function AdminOrderManagement() {
               <div className="relative">
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as OrderStatus | "all")}
+                  onChange={(e) =>
+                    setStatusFilter(e.target.value as OrderStatus | "all")
+                  }
                   className="appearance-none pl-4 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] focus:border-transparent font-semibold text-gray-700 bg-white cursor-pointer min-w-[200px]"
                 >
-                  <option value="all">{t('admin.orders.allOrders')}</option>
+                  <option value="all">{t("admin.orders.allOrders")}</option>
                   {Object.keys(orderStatusConfig).map((status) => (
                     <option key={status} value={status}>
                       {language === "ar"
@@ -331,22 +366,24 @@ export function AdminOrderManagement() {
                   onChange={(e) => setDateFilter(e.target.value as any)}
                   className="appearance-none pl-4 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] focus:border-transparent font-semibold text-gray-700 bg-white cursor-pointer min-w-[180px]"
                 >
-                  <option value="all">{t('admin.content.all')}</option>
-                  <option value="today">{t('admin.orders.today')}</option>
-                  <option value="week">{t('admin.orders.thisWeek')}</option>
-                  <option value="month">{t('admin.orders.thisMonth')}</option>
+                  <option value="all">{t("admin.content.all")}</option>
+                  <option value="today">{t("admin.orders.today")}</option>
+                  <option value="week">{t("admin.orders.thisWeek")}</option>
+                  <option value="month">{t("admin.orders.thisMonth")}</option>
                 </select>
                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
             </div>
 
             {/* Active Filters Info */}
-            {(searchQuery || statusFilter !== "all" || dateFilter !== "all") && (
+            {(searchQuery ||
+              statusFilter !== "all" ||
+              dateFilter !== "all") && (
               <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
                 <span className="font-semibold">
-                  {language === "ar" ? "عرض" : "Showing"} {filteredOrders.length}{" "}
-                  {language === "ar" ? "من" : "of"} {orders.length}{" "}
-                  {language === "ar" ? "طلب" : "orders"}
+                  {language === "ar" ? "عرض" : "Showing"}{" "}
+                  {filteredOrders.length} {language === "ar" ? "من" : "of"}{" "}
+                  {orders.length} {language === "ar" ? "طلب" : "orders"}
                 </span>
               </div>
             )}
@@ -354,11 +391,14 @@ export function AdminOrderManagement() {
         </div>
 
         {/* Orders Table */}
-        <div className="bg-white rounded-2xl border-2 border-gray-200 overflow-hidden">
+        <div className="container mx-auto mt-8 bg-white rounded-2xl border-2 border-gray-200 overflow-hidden">
           {error && (
             <div className="mx-4 mt-4 rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3 flex items-center justify-between">
               <span>{error}</span>
-              <button onClick={loadOrders} className="px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700">
+              <button
+                onClick={loadOrders}
+                className="px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700"
+              >
                 {language === "ar" ? "إعادة المحاولة" : "Retry"}
               </button>
             </div>
@@ -366,125 +406,146 @@ export function AdminOrderManagement() {
           {isLoading && (
             <div className="p-6 space-y-3">
               {Array.from({ length: 6 }).map((_, idx) => (
-                <div key={`orders-skeleton-${idx}`} className="h-14 rounded-xl shimmer-surface" />
+                <div
+                  key={`orders-skeleton-${idx}`}
+                  className="h-14 rounded-xl shimmer-surface"
+                />
               ))}
             </div>
           )}
           {!isLoading && (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    {t('admin.orders.orderNumber')}
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      {t('admin.orders.customer')}
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    {language === "ar" ? "المنتجات" : "Items"}
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    {t('admin.orders.date')}
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    {t('admin.orders.status')}
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    {t('admin.orders.total')}
-                  </th>
-                  <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    {t('admin.orders.actions')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredOrders.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                          <Package className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <div>
-                          <p className="text-lg font-bold text-gray-900 mb-1">
-                            {t('admin.orders.noOrders')}
-                          </p>
-                          <p className="text-gray-600">{t('admin.orders.noOrdersDesc')}</p>
-                        </div>
-                      </div>
-                    </td>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      {t("admin.orders.orderNumber")}
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      {t("admin.orders.customer")}
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      {language === "ar" ? "المنتجات" : "Items"}
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      {t("admin.orders.date")}
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      {t("admin.orders.status")}
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      {t("admin.orders.total")}
+                    </th>
+                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      {t("admin.orders.actions")}
+                    </th>
                   </tr>
-                ) : (
-                  filteredOrders.map((order) => (
-                    <tr
-                      key={order.id}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={() => setSelectedOrder(order)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center">
-                            <Package className="w-5 h-5 text-white" />
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                            <Package className="w-8 h-8 text-gray-400" />
                           </div>
                           <div>
-                            <p className="font-bold text-gray-900">{order.orderNumber}</p>
-                            <p className="text-xs text-gray-500">{order.id}</p>
+                            <p className="text-lg font-bold text-gray-900 mb-1">
+                              {t("admin.orders.noOrders")}
+                            </p>
+                            <p className="text-gray-600">
+                              {t("admin.orders.noOrdersDesc")}
+                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-semibold text-gray-900">{order.customer.name}</p>
-                          <p className="text-sm text-gray-500">{order.customer.email}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-gray-900">{order.items.length}</span>
-                          <span className="text-sm text-gray-500">{t('admin.common.items')}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {formatDate(order.orderDate)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-3 py-1.5 rounded-lg border font-bold text-xs ${
-                            orderStatusConfig[order.status].color
-                          }`}
-                        >
-                          {language === "ar"
-                            ? orderStatusConfig[order.status].labelAr
-                            : orderStatusConfig[order.status].labelEn}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <p className="font-bold text-gray-900">
-                            {formatCurrency(order.pricing.total)}
-                          </p>
-                          <p className="text-xs text-gray-500">{t('admin.common.syp')}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedOrder(order);
-                          }}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-[#009FE3] text-white rounded-lg hover:bg-[#007BC7] transition-all font-semibold"
-                        >
-                          <Eye className="w-4 h-4" />
-                          <span className="hidden lg:inline">{t('admin.orders.viewDetails')}</span>
-                        </button>
-                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    filteredOrders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => setSelectedOrder(order)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center">
+                              <Package className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-900">
+                                {order.orderNumber}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {order.id}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {order.customer.name}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {order.customer.email}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900">
+                              {order.items.length}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              {t("admin.common.items")}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {formatDate(order.orderDate)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-3 py-1.5 rounded-lg border font-bold text-xs ${
+                              orderStatusConfig[order.status].color
+                            }`}
+                          >
+                            {language === "ar"
+                              ? orderStatusConfig[order.status].labelAr
+                              : orderStatusConfig[order.status].labelEn}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <p className="font-bold text-gray-900">
+                              {formatCurrency(order.pricing.total)}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {t("admin.common.syp")}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrder(order);
+                            }}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#009FE3] text-white rounded-lg hover:bg-[#007BC7] transition-all font-semibold"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span className="hidden lg:inline">
+                              {t("admin.orders.viewDetails")}
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

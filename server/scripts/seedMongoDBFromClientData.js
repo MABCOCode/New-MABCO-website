@@ -452,36 +452,33 @@ async function main() {
     offersDatabase.forEach((entry) => {
       (entry.offers || []).forEach((offer, idx) => {
         offerDocs.push({
-          ...offer,
-          productId: entry.productId,
-          code: `${offer.type}-${entry.productId}-${idx + 1}`,
-          isActive: true,
-          priority: 100 - idx,
-          window: {
-            startsAt: new Date('2024-01-01T00:00:00.000Z'),
-            endsAt: new Date('2030-12-31T23:59:59.999Z'),
-          },
-          content: {
-            titleEn: offer.titleEn,
-            titleAr: offer.titleAr,
-            descriptionEn: offer.descriptionEn,
-            descriptionAr: offer.descriptionAr,
-          },
-          definition:
+          offer_no: `${offer.type}-${entry.productId}-${idx + 1}`,
+          offer_type: offer.type,
+          mainproductstk_code: String(entry.productId),
+          discount:
             offer.type === 'direct_discount'
-              ? { discountType: offer.discountType, discountValue: offer.discountValue }
+              ? offer.discountValue
               : offer.type === 'coupon'
-              ? {
-                  couponValue: offer.couponValue,
-                  eligibleProductIds: offer.eligibleProductIds || [],
-                  validityDays: offer.validityDays,
-                }
-              : offer.type === 'free_product'
-              ? { freeProductId: offer.freeProductId }
-              : {
-                  discountPercentage: offer.discountPercentage,
-                  relatedProductIds: offer.relatedProductIds || [],
-                },
+              ? offer.couponValue
+              : offer.type === 'bundle_discount'
+              ? offer.discountPercentage
+              : 0,
+          discount_type:
+            offer.type === 'direct_discount' && offer.discountType === 'percentage'
+              ? 'p'
+              : offer.type === 'bundle_discount'
+              ? 'p'
+              : 'v',
+          title: offer.titleEn,
+          title_ar: offer.titleAr,
+          description: offer.descriptionEn,
+          description_ar: offer.descriptionAr,
+          products: (offer.eligibleProductIds || offer.relatedProductIds || [])
+            .map((id) => String(id))
+            .filter(Boolean),
+          start: new Date('2024-01-01T00:00:00.000Z'),
+          end: new Date('2030-12-31T23:59:59.999Z'),
+          is_active: true,
           createdAt: now,
         });
       });
