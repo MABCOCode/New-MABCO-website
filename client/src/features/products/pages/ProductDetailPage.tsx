@@ -492,7 +492,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     : currentColorVariant?.offers
     ? getProductOffers({ offers: currentColorVariant.offers } as any)
     : [];
-  const displayOffers = selectedVariantOffers;
+  const displayOffers =
+    selectedVariantOffers.length > 0 ? selectedVariantOffers : baseProductOffers;
   const hasOffers = displayOffers.length > 0;
 
   const offerPricing = prod

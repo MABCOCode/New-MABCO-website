@@ -8,7 +8,7 @@ import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { getProductRef } from "../../../utils/entityRefs";
-import { getOfferPricing, getProductOffers, getOfferBadgeText } from "../../../data/products";
+import { getOfferPricing, getOfferBadgeText } from "../../../data/products";
 
 export interface ProductCardProps {
   product: Product;
@@ -43,9 +43,20 @@ const ProductCard: React.FC<ProductCardProps> = ({
     resolveNumericId((product as any).stk_code);
   const productRef = getProductRef(product);
   const resolvedCartId = productRef || resolvedProductId || `product-${product.name}`;
-  const safeColorVariants = Array.isArray(product.colorVariants)
-    ? product.colorVariants
-    : [];
+  const parseNumericPrice = (value: unknown): number => {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    if (typeof value === "string") {
+      const cleaned = value.replace(/,/g, "").trim();
+      const parsed = Number(cleaned);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
+  const safeColorVariants = React.useMemo(
+    () => (Array.isArray(product.colorVariants) ? product.colorVariants : []),
+    [product.colorVariants],
+  );
   const normalizeHex = (value: string | undefined) => {
     if (!value) return "#999999";
     const raw = value.trim();
@@ -53,77 +64,95 @@ const ProductCard: React.FC<ProductCardProps> = ({
     if (/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
     return "#999999";
   };
-  const normalizedColorVariants = safeColorVariants.map((variant: any) => {
-    const images = Array.isArray(variant.images)
-      ? variant.images.map((img: any) => (typeof img === "string" ? img : img?.image_link || img?.url || "")).filter(Boolean)
-      : [];
-    const image = variant.image || images[0] || "";
-    const name = variant.name || variant.color_name || "";
-    const nameAr = variant.nameAr || variant.color_name_ar || name;
-    const hexCode = normalizeHex(variant.hexCode || variant.color_hex || variant.hex);
-    const inStock = typeof variant.inStock === "boolean"
-      ? variant.inStock
-      : typeof variant.in_stock === "boolean"
-      ? variant.in_stock
-      : typeof variant.isAvailable === "boolean"
-      ? variant.isAvailable
-      : typeof variant.is_available === "boolean"
-      ? variant.is_available
-      : undefined;
-    const isAvailable = typeof variant.isAvailable === "boolean"
-      ? variant.isAvailable
-      : typeof variant.is_available === "boolean"
-      ? variant.is_available
-      : typeof variant.active === "boolean"
-      ? variant.active
-      : undefined;
-    return {
-      ...variant,
-      name,
-      nameAr,
-      hexCode,
-      image,
-      images,
-      price: typeof variant.price === "number" ? variant.price : Number(variant.price),
-      inStock,
-      isAvailable,
-    };
-  });
-  const visibleColorVariants = normalizedColorVariants
-    .filter(
-      (variant: any) =>
-        variant.inStock !== false &&
-        variant.isAvailable !== false &&
-        (typeof variant.active !== "boolean" || variant.active) &&
-        Boolean(String(variant.name || variant.nameAr || "").trim()) &&
-        Boolean(String(variant.image || (variant.images && variant.images[0]) || "").trim()),
-    )
-    .sort((a: any, b: any) => {
-      const aHasOffers = Array.isArray(a?.offers) && a.offers.length > 0 ? 1 : 0;
-      const bHasOffers = Array.isArray(b?.offers) && b.offers.length > 0 ? 1 : 0;
-      return bHasOffers - aHasOffers;
-    });
-  const safeChargeOptions = Array.isArray(product.chargeOptions)
-    ? product.chargeOptions
-    : [];
-  const normalizedChargeOptions = safeChargeOptions
-    .map((opt: any, index: number) => ({
-      ...opt,
-      id: String(opt.id ?? opt.stk_code ?? opt.code ?? index),
-      value: opt.value ?? opt.name ?? "",
-      valueAr: opt.valueAr ?? opt.name_ar ?? opt.nameAr ?? opt.value ?? opt.name ?? "",
-      price: typeof opt.price === "number" ? opt.price : Number(opt.price),
-    }))
-    .filter((opt: any) =>
-      (typeof opt.active !== "boolean" || opt.active) &&
-      (typeof opt.in_stock !== "boolean" || opt.in_stock) &&
-      Boolean(String(opt.value || opt.valueAr || opt.name || opt.name_ar || "").trim()),
-    )
-    .sort((a: any, b: any) => {
-      const aPrice = Number.isFinite(a.price) ? a.price : Number.MAX_SAFE_INTEGER;
-      const bPrice = Number.isFinite(b.price) ? b.price : Number.MAX_SAFE_INTEGER;
-      return aPrice - bPrice;
-    });
+  const normalizedColorVariants = React.useMemo(
+    () =>
+      safeColorVariants.map((variant: any) => {
+        const images = Array.isArray(variant.images)
+          ? variant.images
+              .map((img: any) => (typeof img === "string" ? img : img?.image_link || img?.url || ""))
+              .filter(Boolean)
+          : [];
+        const image = variant.image || images[0] || "";
+        const name = variant.name || variant.color_name || "";
+        const nameAr = variant.nameAr || variant.color_name_ar || name;
+        const hexCode = normalizeHex(variant.hexCode || variant.color_hex || variant.hex);
+        const inStock =
+          typeof variant.inStock === "boolean"
+            ? variant.inStock
+            : typeof variant.in_stock === "boolean"
+              ? variant.in_stock
+              : typeof variant.isAvailable === "boolean"
+                ? variant.isAvailable
+                : typeof variant.is_available === "boolean"
+                  ? variant.is_available
+                  : undefined;
+        const isAvailable =
+          typeof variant.isAvailable === "boolean"
+            ? variant.isAvailable
+            : typeof variant.is_available === "boolean"
+              ? variant.is_available
+              : typeof variant.active === "boolean"
+                ? variant.active
+                : undefined;
+        return {
+          ...variant,
+          name,
+          nameAr,
+          hexCode,
+          image,
+          images,
+          price: typeof variant.price === "number" ? variant.price : Number(variant.price),
+          inStock,
+          isAvailable,
+        };
+      }),
+    [safeColorVariants],
+  );
+  const visibleColorVariants = React.useMemo(
+    () =>
+      normalizedColorVariants
+        .filter(
+          (variant: any) =>
+            variant.inStock !== false &&
+            variant.isAvailable !== false &&
+            (typeof variant.active !== "boolean" || variant.active) &&
+            Boolean(String(variant.name || variant.nameAr || "").trim()) &&
+            Boolean(String(variant.image || (variant.images && variant.images[0]) || "").trim()),
+        )
+        .sort((a: any, b: any) => {
+          const aHasOffers = Array.isArray(a?.offers) && a.offers.length > 0 ? 1 : 0;
+          const bHasOffers = Array.isArray(b?.offers) && b.offers.length > 0 ? 1 : 0;
+          return bHasOffers - aHasOffers;
+        }),
+    [normalizedColorVariants],
+  );
+  const safeChargeOptions = React.useMemo(
+    () => (Array.isArray(product.chargeOptions) ? product.chargeOptions : []),
+    [product.chargeOptions],
+  );
+  const normalizedChargeOptions = React.useMemo(
+    () =>
+      safeChargeOptions
+        .map((opt: any, index: number) => ({
+          ...opt,
+          id: String(opt.id ?? opt.stk_code ?? opt.code ?? index),
+          value: opt.value ?? opt.name ?? "",
+          valueAr: opt.valueAr ?? opt.name_ar ?? opt.nameAr ?? opt.value ?? opt.name ?? "",
+          price: typeof opt.price === "number" ? opt.price : Number(opt.price),
+        }))
+        .filter(
+          (opt: any) =>
+            (typeof opt.active !== "boolean" || opt.active) &&
+            (typeof opt.in_stock !== "boolean" || opt.in_stock) &&
+            Boolean(String(opt.value || opt.valueAr || opt.name || opt.name_ar || "").trim()),
+        )
+        .sort((a: any, b: any) => {
+          const aPrice = Number.isFinite(a.price) ? a.price : Number.MAX_SAFE_INTEGER;
+          const bPrice = Number.isFinite(b.price) ? b.price : Number.MAX_SAFE_INTEGER;
+          return aPrice - bPrice;
+        }),
+    [safeChargeOptions],
+  );
   const [selectedColor, setSelectedColor] = useState(
     visibleColorVariants[0]?.name || "",
   );
@@ -149,8 +178,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const hasSpecs = Array.isArray((product as any).specs) && (product as any).specs.length > 0;
   const hasDescription = Boolean(String((product as any).description || (product as any).descriptionAr || "").trim());
   const hasDetails = hasSpecs || hasDescription;
+  const hasDetailsFields =
+    Object.prototype.hasOwnProperty.call(product as any, "specs") ||
+    Object.prototype.hasOwnProperty.call(product as any, "description") ||
+    Object.prototype.hasOwnProperty.call(product as any, "descriptionAr");
   if (hasAnyVariants && !hasValidVariants) return null;
-  if (!hasValidImage || !hasValidName || !hasDetails) return null;
+  if (!hasValidImage || !hasValidName) return null;
+  if (hasDetailsFields && !hasDetails) return null;
 
   const badgeText = (() => {
     if (product.isMostSold) return language === "ar" ? "الأكثر مبيعاً" : "MOST SOLD";
@@ -254,16 +288,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
   }, [hasColors, visibleColorVariants, selectedColor]);
 
-  const parseNumericPrice = (value: unknown): number => {
-    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-    if (typeof value === "string") {
-      const cleaned = value.replace(/,/g, "").trim();
-      const parsed = Number(cleaned);
-      return Number.isFinite(parsed) ? parsed : 0;
-    }
-    return 0;
-  };
-
   const colorPriceValue = currentColorVariant ? parseNumericPrice(currentColorVariant.price) : 0;
   const selectedSourcePrice = currentChargeOption
     ? parseNumericPrice(currentChargeOption.price)
@@ -272,15 +296,18 @@ const ProductCard: React.FC<ProductCardProps> = ({
     : parseNumericPrice(product.price);
   const baseProductPrice = parseNumericPrice(product.price);
   const hasColorPriceDiff = colorPriceValue > 0 && Math.abs(colorPriceValue - baseProductPrice) > 0.0001;
-  const combinedOffersSource = [
-    ...(Array.isArray((product as any).offers) ? (product as any).offers : []),
-    ...(Array.isArray(product.colorVariants)
-      ? product.colorVariants.flatMap((variant: any) => variant?.offers || [])
-      : []),
-    ...(Array.isArray(product.chargeOptions)
-      ? product.chargeOptions.flatMap((opt: any) => opt?.offers || [])
-      : []),
-  ];
+  const combinedOffersSource = React.useMemo(
+    () => [
+      ...(Array.isArray((product as any).offers) ? (product as any).offers : []),
+      ...(Array.isArray(product.colorVariants)
+        ? product.colorVariants.flatMap((variant: any) => variant?.offers || [])
+        : []),
+      ...(Array.isArray(product.chargeOptions)
+        ? product.chargeOptions.flatMap((opt: any) => opt?.offers || [])
+        : []),
+    ],
+    [product],
+  );
   const offerPricing = getOfferPricing(
     { ...(product as any), offers: combinedOffersSource },
     { sourcePrice: selectedSourcePrice },

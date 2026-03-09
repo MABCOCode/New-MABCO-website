@@ -12,6 +12,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
   const skip = (page - 1) * limit;
   const useLiteProjection = req.query.lite === '1' || req.query.lite === 'true';
+  const useCardProjection = req.query.card === '1' || req.query.card === 'true';
 
   const query = {};
   if (req.query.categoryId) query.categoryIds = new ObjectId(req.query.categoryId);
@@ -33,7 +34,33 @@ router.get('/', asyncHandler(async (req, res) => {
   if (req.query.active === 'true') query['status.isActive'] = true;
   if (req.query.hidden === 'true') query['status.isHidden'] = true;
 
-  const projection = useLiteProjection
+  const projection = useCardProjection
+    ? {
+        _id: 1,
+        stk_code: 1,
+        id: 1,
+        slug: 1,
+        name: 1,
+        nameAr: 1,
+        price: 1,
+        image: 1,
+        category: 1,
+        categoryAr: 1,
+        cat_code: 1,
+        brand: 1,
+        brand_code: 1,
+        badge: 1,
+        isMostSold: 1,
+        isNew: 1,
+        isHot: 1,
+        offers: 1,
+        availability: 1,
+        colorVariants: 1,
+        chargeOptions: 1,
+        status: 1,
+        updatedAt: 1,
+      }
+    : useLiteProjection
     ? {
         _id: 1,
         stk_code: 1,

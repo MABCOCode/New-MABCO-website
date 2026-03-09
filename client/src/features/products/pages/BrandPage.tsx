@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import categoriesData from '../../../testdata/categories.json';
-import { products as allProducts } from "../../../data/products";
 import ProductCard from "../components/ProductCard";
 import { useLanguage } from '../../../context/LanguageContext';
 import { ChevronRight } from 'lucide-react';
@@ -15,7 +14,7 @@ const BrandPage: React.FC = () => {
   const term = id ? decodeURIComponent(id) : '';
   const categoryParam = category ? decodeURIComponent(category) : '';
   const [staticCategories, setStaticCategories] = useState<any[]>([]);
-  const [apiProducts, setApiProducts] = useState<any[] | null>(null);
+  const [apiProducts, setApiProducts] = useState<any[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   useEffect(() => {
@@ -44,7 +43,7 @@ const BrandPage: React.FC = () => {
     if (term) params.set('brand_code', term);
     if (categoryParam) params.set('cat_code', categoryParam);
     params.set('limit', '200');
-    params.set('lite', '1');
+    params.set('card', '1');
     setIsLoadingProducts(true);
 
     (async () => {
@@ -58,7 +57,7 @@ const BrandPage: React.FC = () => {
         }
       } catch {
         if (mounted) {
-          setApiProducts(null);
+          setApiProducts([]);
           setIsLoadingProducts(false);
         }
       }
@@ -85,14 +84,7 @@ const BrandPage: React.FC = () => {
 
   const termSlug = slug(term);
 
-  const sourceProducts = apiProducts ?? (allProducts as any[]);
-  const products = sourceProducts.filter(
-    (p) =>
-      (
-        (p?.brand_code && String(p.brand_code).toLowerCase() === String(term).toLowerCase()) ||
-        (p?.brand && String(p.brand).toLowerCase().includes(String(term).toLowerCase()))
-      ),
-  );
+  const products = apiProducts;
 
   const matchedBrandMeta = (() => {
     for (const c of categorySource) {
@@ -314,4 +306,3 @@ const BrandPage: React.FC = () => {
 };
 
 export default BrandPage;
-
