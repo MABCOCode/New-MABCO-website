@@ -6,6 +6,7 @@ interface ColorVariant {
   nameAr: string;
   hexCode: string;
   image: string;
+  price?: number;
   inStock?: boolean;
   isAvailable?: boolean;
   stock?: number;
@@ -20,6 +21,7 @@ interface ColorSwatchProps {
   size?: "sm" | "md" | "lg";
   showLabel?: boolean;
   maxVisible?: number;
+  showPrice?: boolean;
 }
 
 export function ColorSwatch({
@@ -31,6 +33,7 @@ export function ColorSwatch({
   size = "md",
   showLabel = false,
   maxVisible = 5,
+  showPrice = false,
 }: ColorSwatchProps) {
   const [showAll, setShowAll] = useState(false);
   const [hoveredColorName, setHoveredColorName] = useState<string | null>(null);
@@ -117,6 +120,12 @@ export function ColorSwatch({
               {isHovered && (
                 <div className={`absolute ${language === "ar" ? "right-0" : "left-0"} bottom-full mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap transition-opacity duration-200 pointer-events-none z-10 animate-in fade-in slide-in-from-bottom-1`}>
                   {variant[language === "ar" ? "nameAr" : "name"]}
+                  {showPrice && typeof variant.price === "number" && Number.isFinite(variant.price) && (
+                    <div className="text-[10px] text-gray-200 mt-1">
+                      {language === "ar" ? "السعر" : "Price"}:{" "}
+                      <span className="text-white">{variant.price.toLocaleString("en-US")}</span>
+                    </div>
+                  )}
                   {isOutOfStock && (
                     <span className="text-red-300">
                       {" "}({language === "ar" ? "نفذ من المخزون" : "Out of stock"})

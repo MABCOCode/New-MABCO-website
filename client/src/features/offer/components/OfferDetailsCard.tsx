@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { ProductOffer } from "../../../types/product";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 
 interface OfferDetailsCardProps {
   offers: ProductOffer[];
@@ -16,6 +17,7 @@ interface OfferDetailsCardProps {
   basePrice: number;
   currentPrice: number;
   onProductClick?: (productId: number) => void;
+  currencyLabel?: string;
 }
 
 export function OfferDetailsCard({
@@ -24,8 +26,10 @@ export function OfferDetailsCard({
   basePrice,
   currentPrice,
   onProductClick,
+  currencyLabel,
 }: OfferDetailsCardProps) {
   if (offers.length === 0) return null;
+  const label = currencyLabel || CURRENCY_LABEL;
 
   const renderDirectDiscount = (offer: any) => (
     <div
@@ -51,7 +55,7 @@ export function OfferDetailsCard({
                 {language === "ar" ? "السعر الأصلي" : "Original Price"}
               </span>
               <span className="text-gray-400 line-through font-bold">
-                {basePrice.toLocaleString("en-US")} {language === "ar" ? "ل.س" : "SYP"}
+                {basePrice.toLocaleString("en-US")} {label}
               </span>
             </div>
             <div className="flex items-center justify-between mb-2">
@@ -61,9 +65,7 @@ export function OfferDetailsCard({
               <span className="text-red-600 font-bold">
                 {offer.discountType === "percentage"
                   ? `${offer.discountValue}%`
-                  : `${offer.discountValue.toLocaleString("en-US")} ${
-                      language === "ar" ? "ل.س" : "SYP"
-                    }`}
+                  : `${offer.discountValue.toLocaleString("en-US")} ${label}`}
               </span>
             </div>
             <div className="pt-2 border-t border-red-100">
@@ -72,7 +74,7 @@ export function OfferDetailsCard({
                   {language === "ar" ? "السعر النهائي" : "Final Price"}
                 </span>
                 <span className="text-2xl font-bold text-red-600">
-                  {currentPrice.toLocaleString("en-US")} {language === "ar" ? "ل.س" : "SYP"}
+                  {currentPrice.toLocaleString("en-US")} {label}
                 </span>
               </div>
             </div>
@@ -84,7 +86,7 @@ export function OfferDetailsCard({
             <span className="font-bold text-green-700">
               {language === "ar" ? "وفّرت" : "You Save"}{" "}
               {(basePrice - currentPrice).toLocaleString("en-US")}{" "}
-              {language === "ar" ? "ل.س" : "SYP"}
+              {label}
             </span>
           </div>
         </div>
@@ -132,7 +134,7 @@ export function OfferDetailsCard({
                 </p>
                 <p className="text-xl font-bold text-blue-600">
                   {offer.couponValue.toLocaleString("en-US")}{" "}
-                  {language === "ar" ? "ل.س" : "SYP"}
+                  {label}
                 </p>
               </div>
             </div>

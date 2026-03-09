@@ -10,6 +10,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import translations from "../../../i18n/translations";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 import { getProductOffers, products } from "../../../data/products";
 import type {
   ProductOffer,
@@ -23,7 +24,9 @@ interface CartItem {
   id: number | string;
   productId?: number;
   price?: string;
+  basePrice?: number | null;
   quantity: number;
+  appliedOffers?: ProductOffer[] | null;
 }
 
 interface AppliedOffer {
@@ -65,7 +68,7 @@ export function AppliedOffersSection({
   const [expandedOffers, setExpandedOffers] = useState<Set<string>>(new Set());
   const translation = translations[language];
 
-  const displayCurrency = currencyLabel || (language === "ar" ? "د.ع" : "IQD");
+  const displayCurrency = currencyLabel || CURRENCY_LABEL;
 
   const formatPrice = (price: number) => price.toLocaleString("en-US");
 
@@ -84,13 +87,16 @@ export function AppliedOffersSection({
       const product = products.find((p) => p.id === productId);
       if (!product) return;
 
-      const offers = getProductOffers(productId);
+      const offers = item.appliedOffers?.length
+        ? getProductOffers({ offers: item.appliedOffers } as any)
+        : getProductOffers(productId);
 
       offers.forEach((offer) => {
         if (offer.type === "direct_discount") {
           const directOffer = offer as DirectDiscountOffer;
           let savings = 0;
-          const itemPrice = parsePrice(item.price);
+          const itemPrice =
+            typeof item.basePrice === "number" ? item.basePrice : parsePrice(item.price);
 
           if (directOffer.discountType === "percentage") {
             savings = (itemPrice * directOffer.discountValue) / 100 * item.quantity;

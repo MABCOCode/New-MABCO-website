@@ -11,11 +11,17 @@ interface CartItem {
   productId?: number | string;
   name: string;
   price: string | number | undefined;
+  basePrice?: number | null;
   oldPrice?: string | number | null;
   image?: string;
   quantity: number;
   variant?: string;
   variantColor?: string;
+  variantSku?: string | null;
+  variantPrice?: number | null;
+  chargeOptionSku?: string | null;
+  chargeOptionPrice?: number | null;
+  appliedOffers?: any[] | null;
   chargeOption?: {
     optionId: string;
     value: string;
@@ -318,19 +324,22 @@ export function ShoppingCart({
                     </div>
                   </div>
 
-                  {/* Offers for this product */}
-                  {item.productId && getProductOffers(Number(item.productId)).length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      <CartOfferDisplay
-                        productId={Number(item.productId)}
-                        quantity={item.quantity}
-                        language={language}
-                        currencyLabel={t.currency}
-                        bundleItems={bundleItems}
-                        onAddBundleItem={handleAddBundleItem}
-                      />
-                    </div>
-                  )}
+                    {/* Offers for this item */}
+                    {((item.appliedOffers && item.appliedOffers.length > 0) ||
+                      (item.productId && getProductOffers(Number(item.productId)).length > 0)) && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <CartOfferDisplay
+                          productId={Number(item.productId)}
+                          quantity={item.quantity}
+                          language={language}
+                          currencyLabel={t.currency}
+                          bundleItems={bundleItems}
+                          onAddBundleItem={handleAddBundleItem}
+                          offers={item.appliedOffers || undefined}
+                          basePrice={typeof item.basePrice === "number" ? item.basePrice : undefined}
+                        />
+                      </div>
+                    )}
                 </div>
               ))}
             </div>

@@ -2,10 +2,16 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 interface ChargeOption {
-  id: string;
-  value: string;
-  valueAr: string;
-  price: number;
+  id?: string;
+  value?: string;
+  valueAr?: string;
+  name?: string;
+  name_ar?: string;
+  nameAr?: string;
+  stk_code?: string;
+  price?: number;
+  in_stock?: boolean;
+  active?: boolean;
 }
 
 interface ChargeOptionSliderProps {
@@ -21,37 +27,53 @@ export function ChargeOptionSlider({
   onSelect,
   language,
 }: ChargeOptionSliderProps) {
-  const [currentIndex, setCurrentIndex] = useState(
-    options.findIndex((opt) => opt.id === selectedId) || 0
-  );
+  const safeOptions = Array.isArray(options) ? options : [];
+  const normalizedOptions = safeOptions
+    .map((opt, index) => {
+      const id = String(
+        opt.id ?? opt.stk_code ?? opt.value ?? opt.name ?? index,
+      );
+      const value = opt.value ?? opt.name ?? "";
+      const valueAr = opt.valueAr ?? opt.name_ar ?? opt.nameAr ?? value ?? "";
+      return { ...opt, id, value, valueAr };
+    })
+    .filter((opt) => opt.id);
+
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const index = normalizedOptions.findIndex((opt) => opt.id === selectedId);
+    return index >= 0 ? index : 0;
+  });
   const sliderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const index = options.findIndex((opt) => opt.id === selectedId);
-    if (index !== -1) setCurrentIndex(index);
-  }, [selectedId, options]);
+    const index = normalizedOptions.findIndex((opt) => opt.id === selectedId);
+    if (index >= 0) setCurrentIndex(index);
+  }, [selectedId, normalizedOptions]);
 
   const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const newIndex = currentIndex > 0 ? currentIndex - 1 : options.length - 1;
+    const newIndex =
+      currentIndex > 0 ? currentIndex - 1 : normalizedOptions.length - 1;
     setCurrentIndex(newIndex);
-    onSelect(options[newIndex].id);
+    onSelect(normalizedOptions[newIndex].id as string);
   };
 
   const handleNext = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const newIndex = currentIndex < options.length - 1 ? currentIndex + 1 : 0;
+    const newIndex =
+      currentIndex < normalizedOptions.length - 1 ? currentIndex + 1 : 0;
     setCurrentIndex(newIndex);
-    onSelect(options[newIndex].id);
+    onSelect(normalizedOptions[newIndex].id as string);
   };
 
   const handleDotClick = (e: React.MouseEvent, index: number) => {
     e.stopPropagation();
     setCurrentIndex(index);
-    onSelect(options[index].id);
+    onSelect(normalizedOptions[index].id as string);
   };
 
-  const currentOption = options[currentIndex];
+  const currentOption = normalizedOptions[currentIndex];
+  if (!currentOption) return null;
 
   return (
     <div className="space-y-1.5 w-full  ">
@@ -61,7 +83,7 @@ export function ChargeOptionSlider({
       
       <div className="flex items-center gap-1.5">
         {/* Previous Button */}
-        {options.length > 1 && (
+        {normalizedOptions.length > 1 && (
           <button
             onClick={handlePrev}
             className="p-0.5 rounded-full bg-gray-100 hover:bg-[#009FE3] hover:text-white transition-all duration-300 flex-shrink-0"
@@ -86,7 +108,7 @@ export function ChargeOptionSlider({
         </div>
 
         {/* Next Button */}
-        {options.length > 1 && (
+        {normalizedOptions.length > 1 && (
           <button
             onClick={handleNext}
             className="p-0.5 rounded-full bg-gray-100 hover:bg-[#009FE3] hover:text-white transition-all duration-300 flex-shrink-0"
@@ -102,9 +124,9 @@ export function ChargeOptionSlider({
       </div>
 
       {/* Dots Indicator - Smaller */}
-      {options.length > 1 && (
+      {normalizedOptions.length > 1 && (
         <div className="flex items-center justify-center gap-1 pt-0.5">
-          {options.map((_, index) => (
+          {normalizedOptions.map((_, index) => (
             <button
               key={index}
               onClick={(e) => handleDotClick(e, index)}

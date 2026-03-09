@@ -290,15 +290,15 @@ const BrandPage: React.FC = () => {
                           ? [
                               {
                                 label: displayCategoryName,
-                                href: `/category/${encodeURIComponent(categoryRouteName)}`,
+                                href: `/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`,
                               },
                             ]
                           : []),
                         {
                           label: displayBrandName,
                           href: categoryRouteName
-                            ? `/brand/${encodeURIComponent(categoryRouteName)}/${encodeURIComponent(String((product as any).brand_code || term))}`
-                            : `/brand/${encodeURIComponent(String((product as any).brand_code || term))}`,
+                            ? `/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`
+                            : "/#categories",
                         },
                       ],
                     },
@@ -314,6 +314,4 @@ const BrandPage: React.FC = () => {
 };
 
 export default BrandPage;
-
-
 

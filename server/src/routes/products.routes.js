@@ -80,7 +80,15 @@ router.get('/', asyncHandler(async (req, res) => {
 router.get('/:id', asyncHandler(async (req, res) => {
   const db = getDb();
   const id = req.params.id;
-  const query = ObjectId.isValid(id) ? { _id: new ObjectId(id) } : { slug: id };
+  const query = ObjectId.isValid(id)
+    ? { _id: new ObjectId(id) }
+    : {
+        $or: [
+          { slug: id },
+          { stk_code: String(id) },
+          { id: String(id) },
+        ],
+      };
   const item = await db.collection('products').findOne(query);
 
   if (!item) {

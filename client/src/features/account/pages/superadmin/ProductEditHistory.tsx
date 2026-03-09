@@ -29,8 +29,28 @@ export function ProductEditHistory({ product, language, onClose }: ProductEditHi
   }, []);
   
   // Get edit history for this product
+  const normalizeId = (value: any) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number") return String(value);
+    if (value?.$oid) return String(value.$oid);
+    if (value?._id) return String(value._id);
+    return String(value);
+  };
+
+  const productIdCandidates = [
+    normalizeId(product?._id),
+    normalizeId(product?.id),
+    normalizeId(product?.stk_code),
+    normalizeId(product?.slug),
+  ].filter(Boolean);
+
   const editHistory = adminActions
-    .filter(action => String(action.targetId) === String(product.id) && action.targetType === 'product')
+    .filter(action => {
+      if (action.targetType !== 'product') return false;
+      const targetId = normalizeId(action.targetId);
+      return productIdCandidates.some((id) => id && id === targetId);
+    })
     .sort((a, b) => new Date(b.createdAt || b.timestamp || 0).getTime() - new Date(a.createdAt || a.timestamp || 0).getTime());
 
   return (

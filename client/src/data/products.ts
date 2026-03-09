@@ -1,4 +1,5 @@
 import { Product, ProductOffer, DirectDiscountOffer, CouponOffer, FreeProductOffer, BundleDiscountOffer } from "../types/product";
+import { CURRENCY_LABEL } from "../utils/currency";
 
 export interface ProductWithOffers extends Product { offers?: ProductOffer[]; }
 export interface ProductOfferEntry { productId: number | string; offers: ProductOffer[]; }
@@ -31940,6 +31941,91 @@ const getOfferLookupKeys = (productOrId: number | string | ProductWithOffers): s
   return Array.from(new Set(keys));
 };
 
+const toDate = (value: any): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value === "object" && value.$date) {
+    const d = new Date(value.$date);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+};
+
+const isLegacyOffer = (offer: any): offer is LegacyOffer => {
+  return offer && typeof offer === "object" && "offer_type" in offer;
+};
+
+const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
+  const start = toDate((offer as any).start);
+  const end = toDate((offer as any).end);
+  const now = new Date();
+  if (!offer.is_active) return null;
+  if (start && now < start) return null;
+  if (end && now > end) return null;
+
+  const titleEn = offer.title || "";
+  const titleAr = offer.title_ar || offer.title || "";
+  const descriptionEn = offer.description || "";
+  const descriptionAr = offer.description_ar || offer.description || "";
+
+  if (offer.offer_type === "direct_discount") {
+    const isPercent = offer.discount_type === "p";
+    const rawDiscount = Number(offer.discount ?? 0);
+    const discountValue =
+      isPercent && rawDiscount > 0 && rawDiscount <= 1 ? rawDiscount * 100 : rawDiscount;
+    return {
+      type: "direct_discount",
+      discountType: isPercent ? "percentage" : "value",
+      discountValue,
+      titleEn,
+      titleAr,
+      descriptionEn,
+      descriptionAr,
+    };
+  }
+
+  if (offer.offer_type === "coupon") {
+    return {
+      type: "coupon",
+      couponValue: Number(offer.discount ?? 0),
+      titleEn,
+      titleAr,
+      descriptionEn,
+      descriptionAr,
+      eligibleProductIds: [],
+    };
+  }
+
+  if (offer.offer_type === "free_product") {
+    return {
+      type: "free_product",
+      freeProductId: 0,
+      titleEn,
+      titleAr,
+      descriptionEn,
+      descriptionAr,
+    };
+  }
+
+  if (offer.offer_type === "bundle_discount") {
+    return {
+      type: "bundle_discount",
+      discountPercentage: Number(offer.discount ?? 0),
+      relatedProductIds: [],
+      titleEn,
+      titleAr,
+      descriptionEn,
+      descriptionAr,
+    };
+  }
+
+  return null;
+};
+
 export const getProductOffers = (
   productOrId: number | string | ProductWithOffers,
 ): ProductOffer[] => {
@@ -31950,7 +32036,11 @@ export const getProductOffers = (
 
   if (fromDb?.length) return fromDb;
   if (typeof productOrId === "object" && Array.isArray(productOrId.offers)) {
-    return productOrId.offers;
+    const offers = productOrId.offers as any[];
+    const normalized = offers
+      .map((offer) => (isLegacyOffer(offer) ? normalizeLegacyOffer(offer) : offer))
+      .filter(Boolean) as ProductOffer[];
+    return normalized;
   }
   return [];
 };
@@ -31997,11 +32087,18 @@ export const getOfferBadgeText = (offers: ProductOffer[], language: "ar" | "en")
     if (directDiscount.discountType === "percentage") {
       return `${directDiscount.discountValue}% ${language === "ar" ? "خصم" : "OFF"}`;
     }
-    return language === "ar" ? "خصم خاص" : "SPECIAL";
+    return `${directDiscount.discountValue} ${CURRENCY_LABEL} ${language === "ar" ? "خصم" : "OFF"}`;
   }
   if (freeProduct) return language === "ar" ? "هدية مجانية" : "FREE GIFT";
-  if (coupon) return language === "ar" ? "كوبون" : "COUPON";
-  if (bundle) return language === "ar" ? "عرض حزمة" : "BUNDLE";
+  if (coupon) {
+    return `${coupon.couponValue} ${CURRENCY_LABEL} ${language === "ar" ? "كوبون" : "COUPON"}`;
+  }
+  if (bundle) {
+    if ("discountPercentage" in bundle && typeof bundle.discountPercentage === "number") {
+      return `${bundle.discountPercentage}% ${language === "ar" ? "خصم" : "OFF"}`;
+    }
+    return language === "ar" ? "عرض حزمة" : "BUNDLE";
+  }
   return "";
 };
 

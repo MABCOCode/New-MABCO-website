@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { X, Send, Users, Package, Calendar, Bell, Gift, AlertCircle, ShoppingCart, CheckCircle } from "lucide-react";
 import {products}  from "../../../../data/products";
+import { CURRENCY_LABEL } from "../../../../utils/currency";
 
 interface NotificationComposerProps {
   language: "ar" | "en";
@@ -353,7 +354,7 @@ export function NotificationComposer({ language, onClose, onSend }: Notification
                       <img src={selectedProduct.image} alt={selectedProduct.name} className="w-16 h-16 rounded object-cover" />
                       <div className="flex-1">
                         <p className="font-medium">{isRTL ? selectedProduct.nameAr : selectedProduct.name}</p>
-                        <p className="text-sm text-gray-600">{selectedProduct.price.toLocaleString()} {isRTL ? 'ل.س' : 'SYP'}</p>
+                        <p className="text-sm text-gray-600">{selectedProduct.price.toLocaleString()} {CURRENCY_LABEL}</p>
                       </div>
                       <button
                         onClick={() => setSelectedProduct(null)}
@@ -373,7 +374,7 @@ export function NotificationComposer({ language, onClose, onSend }: Notification
                           <img src={product.image} alt={product.name} className="w-12 h-12 rounded object-cover" />
                           <div className="flex-1 text-left">
                             <p className="font-medium text-sm">{isRTL ? product.nameAr : product.name}</p>
-                            <p className="text-xs text-gray-600">{product.price.toLocaleString()} {isRTL ? 'ل.س' : 'SYP'}</p>
+                            <p className="text-xs text-gray-600">{product.price.toLocaleString()} {CURRENCY_LABEL}</p>
                           </div>
                         </button>
                       ))}

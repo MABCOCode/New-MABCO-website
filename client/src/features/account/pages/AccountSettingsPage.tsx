@@ -42,8 +42,26 @@ export function AccountSettingsPage({
 
   const [errors, setErrors] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const t = translations[language];
+  const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+
+  const mapAuthError = (message?: string) => {
+    const normalized = (message || "").toLowerCase();
+    if (normalized.includes("invalid phone")) return t.account_error_invalid_phone;
+    if (normalized.includes("otp limit")) return t.account_error_otp_limit;
+    if (normalized.includes("failed to send otp")) return t.account_error_otp_send_failed;
+    if (normalized.includes("otp not found")) return t.account_error_otp_not_found;
+    if (normalized.includes("otp expired")) return t.account_error_otp_expired;
+    if (normalized.includes("invalid otp")) return t.account_error_otp_invalid;
+    if (normalized.includes("user not found")) return t.account_error_user_not_found;
+    if (normalized.includes("invalid payload")) return t.account_error_invalid_payload;
+    return t.account_error_generic;
+  };
 
   const validatePersonalInfo = () => {
     const newErrors: any = {};
@@ -68,10 +86,6 @@ export function AccountSettingsPage({
 
   const validatePassword = () => {
     const newErrors: any = {};
-
-    if (!currentPassword) {
-      newErrors.currentPassword = t.account_settings_current_password_required;
-    }
 
     if (!newPassword) {
       newErrors.newPassword = t.account_settings_new_password_required;
@@ -109,14 +123,56 @@ export function AccountSettingsPage({
     if (!validatePassword()) return;
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      alert(t.account_settings_password_changed);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmNewPassword("");
-      setShowPasswordSection(false);
-    }, 1000);
+    setApiError(null);
+    (async () => {
+      try {
+        if (!otpSent) {
+          setOtpSending(true);
+          const res = await fetch(`${API_BASE}/auth/password/request-otp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: phoneNumber }),
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(json?.message || (language === "ar" ? "فشل تغيير كلمة المرور" : "Failed to change password"));
+          }
+          setOtpSent(true);
+          setOtpCode("");
+          setIsLoading(false);
+          setOtpSending(false);
+          return;
+        }
+
+        if (otpCode.trim().length !== 6) {
+          setIsLoading(false);
+          setApiError(t.account_signup_code_required);
+          return;
+        }
+
+        const res = await fetch(`${API_BASE}/auth/password/verify-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phoneNumber, code: otpCode, newPassword }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json?.message || (language === "ar" ? "فشل تغيير كلمة المرور" : "Failed to change password"));
+        }
+        alert(t.account_settings_password_changed);
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+        setOtpCode("");
+        setOtpSent(false);
+        setShowPasswordSection(false);
+      } catch (err: any) {
+        setApiError(err?.message || (language === "ar" ? "فشل تغيير كلمة المرور" : "Failed to change password"));
+      } finally {
+        setIsLoading(false);
+        setOtpSending(false);
+      }
+    })();
   };
 
   return (
@@ -454,6 +510,36 @@ export function AccountSettingsPage({
                 )}
               </div>
 
+              {/* OTP Code */}
+              {otpSent && (
+                <div>
+                  <label
+                    className={`block text-sm font-medium text-gray-700 mb-2 ${
+                      language === "ar" ? "text-right" : "text-left"
+                    }`}
+                  >
+                    {t.account_signup_verify}
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] transition-all ${
+                      errors.code ? "border-red-500" : "border-gray-300"
+                    } ${language === "ar" ? "text-right" : "text-left"}`}
+                    dir="ltr"
+                  />
+                </div>
+              )}
+
+              {apiError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
+                  {apiError}
+                </div>
+              )}
+
               {/* Change Password Button */}
               <div className="flex gap-3">
                 <button
@@ -462,6 +548,8 @@ export function AccountSettingsPage({
                     setCurrentPassword("");
                     setNewPassword("");
                     setConfirmNewPassword("");
+                    setOtpCode("");
+                    setOtpSent(false);
                     setErrors({});
                   }}
                   className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl hover:bg-gray-50 transition-all duration-300 font-medium"
@@ -478,7 +566,7 @@ export function AccountSettingsPage({
                   ) : (
                     <>
                       <Lock className="w-5 h-5" />
-                      {t.account_settings_save}
+                      {otpSent ? t.account_signup_verify : t.account_settings_save}
                     </>
                   )}
                 </button>

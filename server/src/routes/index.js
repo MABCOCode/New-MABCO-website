@@ -8,7 +8,9 @@ const offerRoutes = require('./offers.routes');
 const bannerSlidesRoutes = require('./bannerSlides.routes');
 const showroomRoutes = require('./showrooms.routes');
 const orderRoutes = require('./orders.routes');
+const authRoutes = require('./auth.routes');
 const adminRoutes = require('./admin.routes');
+const posSyncRoutes = require('./posSync.routes');
 const { requireAdminKey } = require('../middleware/adminAuth');
 
 const router = express.Router();
@@ -21,6 +23,8 @@ router.use('/offers', offerRoutes);
 router.use('/banner-slides', bannerSlidesRoutes);
 router.use('/showrooms', showroomRoutes);
 router.use('/orders', orderRoutes);
+router.use('/auth', authRoutes);
+router.use('/admin/sync', requireAdminKey, posSyncRoutes);
 router.use('/admin', requireAdminKey, adminRoutes);
 
 module.exports = router;

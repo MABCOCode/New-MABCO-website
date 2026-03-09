@@ -4,6 +4,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { loadSession, saveSession } from "./storage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupFlow } from "./pages/SignupFlow";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { UserDashboard } from "./pages/UserDashboard";
 import { OrdersPage } from "./pages/OrdersPage";
 import { OrderDetailsPage } from "./pages/OrderDetailsPage";
@@ -76,7 +77,7 @@ export const AccountRoutes = () => {
 
   const isAuthed = !!user;
   const isAuthRoute = useMemo(
-    () => location.pathname.startsWith("/account/login") || location.pathname.startsWith("/account/signup"),
+    () => location.pathname.startsWith("/account/login") || location.pathname.startsWith("/account/signup") || location.pathname.startsWith("/account/forgot"),
     [location.pathname],
   );
   const isAdminRoute = useMemo(() => location.pathname.startsWith("/account/admin"), [location.pathname]);
@@ -165,7 +166,17 @@ export const AccountRoutes = () => {
             onClose={() => navigate("/")}
             onLoginSuccess={handleLoginSuccess}
             onSwitchToSignup={() => navigate("/account/signup")}
-            onForgotPassword={() => navigate("/account/login")}
+            onForgotPassword={() => navigate("/account/forgot")}
+          />
+        }
+      />
+      <Route
+        path="/forgot"
+        element={
+          <ForgotPasswordPage
+            language={language}
+            onClose={() => navigate("/")}
+            onBackToLogin={() => navigate("/account/login")}
           />
         }
       />

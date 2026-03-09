@@ -3,41 +3,42 @@
 // Only admins with proper privileges can hide/show products
 
 export interface HiddenProductsData {
-  hiddenProductIds: Set<number>;
+  hiddenProductIds: Set<string>;
   lastUpdated: string;
 }
 
 // In-memory storage for hidden products (in production, this would be in a database)
-let hiddenProductIds = new Set<number>();
+let hiddenProductIds = new Set<string>();
 
 export const hiddenProductsManager = {
   // Get all hidden product IDs
-  getHiddenProducts: (): number[] => {
+  getHiddenProducts: (): string[] => {
     return Array.from(hiddenProductIds);
   },
 
   // Check if a product is hidden
-  isProductHidden: (productId: number): boolean => {
-    return hiddenProductIds.has(productId);
+  isProductHidden: (productId: string): boolean => {
+    return hiddenProductIds.has(String(productId));
   },
 
   // Hide a product
-  hideProduct: (productId: number): void => {
-    hiddenProductIds.add(productId);
+  hideProduct: (productId: string): void => {
+    hiddenProductIds.add(String(productId));
   },
 
   // Show a product (unhide)
-  showProduct: (productId: number): void => {
-    hiddenProductIds.delete(productId);
+  showProduct: (productId: string): void => {
+    hiddenProductIds.delete(String(productId));
   },
 
   // Toggle product visibility
-  toggleProductVisibility: (productId: number): boolean => {
-    if (hiddenProductIds.has(productId)) {
-      hiddenProductIds.delete(productId);
+  toggleProductVisibility: (productId: string): boolean => {
+    const key = String(productId);
+    if (hiddenProductIds.has(key)) {
+      hiddenProductIds.delete(key);
       return false; // Now visible
     } else {
-      hiddenProductIds.add(productId);
+      hiddenProductIds.add(key);
       return true; // Now hidden
     }
   },

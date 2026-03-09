@@ -70,7 +70,8 @@ async function createCollections(db) {
     { name: 'showrooms_read', validator: getShowroomsReadValidator(), indexes: getShowroomsReadIndexes() },
     { name: 'footer_read', validator: getFooterReadValidator(), indexes: getFooterReadIndexes() },
     { name: 'saved_spec_titles', validator: getSavedSpecTitlesValidator(), indexes: getSavedSpecTitlesIndexes() },
-    { name: 'site_content', validator: getSiteContentValidator(), indexes: getSiteContentIndexes() }
+    { name: 'site_content', validator: getSiteContentValidator(), indexes: getSiteContentIndexes() },
+    { name: 'otp_verifications', validator: getOtpVerificationValidator(), indexes: getOtpVerificationIndexes() }
   ];
 
   console.log(`${colors.cyan}Starting collection creation...${colors.reset}\n`);
@@ -304,21 +305,20 @@ function getProductValidator() {
           bsonType: 'array',
           items: {
             bsonType: 'object',
-            required: ['type', 'titleEn', 'titleAr', 'descriptionEn', 'descriptionAr'],
+            required: ['offer_no', 'offer_type', 'discount', 'discount_type', 'title', 'title_ar', 'products', 'start', 'end', 'is_active'],
             properties: {
-              type: { bsonType: 'string', enum: ['direct_discount', 'coupon', 'free_product', 'bundle_discount'] },
-              titleEn: { bsonType: 'string' },
-              titleAr: { bsonType: 'string' },
-              descriptionEn: { bsonType: 'string' },
-              descriptionAr: { bsonType: 'string' },
-              discountType: { bsonType: 'string', enum: ['value', 'percentage'] },
-              discountValue: { bsonType: ['number', 'int', 'long'] },
-              couponValue: { bsonType: ['number', 'int', 'long'] },
-              eligibleProductIds: { bsonType: 'array', items: { bsonType: ['objectId', 'int', 'long'] } },
-              validityDays: { bsonType: ['int', 'long'] },
-              freeProductId: { bsonType: ['objectId', 'int', 'long'] },
-              discountPercentage: { bsonType: ['number', 'int', 'long'] },
-              relatedProductIds: { bsonType: 'array', items: { bsonType: ['objectId', 'int', 'long'] } }
+              offer_no: { bsonType: 'string' },
+              offer_type: { bsonType: 'string', enum: ['direct_discount', 'coupon', 'free_product', 'bundle_discount'] },
+              discount: { bsonType: ['number', 'int', 'long'] },
+              discount_type: { bsonType: 'string', enum: ['p', 'v'] },
+              title: { bsonType: 'string' },
+              title_ar: { bsonType: 'string' },
+              description: { bsonType: 'string' },
+              description_ar: { bsonType: 'string' },
+              products: { bsonType: 'array', items: { bsonType: 'string' } },
+              start: { bsonType: 'date' },
+              end: { bsonType: 'date' },
+              is_active: { bsonType: 'bool' }
             }
           }
         },
@@ -437,10 +437,15 @@ function getUserValidator() {
   return {
     $jsonSchema: {
       bsonType: 'object',
-      required: ['email', 'role'],
+      required: ['role'],
       properties: {
         email: { bsonType: 'string' },
+        phone: { bsonType: 'string' },
         role: { bsonType: 'string', enum: ['customer', 'admin', 'super_admin'] },
+        name: { bsonType: 'string' },
+        nameAr: { bsonType: 'string' },
+        passwordHash: { bsonType: 'string' },
+        passwordSalt: { bsonType: 'string' },
         adminMeta: {
           bsonType: 'object',
           properties: {
@@ -453,7 +458,11 @@ function getUserValidator() {
             allowedBrandIds: { bsonType: 'array', items: { bsonType: 'objectId' } }
           }
         }
-      }
+      },
+      oneOf: [
+        { required: ['email'] },
+        { required: ['phone'] }
+      ]
     }
   };
 }
@@ -742,6 +751,25 @@ function getOfferIndexes() {
     { spec: { products: 1 } }
   ];
 }
+
+function getOtpVerificationValidator() {
+  return {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['phone', 'purpose', 'codeHash', 'expiresAt', 'dayKey'],
+      properties: {
+        phone: { bsonType: 'string' },
+        purpose: { bsonType: 'string' },
+        codeHash: { bsonType: 'string' },
+        expiresAt: { bsonType: 'date' },
+        dayKey: { bsonType: 'string' },
+        attemptsToday: { bsonType: ['int', 'long'] },
+        verifyAttempts: { bsonType: ['int', 'long'] },
+        lastSentAt: { bsonType: 'date' }
+      }
+    }
+  };
+}
 function getUserIndexes() {
   return [
     { spec: { email: 1 }, options: { unique: true } },
@@ -795,6 +823,12 @@ function getSavedSpecTitlesIndexes() {
   ];
 }
 function getSiteContentIndexes() { return [ { spec: { _id: 1 } } ]; }
+function getOtpVerificationIndexes() {
+  return [
+    { spec: { phone: 1, purpose: 1 }, options: { unique: true } },
+    { spec: { expiresAt: 1 }, options: { expireAfterSeconds: 0 } }
+  ];
+}
 
 async function main() {
   const client = new MongoClient(MONGODB_URI);

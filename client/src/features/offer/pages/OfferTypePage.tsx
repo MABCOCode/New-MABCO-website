@@ -5,6 +5,7 @@ import { useCompareStore } from "../../compare/state";
 import { useLanguage } from "../../../context/LanguageContext";
 import  ProductCard  from "../../products/components/ProductCard";
 import { getProductOffers, products } from "../../../data/products";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 import { getProductRef } from "../../../utils/entityRefs";
 
 interface OfferTypePageProps {
@@ -386,8 +387,8 @@ export function OfferTypePage({
                       </p>
                       <p className={`text-3xl font-bold bg-gradient-to-r ${offerInfo.gradient} bg-clip-text text-transparent`}>
                         {offerType === "direct_discount" && "30%"}
-                        {offerType === "coupon" && "200,000 SYP"}
-                        {offerType === "free_product" && "950,000 SYP"}
+                        {offerType === "coupon" && `200,000 ${CURRENCY_LABEL}`}
+                        {offerType === "free_product" && `950,000 ${CURRENCY_LABEL}`}
                         {offerType === "bundle_discount" && "35%"}
                       </p>
                     </div>

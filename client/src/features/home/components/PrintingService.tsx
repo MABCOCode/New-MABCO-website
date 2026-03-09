@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 import {
   X,
   Printer,
@@ -101,7 +102,7 @@ export function PrintingService({
       addToCart: "إضافة للسلة",
       back: "رجوع",
       next: "التالي",
-      syp: "ل.س",
+      syp: CURRENCY_LABEL,
       uploadImage: "رفع صورة",
       imageUploaded: "تم رفع الصورة",
       preview: "المعاينة",
@@ -146,7 +147,7 @@ export function PrintingService({
       addToCart: "Add to Cart",
       back: "Back",
       next: "Next",
-      syp: "SYP",
+      syp: CURRENCY_LABEL,
       uploadImage: "Upload Image",
       imageUploaded: "Image Uploaded",
       preview: "Preview",

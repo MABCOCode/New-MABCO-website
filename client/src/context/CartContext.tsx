@@ -6,11 +6,17 @@ type CartItem = {
   productId?: number | string;
   name: string;
   price: string | number | undefined;
+  basePrice?: number | null;
   oldPrice?: string | number | null;
   image?: string;
   quantity: number;
   variant?: string;
   variantColor?: string;
+  variantSku?: string | null;
+  variantPrice?: number | null;
+  chargeOptionSku?: string | null;
+  chargeOptionPrice?: number | null;
+  appliedOffers?: any[] | null;
   chargeOption?: { optionId: string; value: string } | null;
   isFreeGift?: boolean;
   isBundleItem?: boolean;
@@ -30,6 +36,12 @@ type AddToCartFn = (
     customId?: string;
     overridePrice?: number | string;
     overrideOldPrice?: number | string;
+    basePrice?: number;
+    variantSku?: string | null;
+    variantPrice?: number | null;
+    chargeOptionSku?: string | null;
+    chargeOptionPrice?: number | null;
+    appliedOffers?: any[] | null;
     isFreeGift?: boolean;
     isBundleItem?: boolean;
     linkedToProductId?: number;
@@ -96,11 +108,26 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const selectedCharge = chargeOptionId
         ? product.chargeOptions?.find((o: any) => String(o.id) === String(chargeOptionId))
         : undefined;
+      const fallbackProductPrice =
+        typeof product.price === "number" ? product.price : Number(product.price);
+      const basePrice =
+        typeof options?.basePrice === "number"
+          ? options.basePrice
+          : typeof options?.chargeOptionPrice === "number"
+          ? options.chargeOptionPrice
+          : typeof options?.variantPrice === "number"
+          ? options.variantPrice
+          : Number.isFinite(fallbackProductPrice)
+          ? fallbackProductPrice
+          : undefined;
+
       const itemPrice =
         options?.overridePrice !== undefined
           ? typeof options.overridePrice === "number"
             ? options.overridePrice.toLocaleString("en-US")
             : options.overridePrice
+          : typeof basePrice === "number"
+          ? basePrice.toLocaleString("en-US")
           : selectedCharge && typeof selectedCharge.price === "number"
           ? selectedCharge.price.toLocaleString("en-US")
           : typeof product.price === "number"
@@ -120,11 +147,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           productId: product.id,
           name: product.name || product.title || "",
           price: itemPrice,
+          basePrice: typeof basePrice === "number" ? basePrice : null,
           oldPrice: itemOldPrice,
           image: variantImage ?? product.image ?? product.thumbnail ?? "",
           quantity: Math.min(MAX_PURCHASE_QUANTITY, qty),
           variant: variant,
           variantColor: variantColorHex ?? variant,
+          variantSku: options?.variantSku ?? null,
+          variantPrice: typeof options?.variantPrice === "number" ? options.variantPrice : null,
+          chargeOptionSku: options?.chargeOptionSku ?? null,
+          chargeOptionPrice: typeof options?.chargeOptionPrice === "number" ? options.chargeOptionPrice : null,
+          appliedOffers: options?.appliedOffers ?? null,
           chargeOption: chargeOptionId ? { optionId: chargeOptionId, value: chargeOptionLabel ?? chargeOptionId } : null,
           isFreeGift: options?.isFreeGift,
           isBundleItem: options?.isBundleItem,

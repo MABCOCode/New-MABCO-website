@@ -9,4 +9,9 @@ module.exports = {
   mongoDbName: process.env.MONGODB_DB_NAME || 'mabco_website',
   clientOrigins: (process.env.CLIENT_ORIGINS || 'http://localhost:5173').split(',').map((x) => x.trim()).filter(Boolean),
   adminApiKey: process.env.ADMIN_API_KEY || '',
+  smsUser: process.env.SMS_USER || 'mab687',
+  smsPass: process.env.SMS_PASS || 'ocbam4141',
+  smsFrom: process.env.SMS_FROM || 'MABCO',
+  smsLang: process.env.SMS_LANG || '0',
+  otpSecret: process.env.OTP_SECRET || 'otp-secret',
 };

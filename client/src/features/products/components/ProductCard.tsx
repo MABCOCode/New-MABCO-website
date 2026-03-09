@@ -1,5 +1,5 @@
 import React from "react";
-import { ShoppingCart, Tag, Flame, TrendingUp } from "lucide-react";
+import { ShoppingCart, Tag, Flame, TrendingUp, Ticket, Gift, Package } from "lucide-react";
 import { Product } from "../../../types/product";
 import { useCart } from "../../../context/CartContext";
 import { useState } from "react";
@@ -8,7 +8,7 @@ import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { getProductRef } from "../../../utils/entityRefs";
-import { getOfferPricing } from "../../../data/products";
+import { getOfferPricing, getProductOffers, getOfferBadgeText } from "../../../data/products";
 
 export interface ProductCardProps {
   product: Product;
@@ -46,26 +46,111 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const safeColorVariants = Array.isArray(product.colorVariants)
     ? product.colorVariants
     : [];
+  const normalizeHex = (value: string | undefined) => {
+    if (!value) return "#999999";
+    const raw = value.trim();
+    const hex = raw.startsWith("#") ? raw : `#${raw}`;
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
+    return "#999999";
+  };
+  const normalizedColorVariants = safeColorVariants.map((variant: any) => {
+    const images = Array.isArray(variant.images)
+      ? variant.images.map((img: any) => (typeof img === "string" ? img : img?.image_link || img?.url || "")).filter(Boolean)
+      : [];
+    const image = variant.image || images[0] || "";
+    const name = variant.name || variant.color_name || "";
+    const nameAr = variant.nameAr || variant.color_name_ar || name;
+    const hexCode = normalizeHex(variant.hexCode || variant.color_hex || variant.hex);
+    const inStock = typeof variant.inStock === "boolean"
+      ? variant.inStock
+      : typeof variant.in_stock === "boolean"
+      ? variant.in_stock
+      : typeof variant.isAvailable === "boolean"
+      ? variant.isAvailable
+      : typeof variant.is_available === "boolean"
+      ? variant.is_available
+      : undefined;
+    const isAvailable = typeof variant.isAvailable === "boolean"
+      ? variant.isAvailable
+      : typeof variant.is_available === "boolean"
+      ? variant.is_available
+      : typeof variant.active === "boolean"
+      ? variant.active
+      : undefined;
+    return {
+      ...variant,
+      name,
+      nameAr,
+      hexCode,
+      image,
+      images,
+      price: typeof variant.price === "number" ? variant.price : Number(variant.price),
+      inStock,
+      isAvailable,
+    };
+  });
+  const visibleColorVariants = normalizedColorVariants
+    .filter(
+      (variant: any) =>
+        variant.inStock !== false &&
+        variant.isAvailable !== false &&
+        (typeof variant.active !== "boolean" || variant.active) &&
+        Boolean(String(variant.name || variant.nameAr || "").trim()) &&
+        Boolean(String(variant.image || (variant.images && variant.images[0]) || "").trim()),
+    )
+    .sort((a: any, b: any) => {
+      const aHasOffers = Array.isArray(a?.offers) && a.offers.length > 0 ? 1 : 0;
+      const bHasOffers = Array.isArray(b?.offers) && b.offers.length > 0 ? 1 : 0;
+      return bHasOffers - aHasOffers;
+    });
   const safeChargeOptions = Array.isArray(product.chargeOptions)
     ? product.chargeOptions
     : [];
+  const normalizedChargeOptions = safeChargeOptions
+    .map((opt: any, index: number) => ({
+      ...opt,
+      id: String(opt.id ?? opt.stk_code ?? opt.code ?? index),
+      value: opt.value ?? opt.name ?? "",
+      valueAr: opt.valueAr ?? opt.name_ar ?? opt.nameAr ?? opt.value ?? opt.name ?? "",
+      price: typeof opt.price === "number" ? opt.price : Number(opt.price),
+    }))
+    .filter((opt: any) =>
+      (typeof opt.active !== "boolean" || opt.active) &&
+      (typeof opt.in_stock !== "boolean" || opt.in_stock) &&
+      Boolean(String(opt.value || opt.valueAr || opt.name || opt.name_ar || "").trim()),
+    )
+    .sort((a: any, b: any) => {
+      const aPrice = Number.isFinite(a.price) ? a.price : Number.MAX_SAFE_INTEGER;
+      const bPrice = Number.isFinite(b.price) ? b.price : Number.MAX_SAFE_INTEGER;
+      return aPrice - bPrice;
+    });
   const [selectedColor, setSelectedColor] = useState(
-    safeColorVariants[0]?.name || "",
+    visibleColorVariants[0]?.name || "",
   );
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [selectedChargeOption, setSelectedChargeOption] = useState(
-    safeChargeOptions[0]?.id || null,
+    normalizedChargeOptions[0]?.id || null,
   );
   const [isHovered, setIsHovered] = useState(false);
 
   // Use hovered color if available, otherwise use selected color
   const displayColor = hoveredColor || selectedColor;
-  const currentImage =
-    safeColorVariants.find((v) => v.name === displayColor)?.image ||
-    product.image;
+  const currentColorVariant = visibleColorVariants.find((v) => v.name === displayColor) || null;
+  const currentImage = currentColorVariant?.image || product.image;
 
-  const hasColors = safeColorVariants.length > 0;
-  const hasChargeOptions = safeChargeOptions.length > 0;
+  const hasColors = visibleColorVariants.length > 0;
+  const hasChargeOptions = normalizedChargeOptions.length > 0;
+  const hasAnyVariants = safeColorVariants.length > 0 || safeChargeOptions.length > 0;
+  const hasValidVariants = hasColors || hasChargeOptions;
+  const hasValidImage =
+    Boolean(String(product.image || "").trim()) ||
+    visibleColorVariants.length > 0;
+  const hasValidName = Boolean(String(product.name || "").trim());
+  const hasSpecs = Array.isArray((product as any).specs) && (product as any).specs.length > 0;
+  const hasDescription = Boolean(String((product as any).description || (product as any).descriptionAr || "").trim());
+  const hasDetails = hasSpecs || hasDescription;
+  if (hasAnyVariants && !hasValidVariants) return null;
+  if (!hasValidImage || !hasValidName || !hasDetails) return null;
 
   const badgeText = (() => {
     if (product.isMostSold) return language === "ar" ? "الأكثر مبيعاً" : "MOST SOLD";
@@ -102,24 +187,54 @@ const ProductCard: React.FC<ProductCardProps> = ({
     ? compareItems.some((id) => String(id) === String(productRef))
     : false;
 
-  const currentChargeOption = safeChargeOptions.find(
+  const currentChargeOption = normalizedChargeOptions.find(
     (opt) => opt.id === selectedChargeOption,
   );
 
   const handleAddToCart = () => {
     const chosenColor = hasColors ? selectedColor : undefined;
-    const chosenColorHex =
-      safeColorVariants.find((v) => v.name === chosenColor)?.hexCode || null;
-    const chosenVariantImage =
-      safeColorVariants.find((v) => v.name === chosenColor)?.image || null;
-    const chargeLabel = currentChargeOption?.value || currentChargeOption?.valueAr || null;
+    const chosenVariant = visibleColorVariants.find((v) => v.name === chosenColor) || null;
+    const chosenColorHex = chosenVariant?.hexCode || null;
+    const chosenVariantImage = chosenVariant?.image || null;
+    const chargeLabel =
+      currentChargeOption?.value ||
+      currentChargeOption?.valueAr ||
+      currentChargeOption?.name ||
+      currentChargeOption?.name_ar ||
+      null;
+    const appliedOffers =
+      (currentChargeOption && Array.isArray((currentChargeOption as any).offers) ? (currentChargeOption as any).offers : null) ||
+      (chosenVariant && Array.isArray((chosenVariant as any).offers) ? (chosenVariant as any).offers : null) ||
+      (Array.isArray((product as any).offers) ? (product as any).offers : null);
+
+    const variantPriceValue =
+      chosenVariant && typeof chosenVariant.price !== "undefined"
+        ? parseNumericPrice(chosenVariant.price)
+        : null;
+    const chargePriceValue =
+      currentChargeOption && typeof currentChargeOption.price !== "undefined"
+        ? parseNumericPrice(currentChargeOption.price)
+        : null;
+    const basePriceValue =
+      typeof chargePriceValue === "number"
+        ? chargePriceValue
+        : typeof variantPriceValue === "number"
+        ? variantPriceValue
+        : parseNumericPrice(product.price);
+
     addToCart({ ...product, id: resolvedProductId ?? (product as any).id }, {
       customId: String(resolvedCartId),
       color: chosenColor,
       variantColorHex: chosenColorHex,
       variantImage: chosenVariantImage,
+      variantSku: (chosenVariant as any)?.stk_code ?? null,
+      variantPrice: typeof variantPriceValue === "number" ? variantPriceValue : null,
       chargeOptionId: selectedChargeOption,
       chargeOptionLabel: chargeLabel,
+      chargeOptionSku: (currentChargeOption as any)?.stk_code ?? null,
+      chargeOptionPrice: typeof chargePriceValue === "number" ? chargePriceValue : null,
+      basePrice: basePriceValue,
+      appliedOffers,
     });
   };
 
@@ -131,6 +246,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
     setHoveredColor(colorName);
   };
 
+  React.useEffect(() => {
+    if (!hasColors) return;
+    const exists = visibleColorVariants.some((v: any) => v.name === selectedColor);
+    if (!exists) {
+      setSelectedColor(visibleColorVariants[0]?.name || "");
+    }
+  }, [hasColors, visibleColorVariants, selectedColor]);
+
   const parseNumericPrice = (value: unknown): number => {
     if (typeof value === "number") return Number.isFinite(value) ? value : 0;
     if (typeof value === "string") {
@@ -141,16 +264,63 @@ const ProductCard: React.FC<ProductCardProps> = ({
     return 0;
   };
 
+  const colorPriceValue = currentColorVariant ? parseNumericPrice(currentColorVariant.price) : 0;
   const selectedSourcePrice = currentChargeOption
     ? parseNumericPrice(currentChargeOption.price)
+    : colorPriceValue > 0
+    ? colorPriceValue
     : parseNumericPrice(product.price);
-  const offerPricing = getOfferPricing(product as any, {
-    sourcePrice: selectedSourcePrice,
-  });
+  const baseProductPrice = parseNumericPrice(product.price);
+  const hasColorPriceDiff = colorPriceValue > 0 && Math.abs(colorPriceValue - baseProductPrice) > 0.0001;
+  const combinedOffersSource = [
+    ...(Array.isArray((product as any).offers) ? (product as any).offers : []),
+    ...(Array.isArray(product.colorVariants)
+      ? product.colorVariants.flatMap((variant: any) => variant?.offers || [])
+      : []),
+    ...(Array.isArray(product.chargeOptions)
+      ? product.chargeOptions.flatMap((opt: any) => opt?.offers || [])
+      : []),
+  ];
+  const offerPricing = getOfferPricing(
+    { ...(product as any), offers: combinedOffersSource },
+    { sourcePrice: selectedSourcePrice },
+  );
   const currentPriceNum = offerPricing.currentPrice;
   const oldPriceNum = offerPricing.originalPrice;
   const hasOldPrice = offerPricing.hasDiscount;
   const hasDiscount = offerPricing.hasDiscount;
+  const offerBadgeText = getOfferBadgeText(offerPricing.offers, language);
+  const offerBadgeInfo = (() => {
+    if (!offerBadgeText) return null;
+    const priority = ["direct_discount", "coupon", "free_product", "bundle_discount"] as const;
+    const currentOffer =
+      offerPricing.offers.find((o: any) => o.type === priority[0]) ||
+      offerPricing.offers.find((o: any) => o.type === priority[1]) ||
+      offerPricing.offers.find((o: any) => o.type === priority[2]) ||
+      offerPricing.offers.find((o: any) => o.type === priority[3]);
+    if (!currentOffer) return null;
+    const offerType = currentOffer.type;
+    switch (offerType) {
+      case "direct_discount":
+        return { Icon: Tag, gradient: "from-red-500 to-pink-600" };
+      case "coupon":
+        return { Icon: Ticket, gradient: "from-blue-500 to-indigo-600" };
+      case "free_product":
+        return { Icon: Gift, gradient: "from-green-500 to-emerald-600" };
+      case "bundle_discount":
+        return { Icon: Package, gradient: "from-purple-500 to-violet-600" };
+      default:
+        return null;
+    }
+  })();
+  const offerTopBadge = !topBadge && offerBadgeInfo ? (
+    <div
+      className={`bg-gradient-to-r ${offerBadgeInfo.gradient} text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 whitespace-nowrap`}
+    >
+      <offerBadgeInfo.Icon className="w-4 h-4" />
+      <span>{offerBadgeText}</span>
+    </div>
+  ) : null;
 
   const displayPrice = currentChargeOption
     ? currentPriceNum.toLocaleString("en-US")
@@ -165,9 +335,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div className="h-full relative">
-      {topBadge && (
+      {(topBadge || offerTopBadge) && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-[60] pointer-events-none">
-          {topBadge}
+          {topBadge || offerTopBadge}
         </div>
       )}
       <div
@@ -270,23 +440,37 @@ const ProductCard: React.FC<ProductCardProps> = ({
           >
             {product.name}
           </h3>
-          {hasColors && (
-            <div>
-              <ColorSwatch
-                variants={safeColorVariants}
-                selectedColor={selectedColor}
-                onColorChange={handleColorChange}
-                onColorHover={handleColorHover}
-                language={language}
-                size="sm"
-                maxVisible={5}
-              />
-            </div>
-          )}
+            {hasColors && (
+              <div>
+                <ColorSwatch
+                  variants={visibleColorVariants}
+                  selectedColor={selectedColor}
+                  onColorChange={handleColorChange}
+                  onColorHover={handleColorHover}
+                  language={language}
+                  size="sm"
+                  maxVisible={5}
+                  showPrice={true}
+                />
+                {colorPriceValue > 0 && (
+                  <div className="mt-2 text-xs text-gray-600">
+                    {language === "ar" ? "سعر اللون" : "Color price"}:{" "}
+                    <span className="font-semibold text-gray-900">
+                      {Number(colorPriceValue).toLocaleString("en-US")}
+                    </span>
+                    {hasColorPriceDiff && (
+                      <span className="text-[10px] text-amber-600 ml-2">
+                        {language === "ar" ? "مختلف" : "Changed"}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           {hasChargeOptions && (
             <div>
               <ChargeOptionSlider
-                options={safeChargeOptions}
+                options={normalizedChargeOptions}
                 selectedId={selectedChargeOption || ""}
                 onSelect={setSelectedChargeOption}
                 language={language}

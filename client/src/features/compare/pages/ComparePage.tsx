@@ -3,7 +3,8 @@ import { X, Check, ShoppingCart, Filter } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { Product } from "../../../types/product";
 import { ComparePageProps } from "../../../types/compare";
-import { getOfferPricing, products, productsBySection } from "../../../data/products";
+import { getOfferBadgeText, getOfferPricing, getProductOffers, products, productsBySection } from "../../../data/products";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 import translations from '../../../i18n/translations';
 import { getProductRef, toSafeCode } from "../../../utils/entityRefs";
 import { useCart } from "../../../context/CartContext";
@@ -249,6 +250,34 @@ export function ComparePage(props: ComparePageProps) {
     }),
   );
 
+  const getFirstVariantImage = (product: any) => {
+    const colorVariants = Array.isArray(product?.colorVariants)
+      ? product.colorVariants
+          .filter((v: any) => v)
+          .sort((a: any, b: any) => {
+            const aHasOffers = Array.isArray(a?.offers) && a.offers.length > 0 ? 1 : 0;
+            const bHasOffers = Array.isArray(b?.offers) && b.offers.length > 0 ? 1 : 0;
+            return bHasOffers - aHasOffers;
+          })
+      : [];
+    for (const variant of colorVariants) {
+      const images = Array.isArray(variant?.images)
+        ? variant.images.map((img: any) => (typeof img === "string" ? img : img?.image_link || img?.url || "")).filter(Boolean)
+        : [];
+      const image = variant?.image || images[0] || "";
+      if (image) return image;
+    }
+    const chargeOptions = Array.isArray(product?.chargeOptions) ? product.chargeOptions : [];
+    for (const opt of chargeOptions) {
+      const images = Array.isArray(opt?.images)
+        ? opt.images.map((img: any) => (typeof img === "string" ? img : img?.image_link || img?.url || "")).filter(Boolean)
+        : [];
+      const image = opt?.image || images[0] || "";
+      if (image) return image;
+    }
+    return "";
+  };
+
   // Helper function to compare numeric values from specifications
   const getBestInSpec = (specKey: string) => {
     const values = comparedProducts.map((p) => {
@@ -353,7 +382,7 @@ export function ComparePage(props: ComparePageProps) {
                               <X className="w-4 h-4" />
                             </button>
                             <ImageWithFallback
-                              src={product.image}
+                              src={product.image || getFirstVariantImage(product)}
                               alt={product.name}
                               className="w-full h-40 object-contain bg-white rounded-lg mb-3"
                             />
@@ -399,11 +428,11 @@ export function ComparePage(props: ComparePageProps) {
                         >
                           <div className="flex flex-col items-center gap-1">
                             <span className="text-2xl font-bold text-[#009FE3]">
-                              {getOfferPricing(product as any).currentPrice.toLocaleString("en-US")} {t.syp || "SYP"}
+                                {getOfferPricing(product as any).currentPrice.toLocaleString("en-US")} {t.syp || CURRENCY_LABEL}
                             </span>
                             {getOfferPricing(product as any).hasDiscount && (
                               <span className="text-sm text-gray-400 line-through">
-                                {getOfferPricing(product as any).originalPrice.toLocaleString("en-US")} {t.syp || "SYP"}
+                                {getOfferPricing(product as any).originalPrice.toLocaleString("en-US")} {t.syp || CURRENCY_LABEL}
                               </span>
                             )}
                             {bestPrices[index] && (
@@ -606,13 +635,13 @@ export function ComparePage(props: ComparePageProps) {
                       >
                         <div className="relative aspect-square overflow-hidden bg-gray-50">
                           <ImageWithFallback
-                            src={product.image}
+                            src={product.image || getFirstVariantImage(product)}
                             alt={product.name}
                             className="w-full h-full object-cover"
                           />
-                          {getOfferPricing(product as any).hasDiscount && (
+                          {getOfferBadgeText(getProductOffers(product as any), language) && (
                             <div className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-red-600 text-white px-2 py-1 rounded-lg text-xs font-bold shadow-sm">
-                              -{getOfferPricing(product as any).discountPercentage}%
+                              {getOfferBadgeText(getProductOffers(product as any), language)}
                             </div>
                           )}
                         </div>
@@ -625,11 +654,11 @@ export function ComparePage(props: ComparePageProps) {
                               <span className="font-bold text-[#009FE3] text-xl">
                                 {getOfferPricing(product as any).currentPrice.toLocaleString("en-US")}
                               </span>
-                              <span className="text-xs text-gray-500">{t.syp || "SYP"}</span>
+                              <span className="text-xs text-gray-500">{t.syp || CURRENCY_LABEL}</span>
                             </div>
                             {getOfferPricing(product as any).hasDiscount && (
                               <div className="text-xs text-gray-400 line-through">
-                                {getOfferPricing(product as any).originalPrice.toLocaleString("en-US")} {t.syp || "SYP"}
+                                {getOfferPricing(product as any).originalPrice.toLocaleString("en-US")} {t.syp || CURRENCY_LABEL}
                               </div>
                             )}
                           </div>

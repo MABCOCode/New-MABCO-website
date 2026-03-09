@@ -16,6 +16,7 @@ import {
 import { AccountNavBar } from "../components/AccountNavBar";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import translations from "../../../i18n/translations";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 
 interface OrderDetailsPageProps {
   language: "ar" | "en";
@@ -250,7 +251,7 @@ export function OrderDetailsPage({ language, orderId, onBack }: OrderDetailsPage
                         {t.account_order_details_quantity}: {item.quantity}
                       </p>
                       <p className="font-bold text-[#009FE3]">
-                        {item.price.toLocaleString()} {language === "ar" ? "ل.س" : "SYP"}
+                        {item.price.toLocaleString()} {CURRENCY_LABEL}
                       </p>
                     </div>
                   </div>
@@ -266,7 +267,7 @@ export function OrderDetailsPage({ language, orderId, onBack }: OrderDetailsPage
                 >
                   <span className="text-gray-600">{t.account_order_details_subtotal}</span>
                   <span className="font-semibold">
-                    {order.subtotal.toLocaleString()} {language === "ar" ? "ل.س" : "SYP"}
+                    {order.subtotal.toLocaleString()} {CURRENCY_LABEL}
                   </span>
                 </div>
                 <div
@@ -286,7 +287,7 @@ export function OrderDetailsPage({ language, orderId, onBack }: OrderDetailsPage
                 >
                   <span>{t.account_order_details_total}</span>
                   <span className="text-[#009FE3]">
-                    {order.total.toLocaleString()} {language === "ar" ? "ل.س" : "SYP"}
+                    {order.total.toLocaleString()} {CURRENCY_LABEL}
                   </span>
                 </div>
               </div>

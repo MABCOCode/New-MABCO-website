@@ -1,5 +1,6 @@
 import React from "react";
 import { Sparkles, ShoppingCart, Tag } from "lucide-react";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 
 interface RelatedProduct {
   id: number;
@@ -64,11 +65,11 @@ export function RelatedProductsWithDiscount({
               <div className="mb-3">
                 <div className="text-sm text-gray-400 line-through">
                   {product.originalPrice.toLocaleString("en-US")}{" "}
-                  {language === "ar" ? "ل.س" : "SYP"}
+                  {CURRENCY_LABEL}
                 </div>
                 <div className="text-lg font-bold text-purple-600">
                   {discounted.toLocaleString("en-US")}{" "}
-                  {language === "ar" ? "ل.س" : "SYP"}
+                  {CURRENCY_LABEL}
                 </div>
               </div>
 

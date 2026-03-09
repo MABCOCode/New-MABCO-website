@@ -43,7 +43,9 @@ const Navbar: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUserName, setCurrentUserName] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const isAdmin = true; // Treat all users as admins for now
+  const session = loadSession() as any;
+  const isAdmin = true;
+  const isSuperAdmin = true;
   const [activeSection, setActiveSection] = useState("");
 
   const readSession = () => {
@@ -58,7 +60,6 @@ const Navbar: React.FC = () => {
     }
   };
 
-  const session = loadSession() as any;
   const isAuthed = !!session?.user;
 
   useEffect(() => {
@@ -287,36 +288,44 @@ const Navbar: React.FC = () => {
                 <span className="hidden xl:inline">{t("login")}</span>
               </button>
             ) : (
-              <div className="relative user-menu-container">
-                <button
-                  onClick={() => setUserMenuOpen((s) => !s)}
-                  className="flex items-center gap-2 text-gray-700 hover:text-[#009FE3] transition-colors"
-                  aria-expanded={userMenuOpen}
-                >
-                  <User className="w-5 h-5" />
-                  <span className="hidden xl:inline">{t("myAccount")}</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {userMenuOpen && (
-                  <div
-                    className="absolute top-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden w-max min-w-[220px] z-50"
-                    style={{ [direction === "rtl" ? "right" : "left"]: 0 }}
+              <>
+                {!isAdmin ? (
+                  <button
+                    onClick={() => navigateTo("/account/dashboard")}
+                    className="flex items-center gap-2 text-gray-700 hover:text-[#009FE3] transition-colors"
                   >
-                    <div className="py-2">
-                      <button
-                        onClick={() => {
-                          navigateTo("/account/dashboard");
-                          setUserMenuOpen(false);
-                        }}
-                        className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 group"
-                      >
-                        <User className="w-5 h-5 text-gray-600 group-hover:text-[#009FE3]" />
-                        <span className="text-gray-700 group-hover:text-[#009FE3] font-medium whitespace-nowrap">{t("navbar_dashboard") || "Dashboard"}</span>
-                      </button>
+                    <User className="w-5 h-5" />
+                    <span className="hidden xl:inline">{t("myAccount")}</span>
+                  </button>
+                ) : (
+                  <div className="relative user-menu-container">
+                    <button
+                      onClick={() => setUserMenuOpen((s) => !s)}
+                      className="flex items-center gap-2 text-gray-700 hover:text-[#009FE3] transition-colors"
+                      aria-expanded={userMenuOpen}
+                    >
+                      <User className="w-5 h-5" />
+                      <span className="hidden xl:inline">{t("myAccount")}</span>
+                      <ChevronDown className={`w-4 h-4 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+                    </button>
 
-                      {isAdmin && (
-                        <>
+                    {userMenuOpen && (
+                      <div
+                        className="absolute top-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden w-max min-w-[220px] z-50"
+                        style={{ [direction === "rtl" ? "right" : "left"]: 0 }}
+                      >
+                        <div className="py-2">
+                          <button
+                            onClick={() => {
+                              navigateTo("/account/dashboard");
+                              setUserMenuOpen(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 group"
+                          >
+                            <User className="w-5 h-5 text-gray-600 group-hover:text-[#009FE3]" />
+                            <span className="text-gray-700 group-hover:text-[#009FE3] font-medium whitespace-nowrap">{t("navbar_dashboard") || "Dashboard"}</span>
+                          </button>
+
                           <button
                             onClick={() => {
                               navigateTo("/account/admin/content");
@@ -325,36 +334,27 @@ const Navbar: React.FC = () => {
                             className="w-full px-4 py-3 text-left hover:bg-orange-50 transition-colors flex items-center gap-3 group"
                           >
                             <Edit3 className="w-5 h-5 text-gray-600 group-hover:text-orange-600" />
-                            <span className="text-gray-700 group-hover:text-orange-600 font-medium whitespace-nowrap">{language === "ar" ? "إدارة المنتجات" : "Manage Products"}</span>
+                            <span className="text-gray-700 group-hover:text-orange-600 font-medium whitespace-nowrap">{language === "ar" ? "لوحة التحكم" : "Admin Dashboard"}</span>
                           </button>
 
-                          <button
-                            onClick={() => {
-                              navigateTo("/account/admin/orders");
-                              setUserMenuOpen(false);
-                            }}
-                            className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 group"
-                          >
-                            <Package2 className="w-5 h-5 text-gray-600 group-hover:text-purple-600" />
-                            <span className="text-gray-700 group-hover:text-purple-600 font-medium whitespace-nowrap">{language === "ar" ? "إدارة الطلبات" : "Order Management"}</span>
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              navigateTo("/account/superadmin");
-                              setUserMenuOpen(false);
-                            }}
-                            className="w-full px-4 py-3 text-left hover:bg-yellow-50 transition-colors flex items-center gap-3 group"
-                          >
-                            <Crown className="w-5 h-5 text-gray-600 group-hover:text-yellow-600" />
-                            <span className="text-gray-700 group-hover:text-yellow-600 font-medium whitespace-nowrap">Super Admin Dashboard</span>
-                          </button>
-                        </>
-                      )}
-                    </div>
+                          {isSuperAdmin && (
+                            <button
+                              onClick={() => {
+                                navigateTo("/account/superadmin");
+                                setUserMenuOpen(false);
+                              }}
+                              className="w-full px-4 py-3 text-left hover:bg-yellow-50 transition-colors flex items-center gap-3 group"
+                            >
+                              <Crown className="w-5 h-5 text-gray-600 group-hover:text-yellow-600" />
+                              <span className="text-gray-700 group-hover:text-yellow-600 font-medium whitespace-nowrap">{language === "ar" ? "لوحة تحكم السوبر أدمن" : "Super Admin Dashboard"}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
 
             {/* Shopping Cart Button */}

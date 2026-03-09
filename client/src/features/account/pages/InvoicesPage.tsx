@@ -9,6 +9,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import translations from "../../../i18n/translations";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 
 interface InvoicesPageProps {
   language: "ar" | "en";
@@ -169,7 +170,7 @@ export function InvoicesPage({ language, onBack }: InvoicesPageProps) {
                         className={`px-6 py-4 ${language === "ar" ? "text-right" : "text-left"}`}
                       >
                         <span className="font-semibold text-gray-900">
-                          {invoice.amount.toLocaleString()} {language === "ar" ? "ل.س" : "SYP"}
+                          {invoice.amount.toLocaleString()} {CURRENCY_LABEL}
                         </span>
                       </td>
                       <td
@@ -252,7 +253,7 @@ export function InvoicesPage({ language, onBack }: InvoicesPageProps) {
                     <div className="flex justify-between">
                       <span className="text-gray-600">{t.account_invoices_amount}:</span>
                       <span className="font-bold text-[#009FE3]">
-                        {invoice.amount.toLocaleString()} {language === "ar" ? "ل.س" : "SYP"}
+                        {invoice.amount.toLocaleString()} {CURRENCY_LABEL}
                       </span>
                     </div>
                   </div>

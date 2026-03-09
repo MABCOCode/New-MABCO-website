@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AccountNavBar } from "../components/AccountNavBar";
 import translations from "../../../i18n/translations";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 
 interface OrdersPageProps {
   language: "ar" | "en";
@@ -258,7 +259,7 @@ export function OrdersPage({ language, onBack, onViewOrderDetails }: OrdersPageP
                         {order.items} {language === "ar" ? "منتجات" : "items"}
                       </p>
                       <p className="text-xl font-bold text-gray-900">
-                        {order.total.toLocaleString()} {language === "ar" ? "ل.س" : "SYP"}
+                        {order.total.toLocaleString()} {CURRENCY_LABEL}
                       </p>
                     </div>
                   </div>

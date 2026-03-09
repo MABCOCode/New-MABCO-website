@@ -24,8 +24,18 @@ export function LoginPage({
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const t = translations[language];
+  const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+
+  const mapAuthError = (message?: string) => {
+    const normalized = (message || "").toLowerCase();
+    if (normalized.includes("invalid credentials")) return t.account_error_invalid_credentials;
+    if (normalized.includes("invalid login")) return t.account_error_invalid_login;
+    if (normalized.includes("user not found")) return t.account_error_user_not_found;
+    return t.account_error_generic;
+  };
 
   const validateForm = () => {
     const newErrors: any = {};
@@ -48,21 +58,24 @@ export function LoginPage({
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setApiError(null);
 
-    // Simulate API call
-    setTimeout(() => {
-      // Mock successful login
-      const mockUser = {
-        id: 1,
-        name: "أحمد محمد",
-        nameEn: "Ahmad Mohammed",
-        phone: "0944449999",
-        email: "ahmad@example.com",
-      };
-
-      onLoginSuccess(mockUser);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: username, password }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json?.message || "");
+      }
+      onLoginSuccess(json?.data);
+    } catch (err: any) {
+      setApiError(mapAuthError(err?.message));
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -102,6 +115,11 @@ export function LoginPage({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {apiError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
+              {apiError}
+            </div>
+          )}
           {/* Username/Phone Field */}
           <div>
             <label

@@ -152,6 +152,223 @@ router.get('/actions', asyncHandler(async (req, res) => {
   });
 }));
 
+const computeContentMissing = (product) => {
+  const name = typeof product?.name === 'object' ? product?.name?.en : product?.name;
+  const nameAr = product?.nameAr || (typeof product?.name === 'object' ? product?.name?.ar : '');
+  const description = product?.description || '';
+  const descriptionAr = product?.descriptionAr || '';
+  const image = product?.image || '';
+  const specs = Array.isArray(product?.specs) ? product.specs : [];
+  const inTheBox = Array.isArray(product?.inTheBox) ? product.inTheBox : [];
+  const galleryImages = Array.isArray(product?.images) ? product.images : [];
+  const colors = Array.isArray(product?.colorVariants) ? product.colorVariants : [];
+
+  const colorImagesMissing = colors.filter((color) => {
+    const nameVal = color?.name || color?.color_name || '';
+    const nameArVal = color?.nameAr || color?.color_name_ar || nameVal || '';
+    const images = Array.isArray(color?.images)
+      ? color.images.map((img) => (typeof img === 'string' ? img : img?.image_link || img?.url || '')).filter(Boolean)
+      : [];
+    const imageVal = color?.image || images[0] || '';
+    return !String(nameVal || nameArVal).trim() || !String(imageVal).trim();
+  }).length;
+
+  const hasSpecs = specs.length > 0;
+  const hasDescription = String(description).trim().length > 0 || String(descriptionAr).trim().length > 0;
+  const hasName = String(name).trim().length > 0 && String(nameAr).trim().length > 0;
+  const hasColorImages = colors.some((color) => {
+    const images = Array.isArray(color?.images)
+      ? color.images.map((img) => (typeof img === 'string' ? img : img?.image_link || img?.url || '')).filter(Boolean)
+      : [];
+    const imageVal = color?.image || images[0] || '';
+    return String(imageVal).trim().length > 0;
+  });
+  const hasImage = String(image).trim().length > 0 || hasColorImages;
+  const hasGallery = galleryImages.length > 0;
+  const hasBox = inTheBox.length > 0;
+  const hasCategory = String(product?.category || '').trim().length > 0;
+  const hasBrand = String(product?.brand || '').trim().length > 0;
+
+  const missing = {
+    name: !hasName,
+    description: !hasDescription,
+    specs: !hasSpecs,
+    image: !hasImage,
+    colorImages: colorImagesMissing,
+    galleryImages: !hasGallery,
+    inTheBox: !hasBox,
+    category: !hasCategory,
+    brand: !hasBrand,
+  };
+
+  const hasMissing =
+    missing.name ||
+    missing.description ||
+    missing.specs ||
+    missing.image ||
+    missing.colorImages > 0 ||
+    missing.galleryImages ||
+    missing.inTheBox ||
+    missing.category ||
+    missing.brand;
+
+  return { missing, hasMissing };
+};
+
+router.get('/products', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '50', 10), 1), 200);
+  const skip = (page - 1) * limit;
+  const onlyMissing = req.query.missing === '1' || req.query.missing === 'true';
+  const search = String(req.query.search || '').trim().toLowerCase();
+
+  const query = {};
+  if (search) {
+    query.$or = [
+      { stk_code: { $regex: search, $options: 'i' } },
+      { name: { $regex: search, $options: 'i' } },
+      { nameAr: { $regex: search, $options: 'i' } },
+      { brand: { $regex: search, $options: 'i' } },
+      { category: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  const items = await db
+    .collection('products')
+    .find(query)
+    .sort({ updatedAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .toArray();
+
+  const mapped = items.map((item) => {
+    const { missing, hasMissing } = computeContentMissing(item);
+    return {
+      ...hydrateDocument('products', item),
+      _missing: missing,
+      _hasMissing: hasMissing,
+    };
+  });
+
+  const filtered = onlyMissing ? mapped.filter((item) => item._hasMissing) : mapped;
+
+  res.json({
+    success: true,
+    data: filtered,
+    pagination: { page, limit, total: filtered.length },
+  });
+}));
+
+router.put('/products/:id', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const id = req.params.id;
+  const query = ObjectId.isValid(id)
+    ? { _id: new ObjectId(id) }
+    : {
+        $or: [
+          { stk_code: String(id) },
+          { id: String(id) },
+          { slug: String(id) },
+        ],
+      };
+
+  const existing = await db.collection('products').findOne(query);
+  if (!existing) {
+    return res.status(404).json({ success: false, message: 'Product not found' });
+  }
+
+  const payload = req.body || {};
+  const updates = {};
+
+  if (payload.name !== undefined) updates.name = payload.name;
+  if (payload.nameAr !== undefined) updates.nameAr = payload.nameAr;
+  if (payload.description !== undefined) updates.description = payload.description;
+  if (payload.descriptionEn !== undefined) updates.description = payload.descriptionEn;
+  if (payload.descriptionAr !== undefined) updates.descriptionAr = payload.descriptionAr;
+  if (payload.image !== undefined) updates.image = payload.image;
+  if (payload.images !== undefined) updates.images = payload.images;
+  if (payload.category !== undefined) updates.category = payload.category;
+  if (payload.brand !== undefined) updates.brand = payload.brand;
+  if (payload.inTheBox !== undefined) updates.inTheBox = payload.inTheBox;
+  if (payload.specs !== undefined) {
+    updates.specs = Array.isArray(payload.specs) ? payload.specs.map(spec => ({
+      icon: spec.iconImage ? { type: 'url', url: spec.iconImage } : { type: 'react_icon', key: spec.icon || 'Smartphone' },
+      title: spec.title || spec.nameEn || '',
+      titleAr: spec.titleAr || spec.nameAr || spec.title || '',
+      value: spec.value || spec.valueEn || '',
+      valueAr: spec.valueAr || spec.valueAr || spec.value || '',
+    })) : payload.specs;
+  }
+
+  if (Array.isArray(payload.colorVariants)) {
+    const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
+    const merged = existingVariants.map((variant) => {
+      const match = payload.colorVariants.find((c) => {
+        const name = c?.name || c?.color_name;
+        const nameAr = c?.nameAr || c?.color_name_ar;
+        return (
+          (name && String(variant?.color_name || variant?.name || '').toLowerCase() === String(name).toLowerCase()) ||
+          (nameAr && String(variant?.color_name_ar || variant?.nameAr || '').toLowerCase() === String(nameAr).toLowerCase())
+        );
+      });
+      if (!match) return variant;
+      const images = Array.isArray(match.images)
+        ? match.images
+        : match.image
+        ? [match.image]
+        : [];
+      return {
+        ...variant,
+        color_name: match.color_name || match.name || variant.color_name,
+        color_name_ar: match.color_name_ar || match.nameAr || variant.color_name_ar,
+        color_hex: match.color_hex || match.hexCode || variant.color_hex,
+        images: images.length > 0 ? images : variant.images,
+        image: images.length > 0 ? images[0] : variant.image,
+      };
+    });
+    updates.colorVariants = merged;
+  }
+
+  updates.updatedAt = new Date();
+  if (typeof updates.audit === 'undefined') {
+    updates['audit.updatedAt'] = updates.updatedAt;
+  }
+
+  try {
+    await db.collection('products').updateOne(query, { $set: updates });
+  } catch (err) {
+    const details = err?.errInfo?.details || null;
+    console.error('[admin.products.update] failed', err);
+    if (details) {
+      console.error('[admin.products.update] validation details', JSON.stringify(details, null, 2));
+    }
+    return res.status(400).json({
+      success: false,
+      message: err?.message || 'Failed to update product',
+      details,
+    });
+  }
+
+  const actorUserIdRaw = req.headers['x-admin-user-id'] || payload.actorUserId;
+  const actorRole = req.headers['x-admin-role'] || payload.actorRole || 'admin';
+  const actorUserId = ObjectId.isValid(String(actorUserIdRaw || ''))
+    ? new ObjectId(String(actorUserIdRaw))
+    : new ObjectId('000000000000000000000000');
+
+  await db.collection('admin_actions').insertOne({
+    actorUserId,
+    actorRole: String(actorRole),
+    actionType: 'product_content_update',
+    targetType: 'product',
+    targetId: existing._id,
+    createdAt: new Date(),
+  });
+
+  const updated = await db.collection('products').findOne(query);
+  res.json({ success: true, data: hydrateDocument('products', updated) });
+}));
+
 router.get('/analytics/visitor-sessions', asyncHandler(async (req, res) => {
   const db = getDb();
   const query = {};

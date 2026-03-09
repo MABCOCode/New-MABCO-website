@@ -187,7 +187,7 @@ const CategoryPage: React.FC = () => {
                       breadcrumbs: [
                         {
                           label: displayCategoryName,
-                          href: `/category/${encodeURIComponent(categoryRouteName)}`,
+                          href: `/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`,
                         },
                       ],
                     },
@@ -203,4 +203,3 @@ const CategoryPage: React.FC = () => {
 };
 
 export default CategoryPage;
-

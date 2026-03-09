@@ -47,6 +47,7 @@ import {
   getProductById,
   getOfferPricing,
   getProductOffers,
+  getOfferBadgeText,
   products,
 } from "../../../data/products";
 import { getProductRef } from "../../../utils/entityRefs";
@@ -54,6 +55,7 @@ import { EditableText } from "../../../components/ui/EditableText";
 import { EditableImage } from "../../../components/ui/EditableImage";
 import { KeyFeaturesEditor } from "../../../components/ui/KeyFeaturesEditor";
 import { InlineProductEditor } from "../../../components/ui/InlineProductEditor";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 
 interface ProductDetailPageProps {
   product?: any;
@@ -82,10 +84,57 @@ const iconMap: { [key: string]: any } = {
   Settings,
 };
 
+function SpecIcon({ spec, size }: { spec: any; size: "sm" | "lg" }) {
+  const dimension = size === "lg" ? "w-6 h-6" : "w-5 h-5";
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const iconUrl = (() => {
+    if (typeof spec?.icon === "object" && spec.icon) {
+      if (spec.icon.type === "url" && spec.icon.url) return spec.icon.url;
+    }
+    if (spec?.iconImage) return spec.iconImage;
+    return "";
+  })();
+
+  if (iconUrl && !failed) {
+    return (
+      <div className={`relative ${dimension}`}>
+        {!loaded && (
+          <div className="absolute inset-0 rounded-full shimmer-surface" />
+        )}
+        <img
+          src={iconUrl}
+          alt="spec icon"
+          className={`${dimension} object-contain ${loaded ? "" : "opacity-0"}`}
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            setFailed(true);
+            setLoaded(true);
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (typeof spec?.icon === "object" && spec.icon) {
+    if (spec.icon.type === "react_icon" && spec.icon.key) {
+      const IconComponent = iconMap[spec.icon.key] || Settings;
+      return <IconComponent className={`${dimension} text-white`} />;
+    }
+  } else if (typeof spec?.icon === "string") {
+    const IconComponent = iconMap[spec.icon] || Settings;
+    return <IconComponent className={`${dimension} text-white`} />;
+  }
+
+  return <Settings className={`${dimension} text-white`} />;
+}
+
 export function ProductDetailPage(props: ProductDetailPageProps) {
   const { product, categoryName, brandName, userPermissions = { canEditContent: true }, onSaveProductContent } = props;
   const navigate = useNavigate();
   const { language, t } = useLanguage();
+  const currencyLabel = (t as any)?.currency || CURRENCY_LABEL;
   const cart = useCart();
   const compareItems = useCompareStore((s) => s.items);
   const toggleCompare = useCompareStore((s) => s.toggleCompare);
@@ -93,6 +142,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const { id } = useParams<{ id?: string }>();
   const location = useLocation();
   const locationState = (location.state as any) || {};
+  const [isLoadingProduct, setIsLoadingProduct] = useState(false);
+  const [productError, setProductError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [localProduct, setLocalProduct] = useState<any | null>(
     product ?? (location.state && (location.state as any).product) ?? null,
@@ -101,15 +154,63 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   useEffect(() => {
     const stateProduct =
       (location.state && (location.state as any).product) ?? null;
-    if (!product && !stateProduct && id) {
-      const found = getProductById(id);
-      setLocalProduct(found ?? null);
-    } else if (stateProduct && !localProduct) {
+    if (product) {
+      setLocalProduct(product);
+    } else if (stateProduct) {
       setLocalProduct(stateProduct);
     }
-  }, [id, product, location, localProduct]);
+  }, [product, location.state]);
 
-  const prod = product ?? localProduct;
+  useEffect(() => {
+    if (!id) return;
+    let mounted = true;
+    const apiBase =
+      (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+    setIsLoadingProduct(true);
+    setProductError(null);
+
+    (async () => {
+      try {
+        console.log("ProductDetailPage: Fetching product from API", `${apiBase}/products/${encodeURIComponent(id)}`);
+        const res = await fetch(`${apiBase}/products/${encodeURIComponent(id)}`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            console.log("ProductDetailPage: Product not found in API, checking local data");
+            const found = getProductById(id);
+            if (found && mounted) {
+              setLocalProduct(found);
+              setIsLoadingProduct(false);
+              return;
+            }
+          }
+          throw new Error(`Failed to load product: ${res.status}`);
+        }
+        const json = await res.json();
+        console.log("ProductDetailPage: Product loaded from API", json?.data);
+        if (mounted) {
+          setLocalProduct(json?.data ?? null);
+          setIsLoadingProduct(false);
+        }
+      } catch (err: any) {
+        console.error("ProductDetailPage: Error loading product", err);
+        if (mounted) {
+          const found = getProductById(id);
+          if (found) {
+            console.log("ProductDetailPage: Using local data as fallback");
+            setLocalProduct(found);
+          }
+          setProductError(err?.message || "Failed to load product");
+          setIsLoadingProduct(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  const prod = localProduct ?? product;
   const breadcrumbs = useMemo(() => {
     if (Array.isArray(locationState?.breadcrumbs) && locationState.breadcrumbs.length) {
       return locationState.breadcrumbs.filter((item: any) => item && item.label);
@@ -121,6 +222,21 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     return fallback;
   }, [locationState, categoryName, brandName]);
 
+  const resolveBrandHref = (crumbIndex: number): string | null => {
+    if (crumbIndex !== breadcrumbs.length - 1) return null;
+    const brandRef =
+      prod?.brand_code ||
+      prod?.brandCode ||
+      prod?.brand ||
+      prod?.brandAr;
+    const categoryRef = prod?.cat_code || prod?.categoryCode;
+    if (!brandRef) return null;
+    if (categoryRef) {
+      return `/brand/${encodeURIComponent(String(categoryRef))}/${encodeURIComponent(String(brandRef))}`;
+    }
+    return `/brand/${encodeURIComponent(String(brandRef))}`;
+  };
+
   const handleNavigateBack = () => {
     const lastCrumb = breadcrumbs[breadcrumbs.length - 1];
     if (lastCrumb?.href) {
@@ -128,6 +244,82 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       return;
     }
     navigate(-1);
+  };
+
+  const saveProductToDb = async (productId: string | number, updated: any) => {
+    console.log("[ProductDetailPage] saveProductToDb called", { productId, updated });
+    const apiBase =
+      (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+    const adminKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (adminKey) headers["x-admin-key"] = adminKey;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const payload = {
+        name: updated?.name,
+        nameAr: updated?.nameAr,
+        description: updated?.description,
+        descriptionAr: updated?.descriptionAr,
+        image: updated?.image,
+        images: updated?.images,
+        specs: updated?.specs ? updated.specs.map((spec: any) => {
+          let icon = "Smartphone";
+          let iconImage = spec.iconImage || "";
+          if (typeof spec.icon === 'object' && spec.icon) {
+            if (spec.icon.type === 'url' && spec.icon.url) {
+              iconImage = spec.icon.url;
+            } else if (spec.icon.type === 'react_icon' && spec.icon.key) {
+              icon = spec.icon.key;
+            }
+          } else if (typeof spec.icon === 'string') {
+            icon = spec.icon;
+          }
+          return {
+            icon: iconImage ? { type: "url", url: iconImage } : icon,
+            iconImage,
+            title: spec.title || "",
+            titleAr: spec.titleAr || "",
+            value: spec.value || "",
+            valueAr: spec.valueAr || "",
+            isKeyFeature: spec.isKeyFeature || false,
+          };
+        }) : updated?.specs,
+        inTheBox: updated?.inTheBox,
+        category: updated?.category,
+        brand: updated?.brand,
+        colorVariants: updated?.colorVariants,
+      };
+      const res = await fetch(`${apiBase}/admin/products/${encodeURIComponent(String(productId))}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = json?.message || "Failed to save product";
+        const hasDetails = !!json?.details;
+        const detailHint = hasDetails
+          ? "Validation failed. Please check required fields and formats."
+          : "";
+        throw new Error(detailHint ? `${message} - ${detailHint}` : message);
+      }
+      setLocalProduct(json?.data ?? updated);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const persistProductContent = (productId: any, updated: any) => {
+    console.log("[ProductDetailPage] persistProductContent called", { productId, updated });
+    if (onSaveProductContent) {
+      onSaveProductContent(productId, updated);
+      return;
+    }
+    saveProductToDb(productId, updated).catch((err) => {
+      console.error("[ProductDetailPage] save failed", err);
+      setSaveError(err?.message || "Failed to save product");
+    });
   };
 
   const specsList = Array.isArray(prod?.specs) ? prod.specs : [];
@@ -140,25 +332,110 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const displayKeyFeatures = selectedKeyFeatures.length > 0 ? selectedKeyFeatures : populatedSpecs.slice(0, 4);
   const shouldShowKeyFeatures = userPermissions.canEditContent || displayKeyFeatures.length > 0;
 
-  const productOffers = prod ? getProductOffers(prod as any) : [];
-  const hasOffers = productOffers.length > 0;
+  const baseProductOffers = prod ? getProductOffers(prod as any) : [];
+  const productOffers = baseProductOffers;
 
-  const availableColorVariants = (prod?.colorVariants || []).filter(
-    (variant: any) =>
-      variant?.isAvailable !== false &&
-      variant?.inStock !== false &&
-      (typeof variant?.stock !== "number" || variant.stock > 0),
-  );
+  const normalizedColorVariants = useMemo(() => {
+    const variants = Array.isArray(prod?.colorVariants) ? prod.colorVariants : [];
+    return variants.map((variant: any) => {
+      const images = Array.isArray(variant.images)
+        ? variant.images
+            .map((img: any) =>
+              typeof img === "string" ? img : img?.image_link || img?.url || "",
+            )
+            .filter(Boolean)
+        : [];
+      const image = variant.image || images[0] || "";
+      const name = variant.name || variant.color_name || "";
+      const nameAr = variant.nameAr || variant.color_name_ar || name;
+      const hexCode = variant.hexCode || variant.color_hex || variant.hex || "";
+      const inStock =
+        typeof variant.inStock === "boolean"
+          ? variant.inStock
+          : typeof variant.in_stock === "boolean"
+          ? variant.in_stock
+          : typeof variant.isAvailable === "boolean"
+          ? variant.isAvailable
+          : typeof variant.is_available === "boolean"
+          ? variant.is_available
+          : undefined;
+      const isAvailable =
+        typeof variant.isAvailable === "boolean"
+          ? variant.isAvailable
+          : typeof variant.is_available === "boolean"
+          ? variant.is_available
+          : typeof variant.active === "boolean"
+          ? variant.active
+          : undefined;
+      return {
+        ...variant,
+        name,
+        nameAr,
+        hexCode,
+        image,
+        images,
+        price: typeof variant.price === "number" ? variant.price : Number(variant.price),
+        inStock,
+        isAvailable,
+      };
+    });
+  }, [prod]);
+
+  const availableColorVariants = normalizedColorVariants
+    .filter(
+      (variant: any) =>
+        variant?.isAvailable !== false &&
+        variant?.inStock !== false &&
+        (typeof variant?.active !== "boolean" || variant.active) &&
+        Boolean(String(variant?.name || variant?.nameAr || "").trim()) &&
+        Boolean(String(variant?.image || (variant?.images && variant.images[0]) || "").trim()) &&
+        (typeof variant?.stock !== "number" || variant.stock > 0),
+    )
+    .sort((a: any, b: any) => {
+      const aHasOffers = Array.isArray(a?.offers) && a.offers.length > 0 ? 1 : 0;
+      const bHasOffers = Array.isArray(b?.offers) && b.offers.length > 0 ? 1 : 0;
+      return bHasOffers - aHasOffers;
+    });
 
   const hasColors = availableColorVariants.length > 0;
-  const hasChargeOptions = !!prod?.chargeOptions?.length;
+  const normalizedChargeOptions = useMemo(() => {
+    const options = Array.isArray(prod?.chargeOptions) ? prod.chargeOptions : [];
+    return options
+      .map((opt: any, index: number) => ({
+        ...opt,
+        id: String(opt.id ?? opt.stk_code ?? opt.code ?? index),
+        value: opt.value ?? opt.name ?? "",
+        valueAr: opt.valueAr ?? opt.name_ar ?? opt.nameAr ?? opt.value ?? opt.name ?? "",
+        price: typeof opt.price === "number" ? opt.price : Number(opt.price),
+      }))
+      .filter((opt: any) =>
+        (typeof opt.active !== "boolean" || opt.active) &&
+        (typeof opt.in_stock !== "boolean" || opt.in_stock),
+      )
+      .sort((a: any, b: any) => {
+        const aPrice = Number.isFinite(a.price) ? a.price : Number.MAX_SAFE_INTEGER;
+        const bPrice = Number.isFinite(b.price) ? b.price : Number.MAX_SAFE_INTEGER;
+        return aPrice - bPrice;
+      });
+  }, [prod]);
+
+  const hasChargeOptions = normalizedChargeOptions.length > 0;
+  const hasAnyVariants = (prod?.colorVariants?.length || 0) > 0 || (prod?.chargeOptions?.length || 0) > 0;
+  const hasValidVariants = hasColors || hasChargeOptions;
+  const hasValidImage =
+    Boolean(String(prod?.image || "").trim()) ||
+    availableColorVariants.length > 0;
+  const hasValidName = Boolean(String(prod?.name || "").trim());
+  const hasSpecs = Array.isArray(prod?.specs) && prod.specs.length > 0;
+  const hasDescription = Boolean(String(prod?.description || prod?.descriptionAr || "").trim());
+  const hasDetails = hasSpecs || hasDescription;
 
   const [selectedColor, setSelectedColor] = useState(
     availableColorVariants?.[0]?.name || "",
   );
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [selectedChargeOption, setSelectedChargeOption] = useState(
-    prod?.chargeOptions?.[0]?.id || null,
+    normalizedChargeOptions[0]?.id || null,
   );
   const [quantity, setQuantity] = useState(1);
   const [tabState, setTabState] = useState<"description" | "specs" | "offers">(
@@ -185,7 +462,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   const showImagePagination = !hasColors && currentImages.length > 1;
 
-  const currentChargeOption = prod?.chargeOptions?.find(
+  const currentChargeOption = normalizedChargeOptions.find(
     (opt: any) => opt.id === selectedChargeOption,
   );
 
@@ -195,14 +472,31 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     return parseFloat(String(value).replace(/,/g, "")) || 0;
   };
 
+  const colorPriceValue =
+    currentColorVariant && typeof currentColorVariant.price !== "undefined"
+      ? numericPrice(currentColorVariant.price)
+      : 0;
+  const baseProductPrice = numericPrice(prod?.price);
   const sourcePriceForSelection = currentChargeOption
     ? numericPrice(currentChargeOption.price)
+    : colorPriceValue > 0
+    ? colorPriceValue
     : typeof prod?.basePrice === "number"
     ? prod.basePrice
-    : numericPrice(prod?.price);
+    : baseProductPrice;
+  const hasColorPriceDiff =
+    colorPriceValue > 0 && Math.abs(colorPriceValue - baseProductPrice) > 0.0001;
+
+  const selectedVariantOffers = currentChargeOption?.offers
+    ? getProductOffers({ offers: currentChargeOption.offers } as any)
+    : currentColorVariant?.offers
+    ? getProductOffers({ offers: currentColorVariant.offers } as any)
+    : [];
+  const displayOffers = selectedVariantOffers;
+  const hasOffers = displayOffers.length > 0;
 
   const offerPricing = prod
-    ? getOfferPricing(prod as any, { sourcePrice: sourcePriceForSelection })
+    ? getOfferPricing({ ...(prod as any), offers: displayOffers } as any, { sourcePrice: sourcePriceForSelection })
     : {
         offers: [],
         originalPrice: 0,
@@ -217,6 +511,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const savingsAmount = offerPricing.savings;
   const discountPercentage = offerPricing.discountPercentage;
   const displayPrice = currentPrice.toLocaleString("en-US");
+  const offerBadgeText = getOfferBadgeText(displayOffers, language);
 
   const inStock = currentColorVariant
     ? currentColorVariant.isAvailable !== false && currentColorVariant.inStock !== false
@@ -241,22 +536,48 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     const chosenVariantImage = currentImage ?? prod?.image ?? null;
 
     const selectedCharge = selectedChargeOption
-      ? prod?.chargeOptions?.find(
+      ? normalizedChargeOptions.find(
           (o: any) => String(o.id) === String(selectedChargeOption),
         )
       : null;
     const chargeLabel = selectedCharge
       ? language === "ar"
-        ? selectedCharge.valueAr || selectedCharge.value
-        : selectedCharge.value
+        ? selectedCharge.valueAr || selectedCharge.value || selectedCharge.name_ar || selectedCharge.name
+        : selectedCharge.value || selectedCharge.name
       : null;
+
+    const appliedOffers =
+      (selectedCharge && Array.isArray((selectedCharge as any).offers) ? (selectedCharge as any).offers : null) ||
+      (currentColorVar && Array.isArray((currentColorVar as any).offers) ? (currentColorVar as any).offers : null) ||
+      (Array.isArray((prod as any).offers) ? (prod as any).offers : null);
+
+    const variantPriceValue =
+      currentColorVar && typeof currentColorVar.price !== "undefined"
+        ? numericPrice(currentColorVar.price)
+        : null;
+    const chargePriceValue =
+      selectedCharge && typeof selectedCharge.price !== "undefined"
+        ? numericPrice(selectedCharge.price)
+        : null;
+    const basePriceValue =
+      typeof chargePriceValue === "number"
+        ? chargePriceValue
+        : typeof variantPriceValue === "number"
+        ? variantPriceValue
+        : numericPrice(prod?.price);
 
     cart.addToCart(prod, {
       color: chosenColor,
       variantColorHex: chosenColorHex,
       variantImage: chosenVariantImage,
+      variantSku: currentColorVar?.stk_code ?? null,
+      variantPrice: typeof variantPriceValue === "number" ? variantPriceValue : null,
       chargeOptionId: selectedChargeOption ?? null,
       chargeOptionLabel: chargeLabel ?? null,
+      chargeOptionSku: (selectedCharge as any)?.stk_code ?? null,
+      chargeOptionPrice: typeof chargePriceValue === "number" ? chargePriceValue : null,
+      basePrice: basePriceValue,
+      appliedOffers,
       quantity,
     });
     setHeroProductInCart(true);
@@ -322,6 +643,64 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     }
   }, [hasColors, availableColorVariants, selectedColor]);
 
+  if (!prod && isLoadingProduct) {
+    return (
+      <section className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+            <div className="lg:col-span-5">
+              <div className="aspect-square rounded-2xl border border-gray-200 shimmer-surface" />
+              <div className="mt-6 bg-white rounded-2xl p-6 border border-gray-200">
+                <div className="h-6 w-40 skeleton-line shimmer-surface mb-4" />
+                <div className="grid grid-cols-5 gap-3">
+                  {Array.from({ length: 5 }).map((_, idx) => (
+                    <div key={`prod-thumb-skeleton-${idx}`} className="aspect-square rounded-lg shimmer-surface" />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="lg:col-span-7">
+              <div className="h-10 w-3/4 skeleton-line shimmer-surface mb-4" />
+              <div className="h-6 w-1/3 skeleton-line shimmer-surface mb-6" />
+              <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                <div className="h-8 w-32 skeleton-line shimmer-surface mb-4" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <div key={`prod-icon-skeleton-${idx}`} className="rounded-xl border border-gray-200 p-4 flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-lg shimmer-surface" />
+                      <div className="flex-1">
+                        <div className="h-3 w-2/3 skeleton-line shimmer-surface mb-2" />
+                        <div className="h-4 w-1/2 skeleton-line shimmer-surface" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!prod && !isLoadingProduct) {
+    return (
+      <section className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <div className="text-gray-600 text-lg">
+            {productError || (language === "ar" ? "تعذر تحميل المنتج" : "Unable to load product")}
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+          >
+            {language === "ar" ? "العودة" : "Go back"}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   if (!prod) {
     return (
       <section className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
@@ -362,13 +741,60 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     );
   }
 
+  if (!userPermissions.canEditContent && hasAnyVariants && !hasValidVariants) {
+    return (
+      <section className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <div className="text-gray-600 text-lg">
+            {language === "ar"
+              ? "هذا المنتج غير متوفر حالياً"
+              : "This product is currently unavailable."}
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+          >
+            {language === "ar" ? "العودة" : "Go back"}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (!userPermissions.canEditContent && (!hasValidImage || !hasValidName || !hasDetails)) {
+    return (
+      <section className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <div className="text-gray-600 text-lg">
+            {language === "ar"
+              ? "هذا المنتج غير مكتمل البيانات"
+              : "This product is missing required details."}
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+          >
+            {language === "ar" ? "العودة" : "Go back"}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section
       dir={language === "ar" ? "rtl" : "ltr"}
       className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50"
     >
-      {/* Editable Badge removed from fixed position; rendered below breadcrumb */}
-      {/* Improved Breadcrumb */}
+        {/* Editable Badge removed from fixed position; rendered below breadcrumb */}
+        {/* Improved Breadcrumb */}
+        {saveError && (
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+            <div className="rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+              {saveError}
+            </div>
+          </div>
+        )}
       <div className="sticky top-[72px] z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between gap-4 ">
@@ -387,18 +813,25 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
               {breadcrumbs.map((crumb: any, index: number) => (
                 <div key={`crumb-${index}-${crumb.label}`} className="contents">
-                  {crumb?.href ? (
-                    <button
-                      onClick={() => navigate(crumb.href)}
-                      className="text-gray-500 hover:text-[#009FE3] font-medium whitespace-nowrap transition-colors duration-200"
-                    >
-                      {crumb.label}
-                    </button>
-                  ) : (
-                    <span className="text-gray-500 font-medium whitespace-nowrap">
-                      {crumb.label}
-                    </span>
-                  )}
+                  {(() => {
+                    const brandHref = resolveBrandHref(index);
+                    const href = brandHref || crumb?.href;
+                    if (!href) {
+                      return (
+                        <span className="text-gray-500 font-medium whitespace-nowrap">
+                          {crumb.label}
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        onClick={() => navigate(href)}
+                        className="text-gray-500 hover:text-[#009FE3] font-medium whitespace-nowrap transition-colors duration-200"
+                      >
+                        {crumb.label}
+                      </button>
+                    );
+                  })()}
                   <span className="text-gray-300 flex-shrink-0">/</span>
                 </div>
               ))}
@@ -460,48 +893,46 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                   src={image}
                                   alt={`${prod?.name} - ${index + 1}`}
                                   onSave={(newImageUrl) => {
-                                    if (onSaveProductContent) {
-                                      if (
-                                        hasColors &&
-                                        selectedColor &&
-                                        prod?.colorVariants
-                                      ) {
-                                        const updatedColorVariants =
-                                          prod.colorVariants.map(
-                                            (variant: any) => {
-                                              if (
-                                                variant.name === selectedColor
-                                              ) {
-                                                const updatedImages =
-                                                  variant.images
-                                                    ? [...variant.images]
-                                                    : [variant.image];
-                                                updatedImages[index] =
-                                                  newImageUrl;
+                                    if (
+                                      hasColors &&
+                                      selectedColor &&
+                                      prod?.colorVariants
+                                    ) {
+                                      const updatedColorVariants =
+                                        prod.colorVariants.map(
+                                          (variant: any) => {
+                                            if (
+                                              variant.name === selectedColor
+                                            ) {
+                                              const updatedImages =
+                                                variant.images
+                                                  ? [...variant.images]
+                                                  : [variant.image];
+                                              updatedImages[index] =
+                                                newImageUrl;
 
-                                                return {
-                                                  ...variant,
-                                                  image:
-                                                    index === 0
-                                                      ? newImageUrl
-                                                      : variant.image,
-                                                  images: updatedImages,
-                                                };
-                                              }
-                                              return variant;
-                                            },
-                                          );
+                                              return {
+                                                ...variant,
+                                                image:
+                                                  index === 0
+                                                    ? newImageUrl
+                                                    : variant.image,
+                                                images: updatedImages,
+                                              };
+                                            }
+                                            return variant;
+                                          },
+                                        );
 
-                                        onSaveProductContent(prod.id, {
-                                          ...prod,
-                                          colorVariants: updatedColorVariants,
-                                        });
-                                      } else {
-                                        onSaveProductContent(prod.id, {
-                                          ...prod,
-                                          image: newImageUrl,
-                                        });
-                                      }
+                                      persistProductContent(prod.id, {
+                                        ...prod,
+                                        colorVariants: updatedColorVariants,
+                                      });
+                                    } else {
+                                      persistProductContent(prod.id, {
+                                        ...prod,
+                                        image: newImageUrl,
+                                      });
                                     }
                                   }}
                                   className="w-full h-full object-cover rounded-2xl"
@@ -545,12 +976,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                 src={prod?.image}
                                 alt={prod?.name}
                                 onSave={(newImageUrl) => {
-                                  if (onSaveProductContent) {
-                                    onSaveProductContent(prod.id, {
-                                      ...prod,
-                                      image: newImageUrl,
-                                    });
-                                  }
+                                  persistProductContent(prod.id, {
+                                    ...prod,
+                                    image: newImageUrl,
+                                  });
                                 }}
                                 className="w-full h-full object-cover rounded-2xl"
                                 language={language}
@@ -612,12 +1041,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   )}
                 </Carousel>
 
-                {discountPercentage > 0 && (
-                  <div
-                    className={`absolute top-4 ${language === "ar" ? "left-6" : "right-6"} flex items-start justify-end`}
-                  >
-                    <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-2 rounded-xl font-bold shadow-lg">
-                      {language === "ar" ? "خصم" : "SAVE"} {discountPercentage}%
+                  {offerBadgeText && (
+                    <div
+                      className={`absolute top-4 ${language === "ar" ? "left-6" : "right-6"} flex items-start justify-end`}
+                    >
+                      <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-2 rounded-xl font-bold shadow-lg">
+                        {offerBadgeText}
                     </div>
                   </div>
                 )}
@@ -634,18 +1063,32 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             ? "الألوان المتاحة"
                             : "Available Colors"}
                         </h3>
-                        <ColorSwatch
-                          variants={availableColorVariants}
-                          selectedColor={selectedColor}
-                          onColorChange={handleColorChange}
-                          onColorHover={handleColorHover}
-                          language={language}
-                          size="lg"
-                          showLabel={true}
-                        />
+                          <ColorSwatch
+                            variants={availableColorVariants}
+                            selectedColor={selectedColor}
+                            onColorChange={handleColorChange}
+                            onColorHover={handleColorHover}
+                            language={language}
+                            size="lg"
+                            showLabel={true}
+                            showPrice={true}
+                          />
+                          {colorPriceValue > 0 && (
+                            <div className="mt-3 text-sm text-gray-600">
+                              {language === "ar" ? "سعر اللون" : "Color price"}:{" "}
+                              <span className="font-semibold text-gray-900">
+                                {Number(colorPriceValue).toLocaleString("en-US")}
+                              </span>
+                              {hasColorPriceDiff && (
+                                <span className="text-xs text-amber-600 ml-2">
+                                  {language === "ar" ? "مختلف" : "Changed"}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                 {/* Image Thumbnails Pagination - When no colors but multiple images */}
                 {showImagePagination && (
@@ -706,12 +1149,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               <EditableText
                 value={prod?.name}
                 onSave={(newName) => {
-                  if (onSaveProductContent) {
-                    onSaveProductContent(prod.id, {
-                      ...prod,
-                      name: newName,
-                    });
-                  }
+                  persistProductContent(prod.id, {
+                    ...prod,
+                    name: newName,
+                  });
                 }}
                 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight"
                 editClassName="text-2xl sm:text-3xl font-bold"
@@ -732,18 +1173,18 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                       {displayPrice}
                     </span>
                     <span className="text-xl text-gray-600 font-semibold">
-                      $
+                      {currencyLabel}
                     </span>
                   </div>
 
                   {offerPricing.hasDiscount && (
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="text-lg text-gray-400 line-through">
-                        {offerPricing.originalPrice.toLocaleString("en-US")} $
+                        {offerPricing.originalPrice.toLocaleString("en-US")} {currencyLabel}
                       </span>
                       <span className="bg-green-100 text-green-700 border border-green-200 px-2 py-1 rounded-lg text-sm font-semibold">
                         {language === "ar" ? "توفير" : "Save"}{" "}
-                        {savingsAmount.toLocaleString("en-US")} $
+                        {savingsAmount.toLocaleString("en-US")} {currencyLabel}
                       </span>
                     </div>
                   )}
@@ -843,12 +1284,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 <EditableText
                   value={prod?.description}
                   onSave={(newDescription) => {
-                    if (onSaveProductContent) {
-                      onSaveProductContent(prod.id, {
-                        ...prod,
-                        description: newDescription,
-                      });
-                    }
+                    persistProductContent(prod.id, {
+                      ...prod,
+                      description: newDescription,
+                    });
                   }}
                   className="text-gray-600 leading-relaxed text-sm sm:text-base"
                   editClassName="text-sm sm:text-base"
@@ -890,7 +1329,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   {language === "ar" ? "خيارات الشحن" : "Charge Options"}
                 </h3>
                 <ChargeOptionSlider
-                  options={prod.chargeOptions}
+                  options={normalizedChargeOptions}
                   selectedId={selectedChargeOption || ""}
                   onSelect={setSelectedChargeOption}
                   language={language}
@@ -909,14 +1348,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 {displayKeyFeatures.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {displayKeyFeatures.map((spec: any, index: number) => {
-                      const IconComponent = iconMap[spec.icon] || Settings;
                       return (
                         <div
                           key={index}
                           className="bg-white rounded-xl p-4 border border-gray-200 hover:border-[#009FE3] transition-colors flex items-center gap-3"
                         >
                           <div className="bg-gradient-to-br from-[#009FE3] to-[#007BC7] p-2.5 rounded-lg flex-shrink-0">
-                            <IconComponent className="w-5 h-5 text-white" />
+                            <SpecIcon spec={spec} size="sm" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-gray-500 mb-0.5">{spec.title}</p>
@@ -937,7 +1375,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     specs={populatedSpecs}
                     selectedSpecs={selectedKeyFeatures}
                     onSave={(newSelectedSpecs) => {
-                      if (!onSaveProductContent) return;
+                      if (!prod?.id) return;
                       const selectedKeys = new Set(
                         newSelectedSpecs.map(
                           (spec: any) =>
@@ -951,7 +1389,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                           isKeyFeature: selectedKeys.has(key),
                         };
                       });
-                      onSaveProductContent(prod.id, {
+                      persistProductContent(prod.id, {
                         ...prod,
                         specs: updatedSpecs,
                       });
@@ -1026,26 +1464,27 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   <>
                     <div className="mb-6">
                       <OfferDetailsCard
-                        offers={productOffers}
+                        offers={displayOffers}
                         language={language}
                         basePrice={basePrice}
                         currentPrice={calculateDiscountedPrice(
                           basePrice,
-                          productOffers,
+                          displayOffers,
                         )}
+                        currencyLabel={currencyLabel}
                       />
                     </div>
 
-                    {productOffers.some(
+                    {displayOffers.some(
                       (o) => o.type === "bundle_discount",
                     ) && (
                       <div className="mb-6">
-                        <RelatedProductsWithDiscount
-                          products={(() => {
-                            const bundleOffer = productOffers.find(
-                              (o) => o.type === "bundle_discount",
-                            ) as any;
-                            if (!bundleOffer) return [];
+                          <RelatedProductsWithDiscount
+                            products={(() => {
+                              const bundleOffer = displayOffers.find(
+                                (o) => o.type === "bundle_discount",
+                              ) as any;
+                              if (!bundleOffer) return [];
                             return bundleOffer.relatedProductIds
                               .map((relatedId: number) => {
                                 const rel = products.find(
@@ -1087,10 +1526,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             );
                             if (alreadyAdded) return;
 
-                            const bundleOffer = productOffers.find(
-                              (o) => o.type === "bundle_discount",
-                            ) as any;
-                            if (!bundleOffer) return;
+                              const bundleOffer = displayOffers.find(
+                                (o) => o.type === "bundle_discount",
+                              ) as any;
+                              if (!bundleOffer) return;
 
                             const base = numericPrice(rel.price);
                             const discounted = Math.max(
@@ -1138,7 +1577,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     product={prod}
                     userPermissions={userPermissions}
                     onSave={(updatedContent) =>
-                      onSaveProductContent(prod.id, updatedContent)
+                      persistProductContent(prod.id, updatedContent)
                     }
                     mode="description"
                   />
@@ -1169,7 +1608,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             product={prod}
                             userPermissions={userPermissions}
                             onSave={(updatedContent) =>
-                              onSaveProductContent(prod.id, updatedContent)
+                              persistProductContent(prod.id, updatedContent)
                             }
                             mode="box"
                           />
@@ -1253,7 +1692,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             product={prod}
                             userPermissions={userPermissions}
                             onSave={(updatedContent) =>
-                              onSaveProductContent(prod.id, updatedContent)
+                              persistProductContent(prod.id, updatedContent)
                             }
                             mode="box"
                           />
@@ -1278,7 +1717,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     product={prod}
                     userPermissions={userPermissions}
                     onSave={(updatedContent) =>
-                      onSaveProductContent(prod.id, updatedContent)
+                      persistProductContent(prod.id, updatedContent)
                     }
                     mode="specifications"
                   />
@@ -1287,7 +1726,6 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 {populatedSpecs.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {populatedSpecs.map((spec: any, index: number) => {
-                      const IconComponent = iconMap[spec.icon] || Settings;
                       return (
                         <div
                           key={index}
@@ -1295,7 +1733,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                         >
                           <div className="flex items-start gap-4">
                             <div className="bg-gradient-to-br from-[#009FE3] to-[#007BC7] p-3 rounded-xl shadow-md flex-shrink-0">
-                              <IconComponent className="w-6 h-6 text-white" />
+                              <SpecIcon spec={spec} size="lg" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="font-bold text-gray-700 mb-1">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { ShoppingCart, DollarSign, Package, TrendingUp } from "lucide-react";
+import { CURRENCY_LABEL } from "../../../../utils/currency";
 import { fetchAdminActions, fetchAdminOrders } from "../../api/adminDataApi";
 import { superAdminTranslations } from "./superAdminTranslations";
 
@@ -72,9 +73,9 @@ export function SalesOrdersReport({ language, dateRange }: SalesOrdersReportProp
 
   const stats = [
     { label: t.totalOrders, value: totalOrders, icon: ShoppingCart, color: "text-blue-600", bgColor: "bg-blue-100" },
-    { label: t.totalRevenue, value: `${totalRevenue.toLocaleString()} SYP`, icon: DollarSign, color: "text-green-600", bgColor: "bg-green-100" },
-    { label: t.avgOrderValue, value: `${Math.round(avgOrderValue).toLocaleString()} SYP`, icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
-    { label: t.totalDiscounts, value: `${totalDiscount.toLocaleString()} SYP`, icon: Package, color: "text-orange-600", bgColor: "bg-orange-100" },
+    { label: t.totalRevenue, value: `${totalRevenue.toLocaleString()} ${CURRENCY_LABEL}`, icon: DollarSign, color: "text-green-600", bgColor: "bg-green-100" },
+    { label: t.avgOrderValue, value: `${Math.round(avgOrderValue).toLocaleString()} ${CURRENCY_LABEL}`, icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
+    { label: t.totalDiscounts, value: `${totalDiscount.toLocaleString()} ${CURRENCY_LABEL}`, icon: Package, color: "text-orange-600", bgColor: "bg-orange-100" },
   ];
 
   return (

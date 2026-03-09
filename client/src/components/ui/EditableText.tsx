@@ -34,6 +34,7 @@ export function EditableText({
   }
 
   const handleSave = () => {
+    console.log("[EditableText] handleSave called", { tempValue });
     if (tempValue.trim()) {
       onSave(tempValue);
       setIsEditing(false);

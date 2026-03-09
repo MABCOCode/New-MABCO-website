@@ -6,6 +6,7 @@ export interface SavedSpecTitle {
   nameEn: string;
   nameAr: string;
   icon: string;
+  iconImage?: string; // New field for uploaded icon images
   usageCount: number;
   category?: string;
 }
@@ -51,15 +52,18 @@ export const savedSpecTitlesManager = {
   },
 
   // Add or update a spec title
-  addOrUpdateTitle: (nameEn: string, nameAr: string, icon: string, category?: string): SavedSpecTitle => {
+  addOrUpdateTitle: (nameEn: string, nameAr: string, icon: string, iconImage?: string, category?: string): SavedSpecTitle => {
     // Check if exists
     const existing = savedSpecTitles.find(
       spec => spec.nameEn.toLowerCase() === nameEn.toLowerCase()
     );
 
     if (existing) {
-      // Increment usage count
+      // Update existing: increment usage and update icon/iconImage if provided
       existing.usageCount++;
+      if (icon) existing.icon = icon;
+      if (iconImage !== undefined) existing.iconImage = iconImage;
+      if (category) existing.category = category;
       savedSpecTitlesManager.saveToStorage();
       return existing;
     }
@@ -70,6 +74,7 @@ export const savedSpecTitlesManager = {
       nameEn,
       nameAr,
       icon,
+      iconImage,
       usageCount: 1,
       category,
     };

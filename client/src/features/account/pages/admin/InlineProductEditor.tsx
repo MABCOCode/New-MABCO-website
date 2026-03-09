@@ -81,17 +81,33 @@ export function InlineProductEditor({
     const rawSpecs = product.specifications || product.specs || [];
     // Convert from {title, value, icon} to {nameEn, nameAr, valueEn, valueAr, icon}
     return rawSpecs.map((spec: any) => {
+      let icon = "Smartphone";
+      let iconImage = "";
+      if (typeof spec.icon === 'object' && spec.icon) {
+        if (spec.icon.type === 'url' && spec.icon.url) {
+          iconImage = spec.icon.url;
+        } else if (spec.icon.type === 'react_icon' && spec.icon.key) {
+          icon = spec.icon.key;
+        }
+      } else if (typeof spec.icon === 'string') {
+        icon = spec.icon;
+      }
       if (spec.nameEn || spec.nameAr) {
-        // Already in the correct format
-        return spec;
+        // Already in the correct format, but normalize icon
+        return {
+          ...spec,
+          icon,
+          iconImage,
+        };
       } else {
         // Convert from old format {title, value, icon}
         return {
-          icon: spec.icon || "Smartphone",
+          icon,
+          iconImage,
           nameEn: spec.title || "",
-          nameAr: spec.title || "",
+          nameAr: spec.titleAr || spec.title || "",
           valueEn: spec.value || "",
-          valueAr: spec.value || "",
+          valueAr: spec.valueAr || spec.value || "",
         };
       }
     });
@@ -194,6 +210,7 @@ export function InlineProductEditor({
     // Convert to both formats for compatibility
     const formattedSpecs = specs.map((spec: any) => ({
       icon: spec.icon,
+      iconImage: spec.iconImage || "",
       title: spec.nameEn, // For display in specs list
       value: spec.valueEn, // For display in specs list
       nameEn: spec.nameEn,
@@ -216,7 +233,7 @@ export function InlineProductEditor({
       alert(`${t[language].maxSpecs}: ${CONTENT_LIMITS.maxSpecs}`);
       return;
     }
-    setSpecs([...specs, { icon: "Smartphone", nameEn: "", nameAr: "", valueEn: "", valueAr: "" }]);
+    setSpecs([...specs, { icon: "Smartphone", iconImage: "", nameEn: "", nameAr: "", valueEn: "", valueAr: "" }]);
   };
 
   const removeSpec = (index: number) => {

@@ -10,6 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 import translations from "../../../i18n/translations";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 import {
   getProductOffers,
   products,
@@ -27,6 +28,8 @@ interface CartOfferDisplayProps {
   quantity: number;
   language: "ar" | "en";
   currencyLabel?: string;
+  offers?: ProductOffer[];
+  basePrice?: number;
   appliedCoupons?: Map<number, any>;
   bundleItems?: Map<number, number[]>;
   onAddBundleItem?: (productId: number, bundleItemId: number) => void;
@@ -38,16 +41,20 @@ export function CartOfferDisplay({
   quantity,
   language,
   currencyLabel,
+  offers: offersOverride,
+  basePrice,
   appliedCoupons = new Map(),
   bundleItems = new Map(),
   onAddBundleItem,
   onApplyCoupon,
 }: CartOfferDisplayProps) {
-  const offers = getProductOffers(productId);
+  const offers = offersOverride?.length
+    ? getProductOffers({ offers: offersOverride } as any)
+    : getProductOffers(productId);
   if (offers.length === 0) return null;
 
   const product = products.find((p) => p.id === productId);
-  const displayCurrency = currencyLabel || (language === "ar" ? "د.ع" : "IQD");
+  const displayCurrency = currencyLabel || CURRENCY_LABEL;
 
   const formatPrice = (price: number) => price.toLocaleString("en-US");
   const numericPrice = (value: unknown) => {
@@ -96,9 +103,10 @@ export function CartOfferDisplay({
     const gradient = getOfferGradient("direct_discount");
 
     let savingsAmount = 0;
-    const basePrice = numericPrice(product?.price);
+    const basePriceValue =
+      typeof basePrice === "number" ? basePrice : numericPrice(product?.price);
     if (offer.discountType === "percentage") {
-      savingsAmount = (basePrice * offer.discountValue) / 100 * quantity;
+      savingsAmount = (basePriceValue * offer.discountValue) / 100 * quantity;
     } else {
       savingsAmount = offer.discountValue * quantity;
     }

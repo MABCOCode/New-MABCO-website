@@ -36,8 +36,24 @@ export function SignupFlow({
 
   const [errors, setErrors] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const t = translations[language];
+  const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+
+  const mapAuthError = (message?: string) => {
+    const normalized = (message || "").toLowerCase();
+    if (normalized.includes("invalid phone")) return t.account_error_invalid_phone;
+    if (normalized.includes("otp limit")) return t.account_error_otp_limit;
+    if (normalized.includes("failed to send otp")) return t.account_error_otp_send_failed;
+    if (normalized.includes("invalid signup")) return t.account_error_invalid_signup;
+    if (normalized.includes("otp not found")) return t.account_error_otp_not_found;
+    if (normalized.includes("otp expired")) return t.account_error_otp_expired;
+    if (normalized.includes("invalid otp")) return t.account_error_otp_invalid;
+    if (normalized.includes("phone already registered")) return t.account_error_phone_registered;
+    if (normalized.includes("invalid payload")) return t.account_error_invalid_payload;
+    return t.account_error_generic;
+  };
 
   // Resend timer
   useEffect(() => {
@@ -92,40 +108,64 @@ export function SignupFlow({
     if (!validateStep1()) return;
 
     setIsLoading(true);
-    // Simulate sending verification code
-    setTimeout(() => {
-      setIsLoading(false);
-      setDirection(1);
-      setCurrentStep(2);
-      setResendTimer(60);
-      setCanResend(false);
-      // Auto-focus first input
-      setTimeout(() => inputRefs.current[0]?.focus(), 100);
-    }, 1000);
+    setApiError(null);
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/signup/request-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phoneNumber }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json?.message || "");
+        }
+        setDirection(1);
+        setCurrentStep(2);
+        setResendTimer(60);
+        setCanResend(false);
+        setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      } catch (err: any) {
+        setApiError(mapAuthError(err?.message));
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   };
 
   const handleStep2Verify = () => {
     if (!validateStep2()) return;
 
     setIsLoading(true);
-    // Simulate verification
-    setTimeout(() => {
-      setIsLoading(false);
-      setDirection(1);
-      setCurrentStep(3);
-
-      // Auto-redirect after 2 seconds
-      setTimeout(() => {
-        const newUser = {
-          id: Date.now(),
-          name: fullName,
-          nameEn: fullName,
-          phone: phoneNumber,
-          email: email || null,
-        };
-        onSignupSuccess(newUser);
-      }, 2000);
-    }, 1500);
+    setApiError(null);
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/signup/verify-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: phoneNumber,
+            code: verificationCode.join(""),
+            name: fullName,
+            email: email || null,
+            password,
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json?.message || "");
+        }
+        setDirection(1);
+        setCurrentStep(3);
+        setTimeout(() => {
+          onSignupSuccess(json?.data);
+        }, 800);
+      } catch (err: any) {
+        setApiError(mapAuthError(err?.message));
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   };
 
   const handleCodeChange = (index: number, value: string) => {
@@ -151,7 +191,23 @@ export function SignupFlow({
     setResendTimer(60);
     setCanResend(false);
     setVerificationCode(["", "", "", "", "", ""]);
-    inputRefs.current[0]?.focus();
+    setApiError(null);
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/signup/request-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phoneNumber }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json?.message || "");
+        }
+        inputRefs.current[0]?.focus();
+      } catch (err: any) {
+        setApiError(mapAuthError(err?.message));
+      }
+    })();
   };
 
   const handleBack = () => {
@@ -242,6 +298,11 @@ export function SignupFlow({
                 >
                   {t.account_signup_account_info}
                 </h3>
+                {apiError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
+                    {apiError}
+                  </div>
+                )}
 
                 {/* Full Name */}
                 <div>
@@ -480,6 +541,11 @@ export function SignupFlow({
                   <br />
                   <span className="font-semibold text-[#009FE3]">{phoneNumber}</span>
                 </p>
+                {apiError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
+                    {apiError}
+                  </div>
+                )}
 
                 <p
                   className={`text-sm text-gray-700 mb-4 ${

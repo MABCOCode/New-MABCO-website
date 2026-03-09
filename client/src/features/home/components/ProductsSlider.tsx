@@ -9,7 +9,7 @@ import {
 } from "../../../components/ui/carousel";
 import ProductCard from "../../products/components/ProductCard";
 import { Product } from "../../../types/product";
-import { getProductOffers } from "../../../data/products";
+import { getOfferBadgeText, getProductOffers } from "../../../data/products";
 import { Tag, Ticket, Gift, Package } from "lucide-react";
 
 interface ProductsSliderProps {
@@ -77,29 +77,7 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
 
     if (!offerInfo) return null;
 
-    const badgeText = (() => {
-      if (offerType === "direct_discount" && "discountType" in currentOffer) {
-        return currentOffer.discountType === "percentage"
-          ? `${currentOffer.discountValue}% ${language === "ar" ? "خصم" : "OFF"}`
-          : language === "ar"
-          ? "خصم خاص"
-          : "Special Deal";
-      }
-      if (offerType === "coupon" && "couponValue" in currentOffer) {
-        return `${(currentOffer.couponValue / 1000).toFixed(0)}K ${
-          language === "ar" ? "كوبون" : "Coupon"
-        }`;
-      }
-      if (offerType === "free_product") {
-        return language === "ar" ? "هدية مجانية" : "Free Gift";
-      }
-      if (offerType === "bundle_discount" && "discountPercentage" in currentOffer) {
-        return `${currentOffer.discountPercentage}% ${
-          language === "ar" ? "على الحزمة" : "Bundle"
-        }`;
-      }
-      return "";
-    })();
+    const badgeText = getOfferBadgeText(offers, language);
 
     if (!badgeText) return null;
 

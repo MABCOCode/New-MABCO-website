@@ -35,7 +35,7 @@ import {
   Package,
   Palette,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../context/LanguageContext";
 import hiddenProductsManager from "../../../../data/hiddenProductsData";
 import savedSpecTitlesManager from "../../../../data/savedSpecTitlesData";
@@ -84,165 +84,162 @@ const CATEGORIES = [
   { id: "accessories", nameAr: "إكسسوارات", nameEn: "Accessories" },
 ];
 
-// Mock synced products (missing data ready to be completed)
-const syncedIncompleteProducts = [
-  {
-    id: 101,
-    sku: "SYNC-IPH15PRO-BLK",
-    nameEn: "", // Missing - needs to be filled
-    nameAr: "", // Missing - needs to be filled
-    brand: "", // Missing - not mobile/power station
-    category: "", // Missing
-    price: "45,000",
-    syncedAt: "2024-02-10",
-    syncSource: "External Database",
-    hasMultipleColors: true, // Synced info shows it has colors
-    colors: [
-      { name: "Black", nameAr: "أسود", code: "#000000", image: "" }, // Missing image
-      { name: "Blue", nameAr: "أزرق", code: "#0000FF", image: "" }, // Missing image
-      { name: "White", nameAr: "أبيض", code: "#FFFFFF", image: "" }, // Missing image
-    ],
-    existingContent: {
-      thumbnail: "https://images.unsplash.com/photo-1758186355698-bd0183fc75ed?w=200", // Basic sync image
-      descriptionEn: "",
-      descriptionAr: "",
-      images: [], // Gallery images missing
-      specs: [],
-      whatsInBox: [],
-    },
-    missingFields: {
-      productName: true,
-      productDetails: true,
-      colorImages: 3, // 3 colors need images
-      galleryImages: true,
-      specs: true,
-      category: true,
-      brand: true,
-    },
-    readyToPublish: false,
-  },
-  {
-    id: 102,
-    sku: "SYNC-GAL-S24-SLV",
-    nameEn: "Galaxy S24",
-    nameAr: "جالاكسي S24",
-    brand: "Samsung",
-    category: "mobile", // Mobile - no need for category/brand
-    price: "38,000",
-    syncedAt: "2024-02-11",
-    syncSource: "External Database",
-    hasMultipleColors: false,
-    colors: [],
-    existingContent: {
-      thumbnail: "https://images.unsplash.com/photo-1758186355698-bd0183fc75ed?w=200",
-      descriptionEn: "",
-      descriptionAr: "",
-      images: ["https://images.unsplash.com/photo-1758186355698-bd0183fc75ed?w=400"], // Only 1 image
-      specs: [],
-      whatsInBox: [],
-    },
-    missingFields: {
-      productName: false,
-      productDetails: true,
-      colorImages: 0,
-      galleryImages: 2, // Needs 2 more images for gallery
-      specs: true,
-      category: false,
-      brand: false,
-    },
-    readyToPublish: false,
-  },
-  {
-    id: 103,
-    sku: "SYNC-MACPRO-M3",
-    nameEn: "MacBook Pro M3",
-    nameAr: "ماك بوك برو M3",
-    brand: "", // Missing - not mobile/power station
-    category: "", // Missing
-    price: "95,000",
-    syncedAt: "2024-02-12",
-    syncSource: "External Database",
-    hasMultipleColors: true,
-    colors: [
-      { name: "Space Gray", nameAr: "رمادي فلكي", code: "#5E5E5E", image: "" },
-      { name: "Silver", nameAr: "فضي", code: "#C0C0C0", image: "" },
-    ],
-    existingContent: {
-      thumbnail: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=200",
-      descriptionEn: "High-performance laptop with M3 chip", // Too short
-      descriptionAr: "حاسوب محمول عالي الأداء", // Too short
-      images: [
-        "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400",
-        "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400",
-      ],
-      specs: [
-        { icon: "Cpu", nameEn: "Processor", nameAr: "المعالج", valueEn: "Apple M3", valueAr: "آبل M3" },
-      ], // Only 1 spec - needs more
-      whatsInBox: [],
-    },
-    missingFields: {
-      productName: false,
-      productDetails: true, // Description too short
-      colorImages: 2, // 2 colors need images
-      galleryImages: 1, // Needs 1 more image
-      specs: 3, // Needs 3 more specs
-      category: true,
-      brand: true,
-    },
-    readyToPublish: false,
-  },
-];
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
 
 export function ProductContentDashboard({ onClose }: ProductContentDashboardProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "incomplete" | "ready">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [hiddenProducts, setHiddenProducts] = useState<Set<number>>(new Set());
+  const [hiddenProducts, setHiddenProducts] = useState<Set<string>>(new Set());
+  const [contentProducts, setContentProducts] = useState<any[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { t, language } = useLanguage();
 
   useEffect(() => {
     setHiddenProducts(new Set(hiddenProductsManager.getHiddenProducts()));
   }, []);
 
+  const mapProduct = (product: any) => {
+    const nameEn =
+      typeof product?.name === "object" ? product?.name?.en || "" : product?.name || "";
+    const nameAr = product?.nameAr || (typeof product?.name === "object" ? product?.name?.ar || "" : "");
+    const specs = Array.isArray(product?.specs) ? product.specs : [];
+    const specsNormalized = specs.map((spec: any) => {
+      let icon = "Smartphone";
+      let iconImage = "";
+      if (typeof spec.icon === "object" && spec.icon) {
+        if (spec.icon.type === "url" && spec.icon.url) {
+          iconImage = spec.icon.url;
+        } else if (spec.icon.type === "react_icon" && spec.icon.key) {
+          icon = spec.icon.key;
+        }
+      } else if (typeof spec.icon === "string") {
+        icon = spec.icon;
+      }
+      return {
+        icon,
+        iconImage,
+        nameEn: spec.nameEn || spec.title || "",
+        nameAr: spec.nameAr || spec.titleAr || spec.title || "",
+        valueEn: spec.valueEn || spec.value || "",
+        valueAr: spec.valueAr || spec.value || "",
+      };
+    });
+
+    const colors = Array.isArray(product?.colorVariants)
+      ? product.colorVariants.map((color: any) => ({
+          name: color?.name || color?.color_name || "",
+          nameAr: color?.nameAr || color?.color_name_ar || color?.name || color?.color_name || "",
+          code: color?.color_hex || color?.hexCode || color?.hex || "",
+          image: color?.image || (Array.isArray(color?.images) ? color.images[0] : "") || "",
+        }))
+      : [];
+
+    const whatsInBox = Array.isArray(product?.inTheBox)
+      ? product.inTheBox.map((item: any, index: number) => ({
+          id: item?.id || `box-${index}`,
+          itemEn: item?.en || item?.nameEn || item?.valueEn || "",
+          itemAr: item?.ar || item?.nameAr || item?.valueAr || "",
+          quantity: Number(item?.quantity || item?.qty || 1),
+        }))
+      : [];
+
+    const missing = product._missing || {};
+    const readyToPublish = !product._hasMissing;
+
+    return {
+      id: String(product?._id || product?.id || product?.stk_code || ""),
+      sku: String(product?.stk_code || product?.id || ""),
+      nameEn,
+      nameAr,
+      brand: product?.brand || "",
+      category: product?.category || "",
+      price: product?.price || "",
+      syncedAt: product?.audit?.updatedAt || product?.updatedAt || "",
+      syncSource: "MongoDB",
+      hasMultipleColors: colors.length > 0,
+      colors,
+      existingContent: {
+        thumbnail: product?.image || colors[0]?.image || "",
+        descriptionEn: product?.description || "",
+        descriptionAr: product?.descriptionAr || "",
+        images: Array.isArray(product?.images) ? product.images : [],
+        specs: specsNormalized,
+        whatsInBox,
+      },
+      missingFields: {
+        productName: Boolean(missing.name),
+        productDetails: Boolean(missing.description),
+        colorImages: Number(missing.colorImages || 0),
+        galleryImages: Boolean(missing.galleryImages),
+        specs: Boolean(missing.specs),
+        category: Boolean(missing.category),
+        brand: Boolean(missing.brand),
+      },
+      readyToPublish,
+      _raw: product,
+    };
+  };
+
+  const fetchProducts = async () => {
+    setIsLoadingProducts(true);
+    setLoadError(null);
+    try {
+      const headers: Record<string, string> = {};
+      if (ADMIN_API_KEY) headers["x-admin-key"] = ADMIN_API_KEY;
+      const params = new URLSearchParams();
+      params.set("missing", "1");
+      params.set("limit", "200");
+      if (searchQuery.trim()) params.set("search", searchQuery.trim());
+      const res = await fetch(`${API_BASE}/admin/products?${params.toString()}`, { headers });
+      if (!res.ok) throw new Error("Failed to load products");
+      const json = await res.json();
+      const items = Array.isArray(json?.data) ? json.data : [];
+      setContentProducts(items.map(mapProduct));
+    } catch (err: any) {
+      setLoadError(err?.message || "Failed to load products");
+      setContentProducts([]);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const saveProductUpdate = async (productId: string, update: any) => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (ADMIN_API_KEY) headers["x-admin-key"] = ADMIN_API_KEY;
+    const res = await fetch(`${API_BASE}/admin/products/${encodeURIComponent(productId)}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(update),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      const message = json?.message || "Failed to save product";
+      const details = json?.details ? "Validation failed. Check required fields." : "";
+      throw new Error(details ? `${message} - ${details}` : message);
+    }
+    const json = await res.json();
+    return json?.data;
+  };
+
   // Calculate completion percentage
   const calculateCompletion = (product: any) => {
-    let total = 0;
-    let completed = 0;
-
-    // Name
-    total += 1;
-    if (product.nameEn && product.nameAr) completed += 1;
-
-    // Details
-    total += 1;
-    if (
-      product.existingContent.descriptionEn.length >= CONTENT_REQUIREMENTS.description.min &&
-      product.existingContent.descriptionAr.length >= CONTENT_REQUIREMENTS.description.min
-    ) {
-      completed += 1;
-    }
-
-    // Color Images (if has colors)
-    if (product.hasMultipleColors) {
-      total += 1;
-      const colorsWithImages = product.colors.filter((c: any) => c.image).length;
-      if (colorsWithImages === product.colors.length) completed += 1;
-    }
-
-    // Gallery Images
-    total += 1;
-    if (product.existingContent.images.length >= CONTENT_REQUIREMENTS.minImages) completed += 1;
-
-    // Specs
-    total += 1;
-    if (product.existingContent.specs.length >= CONTENT_REQUIREMENTS.minSpecs) completed += 1;
-
-    // Category & Brand (only if not mobile/power station)
-    if (product.category !== "mobile" && product.category !== "power-station") {
-      total += 2;
-      if (product.category) completed += 1;
-      if (product.brand) completed += 1;
-    }
+    const missing = product?.missingFields || {};
+    const total = 7;
+    const completed =
+      (missing.productName ? 0 : 1) +
+      (missing.productDetails ? 0 : 1) +
+      (missing.colorImages ? 0 : 1) +
+      (missing.galleryImages ? 0 : 1) +
+      (missing.specs ? 0 : 1) +
+      (missing.category ? 0 : 1) +
+      (missing.brand ? 0 : 1);
 
     return Math.round((completed / total) * 100);
   };
@@ -259,19 +256,19 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
     return "bg-red-500";
   };
 
-  const toggleProductVisibility = (productId: number) => {
+  const toggleProductVisibility = (productId: string) => {
     const isNowHidden = hiddenProductsManager.toggleProductVisibility(productId);
     hiddenProductsManager.saveToStorage();
     setHiddenProducts((prev) => {
       const next = new Set(prev);
-      if (isNowHidden) next.add(productId);
-      else next.delete(productId);
+      if (isNowHidden) next.add(String(productId));
+      else next.delete(String(productId));
       return next;
     });
     alert(isNowHidden ? t("admin.content.productHidden") : t("admin.content.productVisible"));
   };
 
-  const filteredProducts = syncedIncompleteProducts.filter((product) => {
+  const filteredProducts = contentProducts.filter((product) => {
     const completion = calculateCompletion(product);
     const matchesStatus =
       filterStatus === "all" ||
@@ -346,8 +343,24 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProducts.map((product) => {
+        {isLoadingProducts ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div key={`content-skeleton-${idx}`} className="bg-white rounded-2xl border border-gray-200 p-6 animate-pulse">
+                <div className="h-40 bg-gray-100 rounded-xl mb-4" />
+                <div className="h-4 bg-gray-100 rounded mb-2 w-3/4" />
+                <div className="h-4 bg-gray-100 rounded mb-4 w-1/2" />
+                <div className="h-9 bg-gray-100 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : loadError ? (
+          <div className="text-center py-10 text-gray-500">
+            {loadError}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProducts.map((product) => {
             const completionPercentage = calculateCompletion(product);
 
             return (
@@ -512,9 +525,10 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
                 </div>
               </div>
             );
-          })}
-        </div>
-        {filteredProducts.length === 0 && (
+            })}
+          </div>
+        )}
+        {!isLoadingProducts && !loadError && filteredProducts.length === 0 && (
           <div className="text-center py-10 text-gray-500">
             {t("admin.content.noMatchingResults")}
           </div>
@@ -526,9 +540,16 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
         <ProductContentEditor
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          onSave={(updatedProduct) => {
-            console.log("Saving updated product:", updatedProduct);
-            setSelectedProduct(null);
+          onSave={async (updatedProduct) => {
+            try {
+              const saved = await saveProductUpdate(updatedProduct.id, updatedProduct.updatePayload);
+              setSelectedProduct(null);
+              setContentProducts((prev) =>
+                prev.map((item) => (item.id === updatedProduct.id ? mapProduct(saved) : item)),
+              );
+            } catch (err: any) {
+              alert(err?.message || "Failed to save product");
+            }
           }}
         />
       )}
@@ -540,7 +561,7 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
 interface ProductContentEditorProps {
   product: any;
   onClose: () => void;
-  onSave: (updatedProduct: any) => void;
+  onSave: (updatedProduct: { id: string; updatePayload: any }) => void;
 }
 
 function ProductContentEditor({ product, onClose, onSave }: ProductContentEditorProps) {
@@ -596,7 +617,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     }
     setSpecs([...specs, { 
       icon: savedSpec.icon, 
-      iconImage: "",
+      iconImage: savedSpec.iconImage || "",
       nameEn: savedSpec.nameEn, 
       nameAr: savedSpec.nameAr, 
       valueEn: "", 
@@ -639,7 +660,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     newSpecs[index].nameEn = savedSpec.nameEn;
     newSpecs[index].nameAr = savedSpec.nameAr;
     newSpecs[index].icon = savedSpec.icon;
-    newSpecs[index].iconImage = "";
+    newSpecs[index].iconImage = savedSpec.iconImage || "";
     setSpecs(newSpecs);
     setShowSpecNameSuggestions(null);
     setSpecNameSearch({ ...specNameSearch, [index]: "" });
@@ -669,165 +690,187 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   const handleSave = () => {
     // Save new spec titles to the manager
     specs.forEach((spec: any) => {
-      if (spec.nameEn && spec.nameAr && !spec.iconImage) {
-        savedSpecTitlesManager.addOrUpdateTitle(spec.nameEn, spec.nameAr, spec.icon);
+      if (spec.nameEn && spec.nameAr) {
+        savedSpecTitlesManager.addOrUpdateTitle(spec.nameEn, spec.nameAr, spec.icon, spec.iconImage);
       }
     });
 
-    const updatedProduct = {
-      ...product,
-      nameEn,
+    const formattedSpecs = specs.map((spec: any) => ({
+      icon: spec.icon || "Smartphone",
+      iconImage: spec.iconImage || "",
+      title: spec.nameEn || "",
+      titleAr: spec.nameAr || "",
+      value: spec.valueEn || "",
+      valueAr: spec.valueAr || "",
+    }));
+
+    const formattedColors = colors.map((color: any) => ({
+      name: color?.name || "",
+      nameAr: color?.nameAr || "",
+      color_hex: color?.code || "",
+      images: color?.image ? [color.image] : [],
+    }));
+
+    const formattedBox = whatsInBox.map((item: any) => ({
+      nameEn: item.itemEn || "",
+      nameAr: item.itemAr || "",
+      valueEn: String(item.quantity ?? 1),
+      valueAr: String(item.quantity ?? 1),
+    }));
+
+    const updatePayload = {
+      name: nameEn,
       nameAr,
+      description: descriptionEn,
+      descriptionAr,
+      images: galleryImages,
+      specs: formattedSpecs,
+      inTheBox: formattedBox,
       category: selectedCategory,
       brand: brandName,
-      colors,
-      existingContent: {
-        ...product.existingContent,
-        descriptionEn,
-        descriptionAr,
-        images: galleryImages,
-        specs,
-        whatsInBox,
-      },
+      colorVariants: formattedColors,
     };
-    onSave(updatedProduct);
+
+    onSave({ id: product.id, updatePayload });
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full my-8 flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white p-6 rounded-t-3xl">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-2xl font-bold mb-1">{t('admin.content.editProduct')}</h2>
-              <p className="text-blue-100">{product.sku}</p>
+      <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full my-8 flex flex-col max-h-[90vh] overflow-y-auto isolate">
+        <div className="sticky top-0 z-[100] bg-white">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white p-6 rounded-t-3xl">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">{t('admin.content.editProduct')}</h2>
+                <p className="text-blue-100">{product.sku}</p>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all"
-            >
-              <X className="w-6 h-6" />
-            </button>
+
+            {/* Synced Data Info */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-sm">
+              <div className="font-bold mb-2">{t('admin.content.syncInfo')}</div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <span className="text-blue-200">{t('admin.content.sku')}:</span>
+                  <span className="font-mono ml-2">{product.sku}</span>
+                </div>
+                <div>
+                  <span className="text-blue-200">{t('admin.content.price')}:</span>
+                  <span className="ml-2">{product.price} SYP</span>
+                </div>
+                <div>
+                  <span className="text-blue-200">{t('admin.content.syncSource')}:</span>
+                  <span className="ml-2">{product.syncSource}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Synced Data Info */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-sm">
-            <div className="font-bold mb-2">{t('admin.content.syncInfo')}</div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <span className="text-blue-200">{t('admin.content.sku')}:</span>
-                <span className="font-mono ml-2">{product.sku}</span>
-              </div>
-              <div>
-                <span className="text-blue-200">{t('admin.content.price')}:</span>
-                <span className="ml-2">{product.price} SYP</span>
-              </div>
-              <div>
-                <span className="text-blue-200">{t('admin.content.syncSource')}:</span>
-                <span className="ml-2">{product.syncSource}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("basic")}
-            className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
-              activeTab === "basic"
-                ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            {t('admin.content.tabBasic')}
-            {(!nameEn || !nameAr || descriptionEn.length < CONTENT_REQUIREMENTS.description.min) && (
-              <AlertCircle className="w-4 h-4 text-red-500" />
-            )}
-          </button>
-
-          {product.hasMultipleColors && (
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200 overflow-x-auto shadow-sm relative z-[100]">
             <button
-              onClick={() => setActiveTab("colors")}
+              onClick={() => setActiveTab("basic")}
               className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
-                activeTab === "colors"
+                activeTab === "basic"
                   ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
               }`}
             >
-              <Palette className="w-4 h-4" />
-              {t('admin.content.tabColors')}
+              <FileText className="w-4 h-4" />
+              {t('admin.content.tabBasic')}
+              {(!nameEn || !nameAr || descriptionEn.length < CONTENT_REQUIREMENTS.description.min) && (
+                <AlertCircle className="w-4 h-4 text-red-500" />
+              )}
+            </button>
+
+            {product.hasMultipleColors && (
+              <button
+                onClick={() => setActiveTab("colors")}
+                className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
+                  activeTab === "colors"
+                    ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <Palette className="w-4 h-4" />
+                {t('admin.content.tabColors')}
+                <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
+                  {colors.filter((c: any) => c.image).length}/{colors.length}
+                </span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setActiveTab("gallery")}
+              className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
+                activeTab === "gallery"
+                  ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <ImageIcon className="w-4 h-4" />
+              {t('admin.content.tabGallery')}
               <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
-                {colors.filter((c: any) => c.image).length}/{colors.length}
+                {galleryImages.length}/{CONTENT_REQUIREMENTS.maxImages}
               </span>
             </button>
-          )}
 
-          <button
-            onClick={() => setActiveTab("gallery")}
-            className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
-              activeTab === "gallery"
-                ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <ImageIcon className="w-4 h-4" />
-            {t('admin.content.tabGallery')}
-            <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
-              {galleryImages.length}/{CONTENT_REQUIREMENTS.maxImages}
-            </span>
-          </button>
+            <button
+              onClick={() => setActiveTab("specs")}
+              className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
+                activeTab === "specs"
+                  ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <SettingsIcon className="w-4 h-4" />
+              {t('admin.content.tabSpecs')}
+              <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
+                {specs.length}/{CONTENT_REQUIREMENTS.maxSpecs}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab("specs")}
-            className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
-              activeTab === "specs"
-                ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <SettingsIcon className="w-4 h-4" />
-            {t('admin.content.tabSpecs')}
-            <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
-              {specs.length}/{CONTENT_REQUIREMENTS.maxSpecs}
-            </span>
-          </button>
+            <button
+              onClick={() => setActiveTab("whatsInBox")}
+              className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
+                activeTab === "whatsInBox"
+                  ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Package className="w-4 h-4" />
+              {t('admin.content.tabWhatsInBox')}
+              <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
+                {whatsInBox.length}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab("whatsInBox")}
-            className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
-              activeTab === "whatsInBox"
-                ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            {t('admin.content.tabWhatsInBox')}
-            <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
-              {whatsInBox.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("category")}
-            className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
-              activeTab === "category"
-                ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <Tag className="w-4 h-4" />
-            {t('admin.content.tabCategory')}
-            {needsCategoryBrand && (!selectedCategory || !brandName) && (
-              <AlertCircle className="w-4 h-4 text-red-500" />
-            )}
-          </button>
+            <button
+              onClick={() => setActiveTab("category")}
+              className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
+                activeTab === "category"
+                  ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Tag className="w-4 h-4" />
+              {t('admin.content.tabCategory')}
+              {needsCategoryBrand && (!selectedCategory || !brandName) && (
+                <AlertCircle className="w-4 h-4 text-red-500" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 p-6 relative z-0">
           {/* Basic Info Tab */}
           {activeTab === "basic" && (
             <div className="space-y-6 animate-fadeIn">
@@ -1105,12 +1148,20 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                               className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg transition-all text-left"
                             >
                               {(() => {
-                                const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
-                                return (
-                                  <div className="w-8 h-8 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <Icon className="w-5 h-5 text-white" />
-                                  </div>
-                                );
+                                if (savedSpec.iconImage) {
+                                  return (
+                                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center overflow-hidden border-2 border-gray-200 flex-shrink-0">
+                                      <img src={savedSpec.iconImage} alt="Icon" className="w-full h-full object-contain" />
+                                    </div>
+                                  );
+                                } else {
+                                  const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
+                                  return (
+                                    <div className="w-8 h-8 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center flex-shrink-0">
+                                      <Icon className="w-5 h-5 text-white" />
+                                    </div>
+                                  );
+                                }
                               })()}
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-sm text-gray-900 truncate">
@@ -1134,12 +1185,20 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                               className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg transition-all text-left"
                             >
                               {(() => {
-                                const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
-                                return (
-                                  <div className="w-8 h-8 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <Icon className="w-5 h-5 text-white" />
-                                  </div>
-                                );
+                                if (savedSpec.iconImage) {
+                                  return (
+                                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center overflow-hidden border-2 border-gray-200 flex-shrink-0">
+                                      <img src={savedSpec.iconImage} alt="Icon" className="w-full h-full object-contain" />
+                                    </div>
+                                  );
+                                } else {
+                                  const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
+                                  return (
+                                    <div className="w-8 h-8 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center flex-shrink-0">
+                                      <Icon className="w-5 h-5 text-white" />
+                                    </div>
+                                  );
+                                }
                               })()}
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-sm text-gray-900 truncate">
@@ -1371,12 +1430,20 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                           className="w-full flex items-center gap-2 px-2 py-2 hover:bg-blue-50 rounded-lg transition-all text-left"
                                         >
                                           {(() => {
-                                            const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
-                                            return (
-                                              <div className="w-6 h-6 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded flex items-center justify-center flex-shrink-0">
-                                                <Icon className="w-4 h-4 text-white" />
-                                              </div>
-                                            );
+                                            if (savedSpec.iconImage) {
+                                              return (
+                                                <div className="w-6 h-6 bg-white rounded flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
+                                                  <img src={savedSpec.iconImage} alt="Icon" className="w-full h-full object-contain" />
+                                                </div>
+                                              );
+                                            } else {
+                                              const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
+                                              return (
+                                                <div className="w-6 h-6 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded flex items-center justify-center flex-shrink-0">
+                                                  <Icon className="w-4 h-4 text-white" />
+                                                </div>
+                                              );
+                                            }
                                           })()}
                                           <div className="flex-1 min-w-0">
                                             <p className="font-bold text-xs text-gray-900 truncate">
