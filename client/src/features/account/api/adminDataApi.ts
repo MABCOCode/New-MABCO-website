@@ -61,6 +61,51 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export const fetchAdminUsers = () => getJson<any[]>("/admin/users");
+
+export async function putJson<T>(path: string, data: any): Promise<T> {
+  const headers: Record<string, string> = {"Content-Type": "application/json"};
+  if (ADMIN_API_KEY) headers["x-admin-key"] = ADMIN_API_KEY;
+
+  let timeoutId: number | undefined;
+  const controller = new AbortController();
+  try {
+    timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(data),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw new ApiError(getErrorMessage(path, res.status), path, res.status);
+    }
+    const json = await res.json();
+    return (json?.data ?? {}) as T;
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new ApiError(`Request timed out for ${path}.`, path);
+    }
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(getErrorMessage(path), path);
+  } finally {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
+
+export const fetchAdminUserPermissions = (id: string) =>
+  getJson<any>(`/admin/users/${encodeURIComponent(id)}/permissions`);
+export const updateAdminUserPermissions = (id: string, perms: any) =>
+  putJson<any>(`/admin/users/${encodeURIComponent(id)}/permissions`, perms);
+export const updateUserRole = (id: string, role: string) =>
+  putJson<any>(`/admin/users/${encodeURIComponent(id)}/role`, { role });
+
+export const fetchCategories = () => getJson<any[]>("/categories");
+export const fetchBrands = () => getJson<any[]>("/brands");
+
 export const fetchAdminOrders = () => getJson<any[]>("/admin/orders");
 export const fetchAdminActions = () => getJson<any[]>("/admin/actions");
 export const fetchAdminNotifications = () => getJson<any[]>("/admin/notifications");

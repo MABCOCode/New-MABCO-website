@@ -512,12 +512,17 @@ async function main() {
           isSuspended: user.status === 'suspended' || user.status === 'banned',
           allowAllCategories: categoriesAllowed.includes('all') || user.role === 'super_admin',
           allowAllBrands: brandsAllowed.includes('all') || user.role === 'super_admin',
+          // use codes instead of internal ObjectIds
           allowedCategoryIds: categoriesAllowed.includes('all')
-            ? allCategoryIds
-            : categoriesAllowed.map((slug) => categoryIdBySlug.get(toSlug(slug))).filter(Boolean),
+            ? insertedCategories.map((c) => String(c.cat_code))
+            : categoriesAllowed
+                .map((slug) => categoryCodeBySlug.get(toSlug(slug)))
+                .filter(Boolean),
           allowedBrandIds: brandsAllowed.includes('all')
-            ? allBrandIds
-            : brandsAllowed.map((slug) => brandIdBySlug.get(toSlug(slug))).filter(Boolean),
+            ? insertedBrands.map((b) => String(b.brand_code))
+            : brandsAllowed
+                .map((slug) => brandCodeByName.get(toSlug(slug)))
+                .filter(Boolean),
         },
       };
     });
@@ -539,8 +544,8 @@ async function main() {
         isSuspended: false,
         allowAllCategories: true,
         allowAllBrands: true,
-        allowedCategoryIds: allCategoryIds,
-        allowedBrandIds: allBrandIds,
+        allowedCategoryIds: insertedCategories.map((c) => String(c.cat_code)),
+        allowedBrandIds: insertedBrands.map((b) => String(b.brand_code)),
       },
     });
 
@@ -561,8 +566,8 @@ async function main() {
         isSuspended: false,
         allowAllCategories: true,
         allowAllBrands: true,
-        allowedCategoryIds: allCategoryIds,
-        allowedBrandIds: allBrandIds,
+        allowedCategoryIds: insertedCategories.map((c) => String(c.cat_code)),
+        allowedBrandIds: insertedBrands.map((b) => String(b.brand_code)),
       },
     });
 

@@ -51,6 +51,8 @@ router.get('/users/:id/permissions', asyncHandler(async (req, res) => {
         allowedCategoryIds: adminMeta.allowedCategoryIds || [],
         allowedBrandIds: adminMeta.allowedBrandIds || [],
         isSuspended: Boolean(adminMeta.isSuspended),
+        canManageOrders: Boolean(adminMeta.canManageOrders),
+        canManageBanners: Boolean(adminMeta.canManageBanners),
       },
     },
   });
@@ -65,9 +67,16 @@ router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
 
   const allowAllCategories = Boolean(req.body.allowAllCategories);
   const allowAllBrands = Boolean(req.body.allowAllBrands);
-  const allowedCategoryIds = toObjectIdArray(req.body.allowedCategoryIds);
-  const allowedBrandIds = toObjectIdArray(req.body.allowedBrandIds);
+  // store the raw codes from the client instead of converting to ObjectId
+  const allowedCategoryIds = Array.isArray(req.body.allowedCategoryIds)
+    ? req.body.allowedCategoryIds.map((v) => String(v))
+    : [];
+  const allowedBrandIds = Array.isArray(req.body.allowedBrandIds)
+    ? req.body.allowedBrandIds.map((v) => String(v))
+    : [];
   const isSuspended = req.body.isSuspended === undefined ? undefined : Boolean(req.body.isSuspended);
+  const canManageOrders = Boolean(req.body.canManageOrders);
+  const canManageBanners = Boolean(req.body.canManageBanners);
 
   const setDoc = {
     'adminMeta.allowAllCategories': allowAllCategories,
@@ -78,6 +87,18 @@ router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
   if (isSuspended !== undefined) {
     setDoc['adminMeta.isSuspended'] = isSuspended;
   }
+  setDoc['adminMeta.canManageOrders'] = canManageOrders;
+  setDoc['adminMeta.canManageBanners'] = canManageBanners;
+
+  console.log('Updating admin permissions for user', id, 'payload', {
+    allowAllCategories,
+    allowAllBrands,
+    allowedCategoryIds,
+    allowedBrandIds,
+    isSuspended,
+    canManageOrders,
+    canManageBanners,
+  });
 
   const result = await db.collection('users').findOneAndUpdate(
     { _id: new ObjectId(id), role: { $in: ['admin', 'super_admin'] } },
@@ -87,12 +108,38 @@ router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
       projection: { email: 1, role: 1, adminMeta: 1 },
     },
   );
-
   if (!result) {
+    console.warn('No matching admin user found for', id);
+  } else {
+    console.log('Update result', result);
+  }
+  if (!result || !result.value) {
     return res.status(404).json({ success: false, message: 'Admin user not found' });
   }
+  return res.json({ success: true, data: result.value });
+}));
 
-  res.json({ success: true, data: hydrateDocument('users', result) });
+// endpoint to change role for a user (promote/demote)
+router.put('/users/:id/role', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+  const { role } = req.body;
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid user id' });
+  }
+  if (!['customer','admin','super_admin'].includes(role)) {
+    return res.status(400).json({ success: false, message: 'Invalid role' });
+  }
+  const result = await db.collection('users').findOneAndUpdate(
+    { _id: new ObjectId(id) },
+    { $set: { role } },
+    { returnDocument: 'after', projection: { email:1,role:1,adminMeta:1 } }
+  );
+  if (!result.value) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
+  console.log('Changed role for', id, 'to', role);
+  res.json({ success: true, data: result.value });
 }));
 
 router.get('/orders', asyncHandler(async (req, res) => {

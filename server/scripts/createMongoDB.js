@@ -454,8 +454,11 @@ function getUserValidator() {
             isSuspended: { bsonType: 'bool' },
             allowAllCategories: { bsonType: 'bool' },
             allowAllBrands: { bsonType: 'bool' },
-            allowedCategoryIds: { bsonType: 'array', items: { bsonType: 'objectId' } },
-            allowedBrandIds: { bsonType: 'array', items: { bsonType: 'objectId' } }
+            // now store category/brand codes (strings) rather than ObjectIds
+            allowedCategoryIds: { bsonType: 'array', items: { bsonType: 'string' } },
+            allowedBrandIds: { bsonType: 'array', items: { bsonType: 'string' } },
+            canManageOrders: { bsonType: 'bool' },
+            canManageBanners: { bsonType: 'bool' }
           }
         }
       },
@@ -775,7 +778,9 @@ function getUserIndexes() {
     { spec: { email: 1 }, options: { unique: true } },
     { spec: { role: 1, 'adminMeta.isSuspended': 1 } },
     { spec: { role: 1, 'adminMeta.allowAllCategories': 1, 'adminMeta.allowedCategoryIds': 1 } },
-    { spec: { role: 1, 'adminMeta.allowAllBrands': 1, 'adminMeta.allowedBrandIds': 1 } }
+    { spec: { role: 1, 'adminMeta.allowAllBrands': 1, 'adminMeta.allowedBrandIds': 1 } },
+    { spec: { role:1, 'adminMeta.canManageOrders':1 } },
+    { spec: { role:1, 'adminMeta.canManageBanners':1 } }
   ];
 }
 function getOrderIndexes() { return [ { spec: { orderNumber: 1 }, options: { unique: true } }, { spec: { userId: 1, createdAt: -1 } }, { spec: { status: 1, createdAt: -1 } } ]; }

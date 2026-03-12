@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Users, Search, Shield, Crown, UserPlus, Edit3, XCircle, CheckCircle, AlertTriangle } from "lucide-react";
-import { fetchAdminUsers } from "../../api/adminDataApi";
+import { fetchAdminUsers, fetchAdminUserPermissions, updateAdminUserPermissions, updateUserRole } from "../../api/adminDataApi";
 import { AdminPrivilegesEditor } from "./AdminPrivilegesEditor";
 
 interface AdminManagementProps {
@@ -20,10 +20,11 @@ interface User {
   isSuperAdmin?: boolean;
   adminLevel?: string;
   status?: string;
-  registeredAt?: string;
+  createdAt?: string; // MongoDB createdAt field
   editCount?: number;
   totalOrders?: number;
   avatar?: string;
+  adminMeta?: any;
 }
 
 export function AdminManagement({ language, onBack }: AdminManagementProps) {
@@ -49,15 +50,17 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
           email: String(u.email || ""),
           isAdmin: u.role === "admin" || u.role === "super_admin",
           isSuperAdmin: u.role === "super_admin",
+          createdAt: u.createdAt, // MongoDB createdAt field
         }));
         setUsersData(normalized);
         setIsLoading(false);
       })
       .catch((err) => {
         console.warn("Failed to load users", err);
-        setError(isRTL ? "تعذر تحميل المستخدمين." : "Failed to load users.");
+        // when the API fails, show empty list (no test data)
         setUsersData([]);
         setIsLoading(false);
+        setError(isRTL ? "فشل تحميل المستخدمين" : "Failed to load users");
       });
   };
 
@@ -74,22 +77,55 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
     return matchesSearch && matchesRole;
   });
 
-  const handlePromoteToAdmin = (user: User) => {
-    setSelectedUser(user);
-    setPrivilegesModalOpen(true);
+  const handlePromoteToAdmin = async (user: User) => {
+    try {
+      const perms = await fetchAdminUserPermissions(user.id);
+      const userWithMeta = { ...user, adminMeta: perms?.permissions || perms };
+      setSelectedUser(userWithMeta);
+      setPrivilegesModalOpen(true);
+    } catch (err) {
+      // if no permissions exist, create default
+      const userWithMeta = { ...user, adminMeta: { allowAllCategories: false, allowAllBrands: false, allowedCategoryIds: [], allowedBrandIds: [], isSuspended: false } };
+      setSelectedUser(userWithMeta);
+      setPrivilegesModalOpen(true);
+    }
   };
 
-  const handleEditPrivileges = (user: User) => {
-    setSelectedUser(user);
-    setPrivilegesModalOpen(true);
+  const handleEditPrivileges = async (user: User) => {
+    try {
+      // For mock users, use the existing adminMeta or create default
+      if (user.adminMeta) {
+        setSelectedUser(user);
+        setPrivilegesModalOpen(true);
+      } else {
+        // Try API call for real users
+        const perms = await fetchAdminUserPermissions(user.id);
+        const userWithMeta = { ...user, adminMeta: perms?.permissions || perms };
+        setSelectedUser(userWithMeta);
+        setPrivilegesModalOpen(true);
+      }
+    } catch (err) {
+      // For mock users or when API fails, use default permissions
+      const userWithMeta = { ...user, adminMeta: { allowAllCategories: false, allowAllBrands: false, allowedCategoryIds: [], allowedBrandIds: [], isSuspended: false } };
+      setSelectedUser(userWithMeta);
+      setPrivilegesModalOpen(true);
+    }
   };
 
-  const handleRevokeAdmin = (user: User) => {
+  const handleRevokeAdmin = async (user: User) => {
     if (confirm(isRTL 
-      ? `هل أنت متأكد من إلغاء صلاحيات المدير لـ ${user.nameAr}؟`
+      ? `هل أنت متأكد من إلغاء صلاحيات المدير لـ ${user.nameAr}?`
       : `Are you sure you want to revoke admin privileges for ${user.name}?`)) {
-      // In real app, update the user role
-      alert(isRTL ? "تم إلغاء الصلاحيات بنجاح" : "Privileges revoked successfully");
+      try {
+        await updateUserRole(user.id, 'customer');
+        alert(isRTL ? "تم إلغاء الصلاحيات بنجاح" : "Privileges revoked successfully");
+      } catch (err) {
+        console.error('Failed to revoke admin role', err);
+        alert(isRTL ? "فشل إلغاء الصلاحيات" : "Failed to revoke privileges");
+      } finally {
+        // clear local info and refresh list
+        loadUsers();
+      }
     }
   };
 
@@ -228,7 +264,10 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
                   <div className="flex items-center gap-4 flex-1">
                     {/* Avatar */}
                     <img
-                      src={user.avatar || `https://i.pravatar.cc/150?u=${user.id}`}
+                      src={
+                      user.avatar ||
+                      "https://img.icons8.com/?size=100&id=kDoeg22e5jUY&format=png&color=000000"
+                    }
                       alt={user.name}
                       className="w-16 h-16 rounded-full object-cover"
                     />
@@ -249,11 +288,9 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
                           <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full flex items-center gap-1">
                             <Shield className="w-3 h-3" />
                             {isRTL ? "مدير" : "Admin"}
-                            {user.adminLevel && (
+                            {user.adminMeta && (
                               <span className="ml-1">
-                                ({isRTL 
-                                  ? user.adminLevel === 'junior' ? 'مبتدئ' : user.adminLevel === 'senior' ? 'محترف' : 'متقدم'
-                                  : user.adminLevel})
+                                ({user.adminMeta.allowedCategoryIds?.length || 0} {isRTL ? "فئات" : "cats"}, {user.adminMeta.allowedBrandIds?.length || 0} {isRTL ? "علامات" : "brands"})
                               </span>
                             )}
                           </span>
@@ -270,7 +307,7 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
                       <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                         <span>
                           {isRTL ? "انضم: " : "Joined: "}
-                          {new Date(user.registeredAt).toLocaleDateString(isRTL ? 'ar-SY' : 'en-US')}
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString(isRTL ? 'ar-SY' : 'en-US') : (isRTL ? "غير محدد" : "Unknown")}
                         </span>
                         {user.isAdmin && user.editCount && (
                           <span>
@@ -289,7 +326,7 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
                   </div>
 
                   {/* Actions */}
-                  {!user.isSuperAdmin && (
+                  {!user.isSuperAdmin && !user.adminMeta?.isSuspended && (
                     <div className="flex items-center gap-2">
                       {!user.isAdmin ? (
                         <button
@@ -336,11 +373,22 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
               setPrivilegesModalOpen(false);
               setSelectedUser(null);
             }}
-            onSave={(updatedUser) => {
-              // In real app, save to backend
-              alert(isRTL ? "تم حفظ الصلاحيات بنجاح" : "Privileges saved successfully");
-              setPrivilegesModalOpen(false);
-              setSelectedUser(null);
+            onSave={async (adminMeta) => {
+              try {
+                // if user wasn't admin yet, promote role first
+                if (!usersData.find(u => u.id === selectedUser.id)?.isAdmin) {
+                  await updateUserRole(selectedUser.id, 'admin');
+                }
+                // attempt to persist permissions too
+                await updateAdminUserPermissions(selectedUser.id, adminMeta);
+                alert(isRTL ? "تم حفظ الصلاحيات بنجاح" : "Privileges saved successfully");
+                setPrivilegesModalOpen(false);
+                setSelectedUser(null);
+                loadUsers();
+              } catch (err: any) {
+                console.error("Failed to save user or permissions via API", err);
+                alert(isRTL ? "فشل حفظ الصلاحيات" : "Failed to save permissions");
+              }
             }}
           />
         )}
@@ -348,3 +396,4 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
     </div>
   );
 }
+
