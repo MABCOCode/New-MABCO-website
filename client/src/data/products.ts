@@ -31985,6 +31985,8 @@ const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
       titleAr,
       descriptionEn,
       descriptionAr,
+      offerNo: offer.offer_no,
+      products: Array.isArray(offer.products) ? offer.products.map(String) : [],
     };
   }
 
@@ -31997,6 +31999,8 @@ const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
       descriptionEn,
       descriptionAr,
       eligibleProductIds: [],
+      offerNo: offer.offer_no,
+      products: Array.isArray(offer.products) ? offer.products.map(String) : [],
     };
   }
 
@@ -32008,6 +32012,8 @@ const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
       titleAr,
       descriptionEn,
       descriptionAr,
+      offerNo: offer.offer_no,
+      products: Array.isArray(offer.products) ? offer.products.map(String) : [],
     };
   }
 
@@ -32020,6 +32026,8 @@ const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
       titleAr,
       descriptionEn,
       descriptionAr,
+      offerNo: offer.offer_no,
+      products: Array.isArray(offer.products) ? offer.products.map(String) : [],
     };
   }
 

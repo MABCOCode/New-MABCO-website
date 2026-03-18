@@ -2,18 +2,11 @@ import { useState } from "react";
 import {
   Search,
   Package,
-  CheckCircle,
-  Clock,
   Wrench,
-  FileCheck,
   Home,
   User,
-  Calendar,
-  Phone,
   Loader2,
   AlertCircle,
-  ArrowRight,
-  MapPin,
   X,
   FileText,
   CheckCircle2,
@@ -24,235 +17,32 @@ interface MaintenanceStatusServiceProps {
   onClose: () => void;
 }
 
-// Mock API Response Types
-interface StatusHistory {
-  status: string;
-  statusAr: string;
-  statusEn: string;
-  date: string;
-  time: string;
-  description?: string;
-  descriptionAr?: string;
-  technician?: string;
-  icon: string;
-}
-
 interface MaintenanceData {
-  orderId: string;
-  deviceType: string;
-  deviceModel: string;
-  currentStatus: string;
-  currentStatusAr: string;
-  currentStatusEn: string;
-  progress: number;
-  estimatedCompletion: string;
-  technician: {
-    name: string;
-    phone: string;
-    specialty: string;
-    specialtyAr: string;
-  };
-  statusHistory: StatusHistory[];
-  problemDescription: string;
-  problemDescriptionAr: string;
+  orderInfo: Record<string, any>;
+  invoiceRows: Record<string, any>[];
 }
 
-// Mock API call - في التطبيق الحقيقي، هذه ستكون استدعاء حقيقي لـ API
-const mockApiCall = async (
-  searchValue: string,
-): Promise<MaintenanceData | null> => {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  // Mock database - في الواقع هذا سيأتي من السيرفر
-  const mockDatabase: { [key: string]: MaintenanceData } = {
-    S324s3422: {
-      orderId: "S324s3422",
-      deviceType: "Samsung Galaxy S23",
-      deviceModel: "SM-S911B",
-      currentStatus: "under_repair",
-      currentStatusAr: "تحت الصيانة",
-      currentStatusEn: "Under Repair",
-      progress: 45,
-      estimatedCompletion: "2024-02-15",
-      technician: {
-        name: "أحمد علي",
-        phone: "+963 912 345 678",
-        specialty: "Mobile Repair Specialist",
-        specialtyAr: "أخصائي صيانة الهواتف",
-      },
-      problemDescription:
-        "Screen replacement and battery check",
-      problemDescriptionAr: "استبدال الشاشة وفحص البطارية",
-      statusHistory: [
-        {
-          status: "received",
-          statusAr: "تم الاستلام",
-          statusEn: "Received",
-          date: "2024-02-10",
-          time: "10:30 AM",
-          description: "Device received at service center",
-          descriptionAr: "تم استلام الجهاز في مركز الخدمة",
-          icon: "Package",
-        },
-        {
-          status: "diagnosed",
-          statusAr: "تم التشخيص",
-          statusEn: "Diagnosed",
-          date: "2024-02-11",
-          time: "02:15 PM",
-          description: "Initial diagnosis completed",
-          descriptionAr: "تم إكمال التشخيص الأولي",
-          technician: "أحمد علي",
-          icon: "FileCheck",
-        },
-        {
-          status: "under_repair",
-          statusAr: "تحت الصيانة",
-          statusEn: "Under Repair",
-          date: "2024-02-12",
-          time: "09:00 AM",
-          description: "Repair work in progress",
-          descriptionAr: "جارٍ العمل على الإصلاح",
-          technician: "أحمد علي",
-          icon: "Wrench",
-        },
-      ],
-    },
-    IP14PM001: {
-      orderId: "IP14PM001",
-      deviceType: "iPhone 14 Pro Max",
-      deviceModel: "A2894",
-      currentStatus: "quality_check",
-      currentStatusAr: "فحص الجودة",
-      currentStatusEn: "Quality Check",
-      progress: 85,
-      estimatedCompletion: "2024-02-13",
-      technician: {
-        name: "خالد يوسف",
-        phone: "+963 933 456 789",
-        specialty: "Quality Control Supervisor",
-        specialtyAr: "مشرف مراقبة الجودة",
-      },
-      problemDescription: "Camera module replacement",
-      problemDescriptionAr: "استبدال وحدة الكاميرا",
-      statusHistory: [
-        {
-          status: "received",
-          statusAr: "تم الاستلام",
-          statusEn: "Received",
-          date: "2024-02-08",
-          time: "11:00 AM",
-          icon: "Package",
-        },
-        {
-          status: "diagnosed",
-          statusAr: "تم التشخيص",
-          statusEn: "Diagnosed",
-          date: "2024-02-08",
-          time: "03:30 PM",
-          technician: "محمد حسن",
-          icon: "FileCheck",
-        },
-        {
-          status: "under_repair",
-          statusAr: "تحت الصيانة",
-          statusEn: "Under Repair",
-          date: "2024-02-09",
-          time: "10:00 AM",
-          technician: "محمد حسن",
-          icon: "Wrench",
-        },
-        {
-          status: "quality_check",
-          statusAr: "فحص الجودة",
-          statusEn: "Quality Check",
-          date: "2024-02-12",
-          time: "01:00 PM",
-          technician: "خالد يوسف",
-          icon: "CheckCircle",
-        },
-      ],
-    },
-    LAP2024X1: {
-      orderId: "LAP2024X1",
-      deviceType: "Dell XPS 15",
-      deviceModel: "9520",
-      currentStatus: "ready_pickup",
-      currentStatusAr: "جاهز للاستلام",
-      currentStatusEn: "Ready for Pickup",
-      progress: 100,
-      estimatedCompletion: "2024-02-12",
-      technician: {
-        name: "عمر الشامي",
-        phone: "+963 944 567 890",
-        specialty: "Laptop Specialist",
-        specialtyAr: "أخصائي حواسيب محمولة",
-      },
-      problemDescription:
-        "SSD upgrade and thermal paste replacement",
-      problemDescriptionAr:
-        "ترقية القرص الصلب واستبدال المعجون الحراري",
-      statusHistory: [
-        {
-          status: "received",
-          statusAr: "تم الاستلام",
-          statusEn: "Received",
-          date: "2024-02-05",
-          time: "09:30 AM",
-          icon: "Package",
-        },
-        {
-          status: "diagnosed",
-          statusAr: "تم التشخيص",
-          statusEn: "Diagnosed",
-          date: "2024-02-06",
-          time: "11:00 AM",
-          technician: "عمر الشامي",
-          icon: "FileCheck",
-        },
-        {
-          status: "under_repair",
-          statusAr: "تحت الصيانة",
-          statusEn: "Under Repair",
-          date: "2024-02-07",
-          time: "02:00 PM",
-          technician: "عمر الشامي",
-          icon: "Wrench",
-        },
-        {
-          status: "quality_check",
-          statusAr: "فحص الجودة",
-          statusEn: "Quality Check",
-          date: "2024-02-10",
-          time: "10:30 AM",
-          technician: "خالد يوسف",
-          icon: "CheckCircle",
-        },
-        {
-          status: "ready_pickup",
-          statusAr: "جاهز للاستلام",
-          statusEn: "Ready for Pickup",
-          date: "2024-02-12",
-          time: "09:00 AM",
-          icon: "Home",
-        },
-      ],
-    },
-  };
-
-  // البحث في قاعدة البيانات الوهمية
-  const result = mockDatabase[searchValue.toUpperCase()];
-  return result || null;
+const fetchMaintenanceData = async (searchValue: string): Promise<MaintenanceData | null> => {
+  const url = `https://showman2.mabcoonline.com:444/Service1.svc/getSerOrderInfo/${encodeURIComponent(searchValue)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  const data = await res.json();
+  const orderResult = data?.getSerOrderInfoResult;
+  const invoiceResult = data?.getSerInvoiceResult;
+  const orderInfo = Array.isArray(orderResult) ? orderResult[0] : orderResult;
+  if (!orderInfo) return null;
+  const invoiceRows = Array.isArray(invoiceResult)
+    ? invoiceResult
+    : invoiceResult
+      ? [invoiceResult]
+      : [];
+  return { orderInfo, invoiceRows };
 };
 
 export function MaintenanceStatusService({
   language,
   onClose,
 }: MaintenanceStatusServiceProps) {
-  const [searchType, setSearchType] = useState<
-    "serial" | "order"
-  >("order");
   const [searchValue, setSearchValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [maintenanceData, setMaintenanceData] =
@@ -274,7 +64,7 @@ export function MaintenanceStatusService({
     setMaintenanceData(null);
 
     try {
-      const result = await mockApiCall(searchValue);
+      const result = await fetchMaintenanceData(searchValue);
 
       if (result) {
         setMaintenanceData(result);
@@ -297,31 +87,38 @@ export function MaintenanceStatusService({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: { [key: string]: string } = {
-      received: "bg-blue-500",
-      diagnosed: "bg-purple-500",
-      under_repair: "bg-orange-500",
-      quality_check: "bg-indigo-500",
-      ready_pickup: "bg-green-500",
-      completed: "bg-emerald-500",
-    };
-    return colors[status] || "bg-gray-500";
+  const getStatusStage = (code: number) => {
+    if ([1, 2, 3].includes(code)) return 1;
+    if ([4, 6, 8, 9].includes(code)) return 2;
+    if ([11].includes(code)) return 3;
+    if ([12, 13].includes(code)) return 4;
+    if ([14].includes(code)) return 5;
+    if ([15].includes(code)) return 6;
+    return 0;
   };
 
-  const getIconComponent = (iconName: string) => {
-    const icons: { [key: string]: any } = {
-      Package,
-      FileCheck,
-      Wrench,
-      CheckCircle,
-      Home,
-    };
-    return icons[iconName] || Clock;
+  const getStatusLabel = (code: number) => {
+    const map = new Map<number, { ar: string; en: string }>([
+      [1, { ar: "مع الفني", en: "With Technician" }],
+      [2, { ar: "مع الفني", en: "With Technician" }],
+      [3, { ar: "مع الفني", en: "With Technician" }],
+      [4, { ar: "تحت الصيانة", en: "Under Maintenance" }],
+      [6, { ar: "تحت الصيانة", en: "Under Maintenance" }],
+      [8, { ar: "تحت الصيانة", en: "Under Maintenance" }],
+      [9, { ar: "تحت الصيانة", en: "Under Maintenance" }],
+      [11, { ar: "فحص الجودة", en: "Quality Testing" }],
+      [12, { ar: "العودة إلى صالة العرض", en: "Returning to Showroom" }],
+      [13, { ar: "العودة إلى صالة العرض", en: "Returning to Showroom" }],
+      [14, { ar: "جاهز للاستلام", en: "Ready for Delivery" }],
+      [15, { ar: "تم التسليم", en: "Delivered" }],
+    ]);
+    return map.get(code) || { ar: "غير معروف", en: "Unknown" };
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "-";
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "-";
     return date.toLocaleDateString(
       language === "ar" ? "ar-SY" : "en-US",
       {
@@ -331,6 +128,29 @@ export function MaintenanceStatusService({
       },
     );
   };
+
+  const orderInfo = maintenanceData?.orderInfo || {};
+  const invoiceRows = maintenanceData?.invoiceRows || [];
+  const statusCode = Number(orderInfo?.status || 0);
+  const statusLabel = getStatusLabel(statusCode);
+  const statusStage = getStatusStage(statusCode);
+  const progress = statusStage >= 5 ? 100 : Math.round((Math.max(statusStage, 0) / 5) * 100);
+
+  const normalizeBillingType = (value?: string) => {
+    const code = String(value || "").trim().toLowerCase();
+    if (code === "f") return language === "ar" ? "رسوم كاملة" : "Full charge";
+    if (code === "c") return language === "ar" ? "ضمان مع رسوم" : "Warranty with charge";
+    if (code === "w") return language === "ar" ? "ضمان" : "Warranty";
+    return value || "-";
+  };
+
+  const steps = [
+    { key: "tech", ar: "مع الفني", en: "Technician", icon: User, doneAt: statusStage >= 1 },
+    { key: "maint", ar: "تحت الصيانة", en: "Maintenance", icon: Wrench, doneAt: statusStage >= 2 },
+    { key: "quality", ar: "فحص الجودة", en: "Quality Check", icon: CheckCircle2, doneAt: statusStage >= 3 },
+    { key: "return", ar: "العودة إلى صالة العرض", en: "Return to Showroom", icon: Home, doneAt: statusStage >= 4 },
+    { key: "ready", ar: "جاهز للاستلام", en: "Ready for Delivery", icon: Package, doneAt: statusStage >= 5 },
+  ];
 
   return (
     <div
@@ -433,11 +253,9 @@ export function MaintenanceStatusService({
                       : "Current Status"}
                   </h3>
                   <div
-                    className={`px-4 py-2 rounded-lg border-2 font-bold ${getStatusColor(maintenanceData.currentStatus)}`}
+                    className="px-4 py-2 rounded-lg border-2 font-bold bg-blue-600 text-white"
                   >
-                    {language === "ar"
-                      ? maintenanceData.currentStatusAr
-                      : maintenanceData.currentStatusEn}
+                    {language === "ar" ? statusLabel.ar : statusLabel.en}
                   </div>
                 </div>
 
@@ -450,14 +268,14 @@ export function MaintenanceStatusService({
                         : "Progress"}
                     </span>
                     <span className="text-sm font-bold text-green-600">
-                      {maintenanceData.progress}%
+                      {progress}%
                     </span>
                   </div>
                   <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-1000 rounded-full"
                       style={{
-                        width: `${maintenanceData.progress}%`,
+                        width: `${progress}%`,
                       }}
                     ></div>
                   </div>
@@ -478,17 +296,15 @@ export function MaintenanceStatusService({
                       {language === "ar" ? "الجهاز" : "Device"}
                     </p>
                     <p className="text-lg font-bold text-gray-900">
-                      {language === "ar"
-                        ? maintenanceData.deviceType
-                        : maintenanceData.deviceType}
+                      {orderInfo?.model_desc || "-"}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">
-                      {language === "ar" ? "العلامة" : "Brand"}
+                      {language === "ar" ? "اسم العميل" : "Customer Name"}
                     </p>
                     <p className="text-lg font-bold text-gray-900">
-                      {maintenanceData.deviceModel}
+                      {orderInfo?.custm_name || "-"}
                     </p>
                   </div>
                   <div>
@@ -498,7 +314,7 @@ export function MaintenanceStatusService({
                         : "Order Number"}
                     </p>
                     <p className="text-lg font-mono font-bold text-blue-600">
-                      {maintenanceData.orderId}
+                      {orderInfo?.ord_no || "-"}
                     </p>
                   </div>
                   <div>
@@ -508,27 +324,25 @@ export function MaintenanceStatusService({
                         : "Serial Number"}
                     </p>
                     <p className="text-sm font-mono font-bold text-gray-900">
-                      {maintenanceData.orderId}
+                      {orderInfo?.mobile_slno || "-"}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">
-                      {language === "ar" ? "المشكلة" : "Issue"}
+                      {language === "ar" ? "الفرع" : "Branch"}
                     </p>
                     <p className="text-lg font-semibold text-gray-900">
-                      {language === "ar"
-                        ? maintenanceData.problemDescriptionAr
-                        : maintenanceData.problemDescription}
+                      {orderInfo?.loc_nameAr || "-"}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">
                       {language === "ar"
-                        ? "الفني المسؤول"
-                        : "Technician"}
+                        ? "رقم الهاتف"
+                        : "Phone"}
                     </p>
                     <p className="text-lg font-semibold text-gray-900">
-                      {maintenanceData.technician.name}
+                      {orderInfo?.phone_no || "-"}
                     </p>
                   </div>
                   <div>
@@ -538,128 +352,119 @@ export function MaintenanceStatusService({
                         : "Received Date"}
                     </p>
                     <p className="text-lg font-semibold text-gray-900">
-                      {formatDate(
-                        maintenanceData.statusHistory[0].date,
-                      )}
+                      {formatDate(orderInfo?.trn_dt)}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">
                       {language === "ar"
-                        ? "الموعد المتوقع"
-                        : "Estimated Completion"}
+                        ? "تاريخ التسليم"
+                        : "Delivery Date"}
                     </p>
                     <p className="text-lg font-semibold text-green-600">
-                      {formatDate(
-                        maintenanceData.estimatedCompletion,
-                      )}
+                      {formatDate(orderInfo?.deliv_date)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      {language === "ar" ? "القسم" : "Department"}
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {orderInfo?.department || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      {language === "ar" ? "نوع الفاتورة" : "Billing Type"}
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {normalizeBillingType(orderInfo?.billing_type)}
                     </p>
                   </div>
                 </div>
-
-                {maintenanceData.statusHistory.some(
-                  (event) => event.description,
-                ) && (
-                  <div className="mt-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold text-yellow-900 mb-1">
-                          {language === "ar"
-                            ? "ملاحظات"
-                            : "Notes"}
-                        </p>
-                        {maintenanceData.statusHistory.map(
-                          (event) =>
-                            event.description && (
-                              <p
-                                key={event.date}
-                                className="text-sm text-yellow-800"
-                              >
-                                {event.description}
-                              </p>
-                            ),
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* Timeline */}
+              {/* Progress Tracker */}
               <div className="bg-white rounded-2xl border-2 border-gray-200 p-6">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <Clock className="w-6 h-6 text-blue-500" />
-                  {language === "ar"
-                    ? "سجل الصيانة"
-                    : "Maintenance Timeline"}
+                  <CheckCircle2 className="w-6 h-6 text-blue-500" />
+                  {language === "ar" ? "مراحل الصيانة" : "Maintenance Steps"}
                 </h3>
-                <div className="relative">
-                  <div className="absolute left-6 top-6 bottom-6 w-0.5 bg-gradient-to-b from-green-500 to-gray-300"></div>
-                  <div className="space-y-6">
-                    {maintenanceData.statusHistory.map(
-                      (event, index) => {
-                        const config = {
-                          status: event.status,
-                          statusAr: event.statusAr,
-                          statusEn: event.statusEn,
-                          color: getStatusColor(event.status),
-                        };
-                        const isLast =
-                          index ===
-                          maintenanceData.statusHistory.length -
-                            1;
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {steps.map((step) => {
+                    const Icon = step.icon;
+                    return (
+                      <div
+                        key={step.key}
+                        className={`flex items-center gap-3 rounded-xl border p-4 ${
+                          step.doneAt ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"
+                        }`}
+                      >
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            step.doneAt ? "bg-green-500" : "bg-gray-400"
+                          }`}
+                        >
+                          <Icon className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-gray-900">
+                            {language === "ar" ? step.ar : step.en}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {step.doneAt
+                              ? language === "ar"
+                                ? "تم الإنجاز"
+                                : "Completed"
+                              : language === "ar"
+                                ? "قيد الانتظار"
+                                : "Pending"}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-                        return (
-                          <div
-                            key={index}
-                            className="relative flex gap-4 items-start"
-                          >
-                            <div
-                              className={`w-12 h-12 rounded-full border-4 border-white shadow-lg flex items-center justify-center z-10 ${
-                                isLast
-                                  ? "bg-blue-500 ring-4 ring-blue-100"
-                                  : "bg-green-500"
-                              }`}
-                            >
-                              {isLast ? (
-                                <Wrench className="w-5 h-5 text-white" />
-                              ) : (
-                                <CheckCircle2 className="w-5 h-5 text-white" />
-                              )}
-                            </div>
-
-                            <div
-                              className={`flex-1 rounded-xl p-4 border ${
-                                isLast
-                                  ? "bg-blue-50 border-blue-200"
-                                  : "bg-green-50 border-green-200"
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-4 mb-2">
-                                <div
-                                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border font-bold text-sm ${config.color} text-white`}
-                                >
-                                  {language === "ar"
-                                    ? config.statusAr
-                                    : config.statusEn}
-                                </div>
-                                <span className="text-sm text-gray-500 whitespace-nowrap">
-                                  {formatDate(event.date)}
-                                </span>
-                              </div>
-                              {event.note && (
-                                <p className="text-sm text-gray-600 mt-2">
-                                  {event.note}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      },
-                    )}
+              {/* Invoice */}
+              <div className="bg-white rounded-2xl border-2 border-gray-200 p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <FileText className="w-6 h-6 text-blue-500" />
+                  {language === "ar" ? "الفاتورة" : "Invoice"}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      {language === "ar" ? "أجرة اليد العاملة" : "Labor Charge"}
+                    </p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {invoiceRows[0]?.labour_charge ?? "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      {language === "ar" ? "الإجمالي" : "Grand Total"}
+                    </p>
+                    <p className="text-lg font-bold text-green-600">
+                      {invoiceRows[0]?.grand_total ?? "-"}
+                    </p>
                   </div>
                 </div>
+                {invoiceRows.length > 0 && (
+                  <div className="space-y-2">
+                    {invoiceRows.map((row, idx) => (
+                      <div key={`invoice-row-${idx}`} className="rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
+                        {Object.entries(row).map(([key, value]) => (
+                          <div key={`${idx}-${key}`} className="flex items-center justify-between gap-4">
+                            <span className="font-medium text-gray-600">{key}</span>
+                            <span className="text-gray-900">{String(value ?? "-")}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

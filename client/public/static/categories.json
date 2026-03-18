@@ -57,7 +57,7 @@
   "brands": [
     { "brand_code": "2018", "name": "وحدة التحكم", "englishName": "Console" },
     { "brand_code": "2019", "name": "اكسسوار الألعاب", "englishName": "Gaming Acc" },
-    { "brand_code": "2020", "name": "مكتبة الألعاب", "englishName": "CD library" },
+    { "brand_code": "2020", "name": "خدمة الشحن", "englishName": "Charging Service" },
     { "brand_code": "2021", "name": "الاشتراكات", "englishName": "Subscriptions" },
     { "brand_code": "2022", "name": "تحدي مابكو", "englishName": "Mabco club challenges" }
   ]

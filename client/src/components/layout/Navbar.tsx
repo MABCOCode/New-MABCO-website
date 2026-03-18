@@ -177,7 +177,7 @@ const Navbar: React.FC = () => {
         scrolled ? "bg-white shadow-lg" : "bg-white/95 backdrop-blur-sm"
       }`}
       dir={direction}
-      style={{ zIndex: 1000 }}
+      style={{ zIndex: 99 }}
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">

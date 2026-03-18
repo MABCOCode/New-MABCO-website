@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 import { Product } from "../types/product";
 
 type CartItem = {
+  isCouponItem: any;
   id: number | string;
   productId?: number | string;
   name: string;
@@ -17,10 +18,11 @@ type CartItem = {
   chargeOptionSku?: string | null;
   chargeOptionPrice?: number | null;
   appliedOffers?: any[] | null;
+  availableOffers?: any[] | null;
   chargeOption?: { optionId: string; value: string } | null;
   isFreeGift?: boolean;
   isBundleItem?: boolean;
-  linkedToProductId?: number;
+  linkedToProductId?: number | string;
   bundleDiscount?: number;
 };
 
@@ -42,9 +44,10 @@ type AddToCartFn = (
     chargeOptionSku?: string | null;
     chargeOptionPrice?: number | null;
     appliedOffers?: any[] | null;
+    availableOffers?: any[] | null;
     isFreeGift?: boolean;
     isBundleItem?: boolean;
-    linkedToProductId?: number;
+    linkedToProductId?: number | string;
     bundleDiscount?: number;
   },
 ) => void;
@@ -158,6 +161,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           chargeOptionSku: options?.chargeOptionSku ?? null,
           chargeOptionPrice: typeof options?.chargeOptionPrice === "number" ? options.chargeOptionPrice : null,
           appliedOffers: options?.appliedOffers ?? null,
+          availableOffers: options?.availableOffers ?? null,
           chargeOption: chargeOptionId ? { optionId: chargeOptionId, value: chargeOptionLabel ?? chargeOptionId } : null,
           isFreeGift: options?.isFreeGift,
           isBundleItem: options?.isBundleItem,
@@ -187,8 +191,19 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCartItems((prev) => {
       const target = prev.find((it) => String(it.id) === String(id));
       if (!target) return prev;
+      if (target.linkedToProductId) {
+        const hasMain = prev.some((item) => {
+          const mainId = String(item.productId ?? item.id ?? "");
+          return (
+            mainId === String(target.linkedToProductId) &&
+            !item.isBundleItem &&
+            !item.isFreeGift
+          );
+        });
+        if (hasMain) return prev;
+      }
 
-      const targetProductId = target.productId ?? Number(target.id);
+      const targetProductId = String(target.productId ?? target.id ?? "");
       const isPrimaryItem = !target.isBundleItem && !target.isFreeGift;
 
       const next: CartItem[] = [];
@@ -197,23 +212,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           continue;
         }
 
-        if (isPrimaryItem && targetProductId && item.linkedToProductId === targetProductId) {
-          if (item.isFreeGift) {
-            // Free gifts depend on the main item, remove them.
-            continue;
-          }
-          if (item.isBundleItem && item.oldPrice) {
-            // Restore original price when the main item is removed.
-            next.push({
-              ...item,
-              price: item.oldPrice,
-              oldPrice: undefined,
-              isBundleItem: false,
-              bundleDiscount: undefined,
-              linkedToProductId: undefined,
-            });
-            continue;
-          }
+        if (isPrimaryItem && targetProductId && String(item.linkedToProductId ?? "") === targetProductId) {
+          // Remove all offer-applied products when the main item is removed.
+          continue;
         }
 
         next.push(item);

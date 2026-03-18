@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, CreditCard, Search, Building2, Zap } from "lucide-react";
 import { paymentCompanies } from "../../../data/servicesData";
+import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 interface EPaymentServiceProps {
   language: "ar" | "en";
   onClose: () => void;
@@ -116,9 +117,13 @@ export function EPaymentService({ language, onClose }: EPaymentServiceProps) {
                   className="bg-white rounded-xl border-2 border-gray-200 p-4 hover:border-green-500 hover:shadow-lg transition-all text-center group"
                 >
                   <div
-                    className={`w-16 h-16 ${company.color} rounded-xl flex items-center justify-center text-3xl mx-auto mb-2 group-hover:scale-110 transition-transform`}
+                    className={`w-16 h-16 ${company.color} rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform overflow-hidden`}
                   >
-                    {company.logo}
+                    <ImageWithFallback
+                      src={company.logo}
+                      alt={language === "ar" ? company.nameAr : company.nameEn}
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <p className="font-bold text-gray-900 text-sm">
                     {language === "ar" ? company.nameAr : company.nameEn}

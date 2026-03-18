@@ -222,8 +222,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     return fallback;
   }, [locationState, categoryName, brandName]);
 
-  const resolveBrandHref = (crumbIndex: number): string | null => {
+  const resolveBrandHref = (crumbIndex: number, crumb: any): string | null => {
     if (crumbIndex !== breadcrumbs.length - 1) return null;
+    if (crumb?.href) return null;
     const brandRef =
       prod?.brand_code ||
       prod?.brandCode ||
@@ -445,6 +446,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
+  const [offerDialogOpen, setOfferDialogOpen] = useState(false);
+  const [selectedOffer, setSelectedOffer] = useState<any | null>(null);
+  const [pendingCartOptions, setPendingCartOptions] = useState<any | null>(null);
+  const [showOfferProducts, setShowOfferProducts] = useState(false);
+  const [offerProducts, setOfferProducts] = useState<any[]>([]);
+  const [offerProductsLoading, setOfferProductsLoading] = useState(false);
+  const [offerProductsError, setOfferProductsError] = useState<string | null>(null);
 
   const displayColor = hoveredColor || selectedColor;
   const currentColorVariant = hasColors
@@ -493,8 +501,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     ? getProductOffers({ offers: currentColorVariant.offers } as any)
     : [];
   const displayOffers =
-    selectedVariantOffers.length > 0 ? selectedVariantOffers : baseProductOffers;
+    hasValidVariants ? selectedVariantOffers : baseProductOffers;
   const hasOffers = displayOffers.length > 0;
+  const singleOffer = useMemo(() => displayOffers.length === 1, [displayOffers]);
 
   const offerPricing = prod
     ? getOfferPricing({ ...(prod as any), offers: displayOffers } as any, { sourcePrice: sourcePriceForSelection })
@@ -547,10 +556,16 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         : selectedCharge.value || selectedCharge.name
       : null;
 
-    const appliedOffers =
-      (selectedCharge && Array.isArray((selectedCharge as any).offers) ? (selectedCharge as any).offers : null) ||
-      (currentColorVar && Array.isArray((currentColorVar as any).offers) ? (currentColorVar as any).offers : null) ||
-      (Array.isArray((prod as any).offers) ? (prod as any).offers : null);
+    const availableOffersRaw = hasValidVariants
+      ? (selectedCharge && Array.isArray((selectedCharge as any).offers)
+          ? (selectedCharge as any).offers
+          : currentColorVar && Array.isArray((currentColorVar as any).offers)
+          ? (currentColorVar as any).offers
+          : null)
+      : Array.isArray((prod as any).offers)
+      ? (prod as any).offers
+      : null;
+    const appliedOffers = null;
 
     const variantPriceValue =
       currentColorVar && typeof currentColorVar.price !== "undefined"
@@ -567,7 +582,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         ? variantPriceValue
         : numericPrice(prod?.price);
 
-    cart.addToCart(prod, {
+    const cartOptions = {
       color: chosenColor,
       variantColorHex: chosenColorHex,
       variantImage: chosenVariantImage,
@@ -579,9 +594,120 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       chargeOptionPrice: typeof chargePriceValue === "number" ? chargePriceValue : null,
       basePrice: basePriceValue,
       appliedOffers,
+      availableOffers: availableOffersRaw,
       quantity,
+    };
+
+    if (hasOffers && displayOffers.length > 0) {
+      setPendingCartOptions(cartOptions);
+      setSelectedOffer(null);
+      setOfferDialogOpen(true);
+      return;
+    }
+
+    cart.addToCart(prod, cartOptions);
+    setHeroProductInCart(true);
+  };
+
+  const closeOfferDialog = () => {
+    setOfferDialogOpen(false);
+    setSelectedOffer(null);
+    setPendingCartOptions(null);
+    setShowOfferProducts(false);
+    setOfferProducts([]);
+    setOfferProductsError(null);
+    setOfferProductsLoading(false);
+  };
+
+  const addPrimaryWithOffer = (offer: any | null, override?: { price?: number; oldPrice?: number }) => {
+    if (!cart.addToCart || !prod || !pendingCartOptions) return;
+    cart.addToCart(prod, {
+      ...pendingCartOptions,
+      appliedOffers: offer ? [offer] : null,
+      overridePrice: override?.price,
+      overrideOldPrice: override?.oldPrice,
     });
     setHeroProductInCart(true);
+  };
+
+  const handleDirectDiscount = (offer: any) => {
+    const base = typeof pendingCartOptions?.basePrice === "number"
+      ? pendingCartOptions.basePrice
+      : numericPrice(prod?.price);
+    const discountValue = offer.discountValue ?? offer.discount ?? 0;
+    const discounted =
+      offer.discountType === "percentage"
+        ? Math.max(0, Math.round(base * (1 - discountValue / 100)))
+        : Math.max(0, Math.round(base - discountValue));
+    addPrimaryWithOffer(offer, { price: discounted, oldPrice: base });
+    closeOfferDialog();
+  };
+
+  const handleAddRelatedProduct = (
+    offer: any,
+    relatedProduct: any,
+    discountedPrice: number,
+    basePrice: number,
+    meta: { type: "coupon" | "bundle" | "free" },
+  ) => {
+    addPrimaryWithOffer(offer);
+    if (!relatedProduct) return;
+    cart.addToCart(relatedProduct, {
+      customId: `${meta.type}-${prod.id}-${relatedProduct.id || relatedProduct.stk_code || Date.now()}`,
+      quantity: 1,
+      overridePrice: discountedPrice,
+      overrideOldPrice: basePrice,
+      isCouponItem: meta.type === "coupon",
+      isBundleItem: meta.type === "bundle",
+      isFreeGift: meta.type === "free",
+      linkedToProductId: String(prod.id ?? prod.stk_code ?? prod.id),
+      bundleDiscount: meta.type === "bundle" ? offer.discountPercentage : undefined,
+    });
+    closeOfferDialog();
+  };
+
+  const extractOfferStkCodes = (offer: any): string[] => {
+    const raw = offer?.products || offer?.productStkCodes || offer?.product_codes || [];
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item: any) =>
+        typeof item === "string"
+          ? item
+          : item?.stk_code || item?.id || item?.code || "",
+      )
+      .map((code: any) => String(code).trim())
+      .filter(Boolean);
+  };
+
+  const loadOfferProducts = async (offer: any) => {
+    const codes = extractOfferStkCodes(offer);
+    if (!codes.length) {
+      setOfferProducts([]);
+      return;
+    }
+    setOfferProductsLoading(true);
+    setOfferProductsError(null);
+    try {
+      const apiBase =
+        (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+      const url = `${apiBase}/products?stk_codes=${encodeURIComponent(codes.join(","))}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to load offer products: ${res.status}`);
+      const json = await res.json();
+      const items = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
+      if (items.length > 0) {
+        setOfferProducts(items);
+        return;
+      }
+      const fallback = products.filter((p) => codes.includes(String(p.stk_code)));
+      setOfferProducts(fallback);
+    } catch (err: any) {
+      const fallback = products.filter((p) => extractOfferStkCodes(offer).includes(String(p.stk_code)));
+      setOfferProducts(fallback);
+      setOfferProductsError(err?.message || "Failed to load offer products");
+    } finally {
+      setOfferProductsLoading(false);
+    }
   };
 
   const handleToggleCompare = () => {
@@ -592,9 +718,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   };
 
   const isHeroInCart = !!prod?.id && cart.cartItems?.some((item) => {
-    const itemProductId = item.productId ?? Number(item.id);
+    const itemProductId = item.productId ?? item.id;
     return itemProductId === prod.id && !item.isBundleItem && !item.isFreeGift;
   });
+
 
   // Carousel effect - update when carousel changes
   useEffect(() => {
@@ -643,6 +770,26 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       setSelectedColor(availableColorVariants[0]?.name || "");
     }
   }, [hasColors, availableColorVariants, selectedColor]);
+
+  useEffect(() => {
+    if (!offerDialogOpen) return;
+    if (!singleOffer) return;
+    if (selectedOffer) return;
+    const offer = displayOffers[0];
+    if (!offer) return;
+    setSelectedOffer(offer);
+    const hasOfferProducts = extractOfferStkCodes(offer).length > 0;
+    if (offer.type === "direct_discount" && !hasOfferProducts) {
+      handleDirectDiscount(offer);
+      return;
+    }
+    if (hasOfferProducts) {
+      loadOfferProducts(offer);
+    } else {
+      setOfferProducts([]);
+    }
+    setShowOfferProducts(true);
+  }, [offerDialogOpen, singleOffer, displayOffers, selectedOffer]);
 
   if (!prod && isLoadingProduct) {
     return (
@@ -815,8 +962,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               {breadcrumbs.map((crumb: any, index: number) => (
                 <div key={`crumb-${index}-${crumb.label}`} className="contents">
                   {(() => {
-                    const brandHref = resolveBrandHref(index);
-                    const href = brandHref || crumb?.href;
+                    const brandHref = resolveBrandHref(index, crumb);
+                    const href = crumb?.href || brandHref;
                     if (!href) {
                       return (
                         <span className="text-gray-500 font-medium whitespace-nowrap">
@@ -1476,6 +1623,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                       />
                     </div>
 
+
                     {displayOffers.some(
                       (o) => o.type === "bundle_discount",
                     ) && (
@@ -1517,11 +1665,11 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             const alreadyAdded = cart.cartItems?.some(
                               (item) => {
                                 const itemProductId =
-                                  item.productId ?? Number(item.id);
+                                  item.productId ?? item.id;
                                 return (
                                   itemProductId === productId &&
                                   item.isBundleItem &&
-                                  item.linkedToProductId === prod.id
+                                  String(item.linkedToProductId ?? "") === String(prod.id ?? prod.stk_code ?? prod.id)
                                 );
                               },
                             );
@@ -1547,7 +1695,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                               overridePrice: discounted,
                               overrideOldPrice: base,
                               isBundleItem: true,
-                              linkedToProductId: prod.id,
+      linkedToProductId: String(prod.id ?? prod.stk_code ?? prod.id),
                               bundleDiscount: bundleOffer.discountPercentage,
                             });
                           }}
@@ -1798,6 +1946,195 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
           </div>
         </div>
       </div>
+
+      {offerDialogOpen && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-4"
+          onClick={closeOfferDialog}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 z1000 "
+            onClick={(e) => e.stopPropagation()}
+             style={{ zIndex: 1000 }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">
+                {language === "ar" ? "اختر العرض الذي تريد تطبيقه" : "Choose an offer to apply"}
+              </h3>
+              <button
+                onClick={closeOfferDialog}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {displayOffers.map((offer: any, idx: number) => {
+                const isSelected = selectedOffer === offer;
+                const hasOfferProducts = extractOfferStkCodes(offer).length > 0;
+                const needsProducts = hasOfferProducts || offer.type !== "direct_discount";
+                return (
+                  <div
+                    key={`offer-dialog-${offer.type}-${idx}`}
+                    className={`rounded-2xl p-3 transition-all ${
+                      isSelected ? "ring-2 ring-[#009FE3] bg-blue-50/40" : "bg-white"
+                    }`}
+                  >
+                    <OfferDetailsCard
+                      offers={[offer]}
+                      language={language}
+                      basePrice={basePrice}
+                      currentPrice={currentPrice}
+                      currencyLabel={currencyLabel}
+                    />
+
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs text-gray-500">
+                        {language === "ar"
+                          ? "اختر هذا العرض ثم أكمل اختيار المنتجات إن وُجدت."
+                          : "Select this offer, then choose products if required."}
+                      </p>
+                      {!singleOffer && (
+                        <button
+                          onClick={() => {
+                            setSelectedOffer(offer);
+                            if (!needsProducts && offer.type === "direct_discount") {
+                              handleDirectDiscount(offer);
+                              return;
+                            }
+                            if (hasOfferProducts) {
+                              loadOfferProducts(offer);
+                            } else {
+                              setOfferProducts([]);
+                            }
+                            setShowOfferProducts(true);
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold ${
+                            offer.type === "direct_discount"
+                              ? "bg-gradient-to-r from-red-500 to-pink-500 text-white"
+                              : offer.type === "coupon"
+                              ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
+                              : offer.type === "free_product"
+                              ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
+                              : "bg-gradient-to-r from-purple-500 to-violet-500 text-white"
+                          }`}
+                        >
+                          {language === "ar" ? "اختيار" : "Select"}
+                        </button>
+                      )}
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+
+            {selectedOffer && showOfferProducts && (
+              <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4">
+                <h4 className="font-bold text-gray-900 mb-3">
+                  {language === "ar"
+                    ? "اختر المنتج المرتبط بالعرض"
+                    : "Select a product for this offer"}
+                </h4>
+
+                {offerProductsLoading && (
+                  <p className="text-sm text-gray-500">
+                    {language === "ar" ? "جارِ تحميل المنتجات..." : "Loading products..."}
+                  </p>
+                )}
+
+                {!offerProductsLoading && offerProductsError && (
+                  <p className="text-sm text-red-600">{offerProductsError}</p>
+                )}
+
+                {!offerProductsLoading && offerProducts.length === 0 && !offerProductsError && (
+                  <p className="text-sm text-gray-500">
+                    {language === "ar"
+                      ? "لا توجد منتجات مرتبطة بهذا العرض."
+                      : "No products linked to this offer."}
+                  </p>
+                )}
+
+                {!offerProductsLoading && offerProducts.length > 0 && (
+                  <div className="space-y-2">
+                    {offerProducts.map((product: any) => {
+                      const base = numericPrice(product.price);
+                      let discounted = base;
+                      let metaType: "coupon" | "bundle" | "free" = "coupon";
+                      if (selectedOffer.type === "bundle_discount") {
+                        metaType = "bundle";
+                        discounted = Math.max(
+                          0,
+                          Math.round(base * (1 - (selectedOffer.discountPercentage || 0) / 100)),
+                        );
+                      } else if (selectedOffer.type === "free_product") {
+                        metaType = "free";
+                        discounted = 0;
+                      } else {
+                        metaType = "coupon";
+                        const value =
+                          selectedOffer.couponValue ??
+                          selectedOffer.discountValue ??
+                          selectedOffer.discount ??
+                          0;
+                        discounted = base > value ? base - value : 0;
+                      }
+
+                      return (
+                        <div
+                          key={product.id || product.stk_code}
+                          className="flex items-center gap-3 border rounded-lg p-2"
+                        >
+                          <img src={product.image} className="w-10 h-10 rounded object-cover" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {language === "ar" && product.nameAr ? product.nameAr : product.name}
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              {language === "ar" ? "بعد الخصم:" : "After discount:"}{" "}
+                              {discounted.toLocaleString("en-US")} {currencyLabel}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() =>
+                              handleAddRelatedProduct(selectedOffer, product, discounted, base, { type: metaType })
+                            }
+                            className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                              metaType === "free"
+                                ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
+                                : metaType === "bundle"
+                                ? "bg-gradient-to-r from-purple-500 to-violet-500 text-white"
+                                : "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
+                            }`}
+                          >
+                            {language === "ar" ? "إضافة" : "Add"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  if (pendingCartOptions) {
+                    cart.addToCart?.(prod, pendingCartOptions);
+                    setHeroProductInCart(true);
+                  }
+                  closeOfferDialog();
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-gray-200 text-gray-700"
+              >
+                {language === "ar" ? "تخطي العرض" : "Skip offer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

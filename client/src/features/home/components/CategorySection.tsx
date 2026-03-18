@@ -389,10 +389,30 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                   );
                 }
 
+                const hiddenBrandCodes = new Set(["2020", "2022"]);
+                const visibleBrands = brandsList.filter((brand: any) => {
+                  const code =
+                    typeof brand === "string"
+                      ? null
+                      : brand?.brand_code ?? brand?.brandCode ?? brand?.code;
+                  if (!code) return true;
+                  return !hiddenBrandCodes.has(String(code));
+                });
+
+                if (visibleBrands.length === 0) {
+                  return (
+                    <div className="col-span-full text-center py-8 text-gray-500">
+                      {language === "ar"
+                        ? "لا توجد علامات تجارية متاحة حاليا"
+                        : "No brands available at the moment"}
+                    </div>
+                  );
+                }
+
                 return (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-5 w-full">
-                    {brandsList.map((brand: any, idx: number) => {
-                      const brandObj = typeof brand === 'string' ? { name: brand } : brand;
+                    {visibleBrands.map((brand: any, idx: number) => {
+                      const brandObj = typeof brand === "string" ? { name: brand } : brand;
                       return (
                         <div
                           key={brandObj.brand_code || idx}

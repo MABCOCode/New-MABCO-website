@@ -6,16 +6,27 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Package,
-  MapPin,
   AlertTriangle,
   Info,
 } from "lucide-react";
-import { warrantyRecords, WarrantyRecord } from "../../../data/servicesData";
 
 interface WarrantyCheckServiceProps {
   language: "ar" | "en";
   onClose: () => void;
+}
+
+interface WarrantyApiResult {
+  void_wty?: string;
+  wty_end_dt?: string;
+  temp1?: string;
+}
+
+interface WarrantyData {
+  statusCode: string;
+  statusLabel: { ar: string; en: string };
+  endDate?: string;
+  message?: string;
+  isActive: boolean;
 }
 
 export function WarrantyCheckService({
@@ -23,8 +34,9 @@ export function WarrantyCheckService({
   onClose,
 }: WarrantyCheckServiceProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResult, setSearchResult] = useState<WarrantyRecord | null>(null);
+  const [searchResult, setSearchResult] = useState<WarrantyData | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const t = {
     ar: {
@@ -55,6 +67,7 @@ export function WarrantyCheckService({
       expiredWarranty: "الضمان منتهي",
       warrantyValid: "جهازك مشمول بالضمان",
       warrantyExpired: "ضمان جهازك منتهي",
+      notMabco: "الجهاز غير مشمول بضمان MABCO",
       contactUs: "للمزيد من المعلومات، تواصل معنا",
     },
     en: {
@@ -66,18 +79,7 @@ export function WarrantyCheckService({
       warrantyStatus: "Warranty Status",
       active: "Active",
       expired: "Expired",
-      productInfo: "Product Information",
-      warrantyDetails: "Warranty Details",
-      purchaseDate: "Purchase Date",
-      warrantyPeriod: "Warranty Period",
       warrantyExpiry: "Warranty Expiry",
-      coverageType: "Coverage Type",
-      claimsUsed: "Claims Used",
-      claimsRemaining: "Claims Remaining",
-      purchaseLocation: "Purchase Location",
-      full: "Full",
-      limited: "Limited",
-      months: "months",
       daysRemaining: "days remaining",
       notFound: "No Results Found",
       notFoundDesc: "Please check the serial number and try again",
@@ -85,24 +87,73 @@ export function WarrantyCheckService({
       expiredWarranty: "Expired Warranty",
       warrantyValid: "Your device is covered by warranty",
       warrantyExpired: "Your device warranty has expired",
+      notMabco: "Device is not covered by MABCO warranty",
+      premiumWarranty: "Premium Warranty",
       contactUs: "For more information, contact us",
     },
   };
 
-  const handleSearch = () => {
-    const query = searchQuery.trim().toUpperCase();
-    const result = warrantyRecords.find(
-      (r) =>
-        r.serialNumber.toUpperCase() === query ||
-        (r.imei && r.imei.toUpperCase() === query)
-    );
+  const getStatusLabel = (code: string) => {
+    const normalized = String(code || "").trim().toUpperCase();
+    if (normalized === "N") return { ar: "ضمان MABCO", en: "MABCO Warranty" };
+    if (normalized === "21") return { ar: "ضمان MABCO 21 قيراط", en: "MABCO 21 Carat Warranty" };
+    if (normalized === "24") return { ar: "ضمان MABCO 24 قيراط", en: "MABCO 24 Carat Warranty" };
+    if (normalized === "Y") return { ar: "خارج الضمان", en: "Out of Warranty" };
+    return { ar: "غير مشمول بضمان MABCO", en: "Not a MABCO device" };
+  };
 
-    if (result) {
-      setSearchResult(result);
-      setNotFound(false);
-    } else {
+  const fetchWarranty = async (serial: string): Promise<WarrantyData | null> => {
+    const base = "https://showman2.mabcoonline.com:444/Service1.svc/GetVoidWtyBySerial";
+    const flag = language === "ar" ? "true" : "false";
+    const url = `${base}/${encodeURIComponent(serial)}?flag=${flag}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+    const data = (await res.json()) as
+      | WarrantyApiResult
+      | { GetVoidWtyBySerialResult?: WarrantyApiResult | WarrantyApiResult[] };
+    const rawResult = (data as any)?.GetVoidWtyBySerialResult ?? data;
+    const result = Array.isArray(rawResult) ? rawResult[0] : rawResult;
+    if (!result) return null;
+    const code = String(result?.void_wty || "").trim();
+    if (!code) return null;
+    const label = getStatusLabel(code);
+    const rawEnd = String(result?.wty_end_dt || result?.temp1 || "");
+    const cleanedEnd = rawEnd.split(/\s+\n|\n/)[0]?.trim();
+    const endDate = cleanedEnd || undefined;
+    const isActive = ["N", "21", "24"].includes(code);
+    return {
+      statusCode: code,
+      statusLabel: label,
+      endDate: endDate,
+      message: result?.temp1,
+      isActive,
+    };
+  };
+
+  const handleSearch = async () => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setNotFound(true);
+      setSearchResult(null);
+      return;
+    }
+    setIsLoading(true);
+    setNotFound(false);
+    setSearchResult(null);
+    try {
+      const result = await fetchWarranty(query);
+      if (result) {
+        setSearchResult(result);
+        setNotFound(false);
+      } else {
+        setSearchResult(null);
+        setNotFound(true);
+      }
+    } catch {
       setSearchResult(null);
       setNotFound(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -121,6 +172,10 @@ export function WarrantyCheckService({
     const diff = expiry.getTime() - now.getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
+
+  const isOutOfWarranty =
+    (searchResult?.statusCode || "").trim().toUpperCase() === "Y";
+  const isNotMabco = !!searchResult && !searchResult.isActive && !isOutOfWarranty;
 
   return (
     <div
@@ -172,13 +227,24 @@ export function WarrantyCheckService({
                 onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 placeholder={t[language].placeholder}
                 className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
+                disabled={isLoading}
               />
               <button
                 onClick={handleSearch}
-                className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
+                disabled={isLoading}
+                className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Search className="w-5 h-5" />
-                {t[language].search}
+                {isLoading ? (
+                  <>
+                    <Clock className="w-5 h-5 animate-spin" />
+                    {language === "ar" ? "جارٍ البحث..." : "Searching..."}
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-5 h-5" />
+                    {t[language].search}
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -201,8 +267,9 @@ export function WarrantyCheckService({
                       <div className="mt-2 inline-flex items-center gap-2 bg-green-200 px-3 py-1 rounded-full">
                         <Clock className="w-4 h-4 text-green-700" />
                         <span className="text-sm font-bold text-green-900">
-                          {getDaysRemaining(searchResult.warrantyExpiry)}{" "}
-                          {t[language].daysRemaining}
+                          {searchResult.endDate
+                            ? `${getDaysRemaining(searchResult.endDate)} ${t[language].daysRemaining}`
+                            : "-"}
                         </span>
                       </div>
                     </div>
@@ -216,9 +283,11 @@ export function WarrantyCheckService({
                     </div>
                     <div className="flex-1">
                       <h3 className="text-2xl font-bold text-red-900 mb-1">
-                        {t[language].expiredWarranty}
+                        {isNotMabco ? t[language].notMabco : t[language].expiredWarranty}
                       </h3>
-                      <p className="text-red-700">{t[language].warrantyExpired}</p>
+                      <p className="text-red-700">
+                        {isNotMabco ? t[language].notMabco : t[language].warrantyExpired}
+                      </p>
                       <p className="text-sm text-red-600 mt-2">
                         {t[language].contactUs}
                       </p>
@@ -227,136 +296,36 @@ export function WarrantyCheckService({
                 </div>
               )}
 
-              {/* Product Information */}
-              <div className="bg-white rounded-2xl border-2 border-gray-200 p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Package className="w-6 h-6 text-indigo-500" />
-                  {t[language].productInfo}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      {language === "ar" ? "المنتج" : "Product"}
-                    </p>
-                    <p className="text-lg font-bold text-gray-900">
-                      {language === "ar"
-                        ? searchResult.productNameAr
-                        : searchResult.productName}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      {language === "ar" ? "العلامة" : "Brand"}
-                    </p>
-                    <p className="text-lg font-bold text-gray-900">{searchResult.brand}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      {language === "ar" ? "الرقم التسلسلي" : "Serial Number"}
-                    </p>
-                    <p className="text-sm font-mono font-bold text-gray-900">
-                      {searchResult.serialNumber}
-                    </p>
-                  </div>
-                  {searchResult.imei && (
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">IMEI</p>
-                      <p className="text-sm font-mono font-bold text-gray-900">
-                        {searchResult.imei}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Warranty Details */}
               <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 border-2 border-indigo-200">
                 <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <Shield className="w-6 h-6 text-indigo-500" />
-                  {t[language].warrantyDetails}
+                  {t[language].warrantyStatus}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">
-                      {t[language].purchaseDate}
+                      {t[language].warrantyStatus}
                     </p>
                     <p className="text-lg font-semibold text-gray-900">
-                      {formatDate(searchResult.purchaseDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      {t[language].warrantyPeriod}
-                    </p>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {searchResult.warrantyPeriod} {t[language].months}
+                      {language === "ar" ? searchResult.statusLabel.ar : searchResult.statusLabel.en}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">
                       {t[language].warrantyExpiry}
                     </p>
-                    <p
-                      className={`text-lg font-semibold ${
-                        searchResult.isActive ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
-                      {formatDate(searchResult.warrantyExpiry)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      {t[language].coverageType}
-                    </p>
-                    <div
-                      className={`inline-flex items-center px-3 py-1.5 rounded-lg font-bold ${
-                        searchResult.coverageType === "full"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {searchResult.coverageType === "full"
-                        ? t[language].full
-                        : t[language].limited}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      {t[language].claimsUsed}
-                    </p>
                     <p className="text-lg font-semibold text-gray-900">
-                      {searchResult.claimsUsed} / {searchResult.maxClaims}
+                      {searchResult.endDate ? formatDate(searchResult.endDate) : "-"}
                     </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      {t[language].claimsRemaining}
-                    </p>
-                    <p className="text-lg font-semibold text-indigo-600">
-                      {searchResult.maxClaims - searchResult.claimsUsed}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Purchase Location */}
-                <div className="mt-6 pt-6 border-t-2 border-indigo-200">
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">
-                        {t[language].purchaseLocation}
-                      </p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {searchResult.purchaseLocation}
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Warning for expiring warranty */}
-              {searchResult.isActive &&
-                getDaysRemaining(searchResult.warrantyExpiry) < 90 && (
+              {/* {searchResult.isActive &&
+                searchResult.endDate &&
+                getDaysRemaining(searchResult.endDate) < 90 && (
                   <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
                     <div className="flex items-start gap-3">
                       <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -374,7 +343,7 @@ export function WarrantyCheckService({
                       </div>
                     </div>
                   </div>
-                )}
+                )} */}
             </div>
           )}
 

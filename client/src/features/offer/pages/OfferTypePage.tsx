@@ -1,12 +1,13 @@
-import { X, Tag, Gift, Ticket, Package, Sparkles, ArrowRight, TrendingDown, Menu } from "lucide-react";
+import { X, Tag, Gift, Ticket, Package, Sparkles, ArrowRight, TrendingDown, Menu, ArrowLeft } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCart } from "../../../context/CartContext";
 import { useCompareStore } from "../../compare/state";
 import { useLanguage } from "../../../context/LanguageContext";
 import  ProductCard  from "../../products/components/ProductCard";
-import { getProductOffers, products } from "../../../data/products";
 import { CURRENCY_LABEL } from "../../../utils/currency";
 import { getProductRef } from "../../../utils/entityRefs";
+import { normalizeOffers } from "../../../utils/offerPricing";
 
 interface OfferTypePageProps {
   offerType: "direct_discount" | "coupon" | "free_product" | "bundle_discount";
@@ -76,11 +77,217 @@ export function OfferTypePage({
   toggleCompare,
   compareItems,
 }: OfferTypePageProps) {
-  // Get all products that have this offer type
-  const heroProducts = products.filter((product) => {
-    const offers = getProductOffers(product as any);
-    return offers.some((offer) => offer.type === offerType);
-  });
+  const [apiProducts, setApiProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+    const baseParams = new URLSearchParams();
+    baseParams.set("limit", "200");
+    baseParams.set("card", "1");
+    baseParams.set("count", "0");
+    baseParams.set("offer_type", offerType);
+
+    setIsLoading(true);
+    (async () => {
+      try {
+        const fetchAll = async (scope: "product" | "color" | "charge", includeActive: boolean) => {
+          const items: any[] = [];
+          const limit = Number(baseParams.get("limit") || 200);
+          let page = 1;
+          while (page <= 200) {
+            const params = new URLSearchParams(baseParams);
+            params.set("offer_scope", scope);
+            params.set("page", String(page));
+            if (includeActive) params.set("active", "true");
+            const res = await fetch(`${apiBase}/products?${params.toString()}`);
+            if (!res.ok) throw new Error("Failed to load products");
+            const json = await res.json();
+            const data = Array.isArray(json?.data) ? json.data : [];
+            if (data.length === 0) break;
+            items.push(...data);
+            if (data.length < limit) break;
+            page += 1;
+          }
+          return items;
+        };
+
+        let productList = await fetchAll("product", true);
+        let colorList = await fetchAll("color", true);
+        let chargeList = await fetchAll("charge", true);
+
+        if (productList.length === 0 && colorList.length === 0 && chargeList.length === 0) {
+          productList = await fetchAll("product", false);
+          colorList = await fetchAll("color", false);
+          chargeList = await fetchAll("charge", false);
+        }
+
+        const byKey = new Map<string, any>();
+        const getKey = (p: any) => String(p?.id || p?.stk_code || p?._id || p?.slug || "");
+        const mergeList = (items: any[]) => {
+          items.forEach((p) => {
+            const key = getKey(p);
+            if (!key) return;
+            const existing = byKey.get(key);
+            if (!existing) {
+              byKey.set(key, p);
+              return;
+            }
+            byKey.set(key, { ...existing, ...p });
+          });
+        };
+        mergeList(productList);
+        mergeList(colorList);
+        mergeList(chargeList);
+
+        if (mounted) {
+          setApiProducts(Array.from(byKey.values()));
+          setIsLoading(false);
+        }
+      } catch {
+        if (mounted) {
+          setApiProducts([]);
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [offerType]);
+
+  const heroProducts = useMemo(() => {
+    const hasOfferType = (offers: any[] | undefined) =>
+      normalizeOffers(Array.isArray(offers) ? offers : []).some((offer) => offer.type === offerType);
+    const parsePrice = (value: unknown): number => {
+      if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+      if (typeof value === "string") {
+        const cleaned = value.replace(/,/g, "").trim();
+        const parsed = Number(cleaned);
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      return 0;
+    };
+
+    return apiProducts
+      .map((product) => {
+        const productHasOffer = hasOfferType(product.offers);
+        const colorVariants = Array.isArray(product.colorVariants) ? product.colorVariants : [];
+        const chargeOptions = Array.isArray(product.chargeOptions) ? product.chargeOptions : [];
+
+        const matchingColors = colorVariants.filter((variant: any) => hasOfferType(variant?.offers));
+        const matchingCharges = chargeOptions.filter((opt: any) => hasOfferType(opt?.offers));
+
+        const resolvedColors =
+          matchingColors.length > 0
+            ? matchingColors
+            : productHasOffer
+            ? colorVariants
+            : [];
+        const resolvedCharges =
+          matchingCharges.length > 0
+            ? matchingCharges
+            : productHasOffer
+            ? chargeOptions
+            : [];
+
+        const hasMatching =
+          productHasOffer || matchingColors.length > 0 || matchingCharges.length > 0;
+
+        if (!hasMatching) return null;
+
+        return {
+          ...product,
+          colorVariants: resolvedColors,
+          chargeOptions: resolvedCharges,
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => parsePrice(b.price) - parsePrice(a.price)) as any[];
+  }, [apiProducts, offerType]);
+
+  const maxSavingsDisplay = useMemo(() => {
+    let maxDiscountPct = 0;
+    let maxDiscountValue = 0;
+    let maxCouponValue = 0;
+    let maxBundlePct = 0;
+    let maxGiftValue = 0;
+
+    const parsePrice = (value: unknown): number => {
+      if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+      if (typeof value === "string") {
+        const cleaned = value.replace(/,/g, "").trim();
+        const parsed = Number(cleaned);
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      return 0;
+    };
+
+    const allProducts = Array.isArray(apiProducts) ? apiProducts : [];
+
+    heroProducts.forEach((product: any) => {
+      const offers = [
+        ...(Array.isArray(product.offers) ? product.offers : []),
+        ...(Array.isArray(product.colorVariants)
+          ? product.colorVariants.flatMap((v: any) => v?.offers || [])
+          : []),
+        ...(Array.isArray(product.chargeOptions)
+          ? product.chargeOptions.flatMap((o: any) => o?.offers || [])
+          : []),
+      ];
+      const normalized = normalizeOffers(offers);
+
+      normalized.forEach((offer) => {
+        if (offer.type === "direct_discount") {
+          if (offer.discountType === "percentage") {
+            maxDiscountPct = Math.max(maxDiscountPct, offer.discountValue);
+          } else {
+            maxDiscountValue = Math.max(maxDiscountValue, offer.discountValue);
+          }
+        }
+        if (offer.type === "coupon") {
+          maxCouponValue = Math.max(maxCouponValue, offer.couponValue);
+        }
+        if (offer.type === "bundle_discount") {
+          maxBundlePct = Math.max(maxBundlePct, offer.discountPercentage);
+        }
+        if (offer.type === "free_product") {
+          const freeId = (offer as any).freeProductId;
+          if (freeId) {
+            const freeProduct = allProducts.find(
+              (p: any) => String(p.id) === String(freeId) || String(p.stk_code) === String(freeId),
+            );
+            if (freeProduct) {
+              maxGiftValue = Math.max(maxGiftValue, parsePrice(freeProduct.price));
+            }
+          }
+        }
+      });
+    });
+
+    switch (offerType) {
+      case "direct_discount":
+        if (maxDiscountPct > 0) return `${Math.round(maxDiscountPct)}%`;
+        if (maxDiscountValue > 0) return `${maxDiscountValue.toLocaleString()} ${CURRENCY_LABEL}`;
+        return "--";
+      case "coupon":
+        return maxCouponValue > 0
+          ? `${maxCouponValue.toLocaleString()} ${CURRENCY_LABEL}`
+          : "--";
+      case "bundle_discount":
+        return maxBundlePct > 0 ? `${Math.round(maxBundlePct)}%` : "--";
+      case "free_product":
+        return maxGiftValue > 0
+          ? `${maxGiftValue.toLocaleString()} ${CURRENCY_LABEL}`
+          : language === "ar"
+          ? "مجاني"
+          : "FREE";
+      default:
+        return "--";
+    }
+  }, [apiProducts, heroProducts, offerType, language]);
 
   const offerInfo = offerTypeInfo(offerType);
   const Icon = offerInfo.icon;
@@ -89,10 +296,10 @@ export function OfferTypePage({
   return (
     <div
       dir={language === "ar" ? "rtl" : "ltr"}
-      className="min-h-screen bg-white fixed inset-0 overflow-y-auto z-[100]"
+      className="min-h-screen bg-white fixed inset-0 overflow-y-auto z-[60]"
     >
       {/* Custom Navigation Bar */}
-      <nav className={`sticky top-0 z-50 bg-gradient-to-r ${offerInfo.gradient} shadow-2xl`}>
+      <nav >
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-20">
             {/* Logo Section */}
@@ -101,9 +308,9 @@ export function OfferTypePage({
                 onClick={onClose}
                 className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md hover:bg-white/30 transition-all flex items-center justify-center group"
               >
-                <ArrowRight
+                <ArrowLeft
                   className={`w-6 h-6 text-white group-hover:scale-110 transition-transform ${
-                    language === "ar" ? "" : "rotate-180"
+                    language === "ar" ?  "rotate-180" : "" 
                   }`}
                 />
               </button>
@@ -221,10 +428,7 @@ export function OfferTypePage({
               
               <div className="bg-white rounded-2xl px-6 py-5 shadow-xl">
                 <div className={`text-4xl font-bold bg-gradient-to-r ${offerInfo.gradient} bg-clip-text text-transparent mb-2`}>
-                  {offerType === "direct_discount" && "30%"}
-                  {offerType === "coupon" && "200K"}
-                  {offerType === "free_product" && "FREE"}
-                  {offerType === "bundle_discount" && "35%"}
+                  {maxSavingsDisplay}
                 </div>
                 <p className="text-sm text-gray-600">
                   {language === "ar" ? "أقصى توفير" : "Max Savings"}
@@ -246,7 +450,18 @@ export function OfferTypePage({
 
       {/* Products Grid Section */}
       <div className="container mx-auto px-4 py-16 bg-white">
-        {heroProducts.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, idx) => (
+              <div key={`offer-skeleton-${idx}`} className="rounded-2xl border border-gray-200 p-4 bg-white">
+                <div className="aspect-square rounded-xl shimmer-surface mb-4" />
+                <div className="h-4 w-3/4 skeleton-line shimmer-surface mb-2" />
+                <div className="h-4 w-1/2 skeleton-line shimmer-surface mb-3" />
+                <div className="h-9 w-full rounded-lg shimmer-surface" />
+              </div>
+            ))}
+          </div>
+        ) : heroProducts.length === 0 ? (
           <div className="text-center py-20">
             <div className="inline-flex items-center justify-center mb-6">
               <div className="bg-gray-100 p-8 rounded-full">
@@ -297,8 +512,21 @@ export function OfferTypePage({
             {/* Products Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {heroProducts.map((product) => {
-                const offers = getProductOffers(product as any);
-                const currentOffer = offers.find((o) => o.type === offerType);
+                const offers = normalizeOffers(Array.isArray(product.offers) ? product.offers : []);
+                const variantOffers = normalizeOffers(
+                  Array.isArray(product.colorVariants)
+                    ? product.colorVariants.flatMap((v: any) => v?.offers || [])
+                    : [],
+                );
+                const chargeOffers = normalizeOffers(
+                  Array.isArray(product.chargeOptions)
+                    ? product.chargeOptions.flatMap((o: any) => o?.offers || [])
+                    : [],
+                );
+                const currentOffer =
+                  offers.find((o) => o.type === offerType) ||
+                  variantOffers.find((o) => o.type === offerType) ||
+                  chargeOffers.find((o) => o.type === offerType);
 
                 return (
                   <div
@@ -386,10 +614,7 @@ export function OfferTypePage({
                         {language === "ar" ? "وفّر حتى" : "Save up to"}
                       </p>
                       <p className={`text-3xl font-bold bg-gradient-to-r ${offerInfo.gradient} bg-clip-text text-transparent`}>
-                        {offerType === "direct_discount" && "30%"}
-                        {offerType === "coupon" && `200,000 ${CURRENCY_LABEL}`}
-                        {offerType === "free_product" && `950,000 ${CURRENCY_LABEL}`}
-                        {offerType === "bundle_discount" && "35%"}
+                        {maxSavingsDisplay}
                       </p>
                     </div>
                   </div>

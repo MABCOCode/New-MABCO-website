@@ -62,7 +62,7 @@
   "admin.orders.today": "اليوم",
   "admin.orders.thisWeek": "هذا الأسبوع",
   "admin.orders.thisMonth": "هذا الشهر",
-  "admin.common.syp": "ل.س",
+  "admin.common.syp": "$",
   "admin.common.refresh": "تحديث",
   "admin.common.items": "منتج",
 
@@ -71,7 +71,7 @@
   "admin.content.syncedProducts": "المنتجات المتزامنة",
   "admin.content.filters": "التصفية",
   "admin.content.status": "الحالة",
-  "admin.content.search": "بحث بالاسم أو SKU...",
+  "admin.content.search": "بحث بالاسم أو stk_code...",
   "admin.content.all": "الكل",
   "admin.content.incomplete": "ناقصة البيانات",
   "admin.content.ready": "جاهزة للنشر",
@@ -94,7 +94,7 @@
   "admin.content.needsWork": "يحتاج استكمال",
   "admin.content.syncInfo": "معلومات المزامنة",
   "admin.content.warning": "تحذير",
-  "admin.content.warningMessage": "هذه المنتجات متزامنة من مصدر خارجي. البيانات الأساسية (الأسعار، SKU) لا يمكن تعديلها. يمكنك فقط استكمال البيانات الناقصة."
+  "admin.content.warningMessage": "هذه المنتجات متزامنة من Poss. البيانات الأساسية (الأسعار، stk_code , العروض) لا يمكن تعديلها. يمكنك فقط استكمال البيانات الناقصة."
   ,
   "admin.content.hideProduct": "إخفاء المنتج",
   "admin.content.showProduct": "إظهار المنتج",
@@ -143,6 +143,7 @@
   "admin.content.tabColors": "صور الألوان",
   "admin.content.tabGallery": "معرض الصور",
   "admin.content.tabSpecs": "المواصفات",
+  "admin.content.tabWhatsInBox": "ما يأتي في العلبة",
   "admin.content.tabCategory": "الفئة والعلامة",
   "admin.content.productNameEn": "اسم المنتج (إنجليزي)",
   "admin.content.productNameAr": "اسم المنتج (عربي)",

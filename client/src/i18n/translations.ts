@@ -415,7 +415,7 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     offers_products_label: "منتج",
 
     // Offers - Cart Offer Display
-    cart_offer_available_offers: "العروض المتاحة",
+    cart_offer_available_offers: "العرض المطبق",
     cart_offer_applied: "مطبق",
     cart_offer_auto_applied: "مطبق تلقائياً",
     cart_offer_free: "مجاني",
@@ -558,7 +558,7 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     addMoreProducts: 'Add More Products',
     filterByCategory: 'Filter by Category',
     filterByBrand: 'Filter by Brand',
-    allCategories: 'All Categories',
+    allCategories: 'Select Category',
     allBrands: 'All Brands',
     product: 'Product',
     price: 'Price',

@@ -1,0 +1,93 @@
+[
+    {
+        "name": "tarassul",
+        "name_Ar": "تراسل",
+        "image_url": "https://mabcoonline.com/Images/logo/tarassul (2).jpg"
+    },
+    {
+        "name": "phone",
+        "name_Ar": "تسديد هاتف",
+        "image_url": "https://mabcoonline.com/Images/logo/phone (2).jpg"
+    },
+    {
+        "name": "Electrical",
+        "name_Ar": "تسديد كهرباء",
+        "image_url": "https://mabcoonline.com/Images/logo/Electrical.jpg"
+    },
+    {
+        "name": "water",
+        "name_Ar": "ماء",
+        "image_url": "https://mabcoonline.com/Images/logo/water.png"
+    },
+    {
+        "name": "Zad",
+        "name_Ar": "زاد",
+        "image_url": "https://mabcoonline.com/Images/logo/10.jpg"
+    },
+    {
+        "name": "IENT",
+        "name_Ar": "آي نت",
+        "image_url": "https://mabcoonline.com/Images/logo/3.jpg"
+    },
+    {
+        "name": "Linet",
+        "name_Ar": "لاينت",
+        "image_url": "https://mabcoonline.com/Images/logo/1.jpg"
+    },
+    {
+        "name": "Sawa",
+        "name_Ar": "سوا",
+        "image_url": "https://mabcoonline.com/Images/logo/14.jpg"
+    },
+    {
+        "name": "Lazer",
+        "name_Ar": "ليزر",
+        "image_url": "https://mabcoonline.com/Images/logo/13.jpg"
+    },
+    {
+        "name": "Pronet",
+        "name_Ar": "برونت",
+        "image_url": "https://mabcoonline.com/Images/logo/12.jpg"
+    },
+    
+    {
+        "name": "Waves",
+        "name_Ar": "أمواج",
+        "image_url": "https://mabcoonline.com/Images/logo/9.jpg"
+    },
+    {
+        "name": "MOIA",
+        "name_Ar": "وزارة الداخلية",
+        "image_url": "https://mabcoonline.com/Images/logo/8.jpg"
+    },
+    {
+        "name": "Nas",
+        "name_Ar": "Nas",
+        "image_url": "https://mabcoonline.com/Images/logo/7.jpg"
+    },
+    {
+        "name": "Aya",
+        "name_Ar": "آية",
+        "image_url": "https://mabcoonline.com/Images/logo/5.jpg"
+    },
+    {
+        "name": "Passport",
+        "name_Ar": "جواز سفر",
+        "image_url": "https://mabcoonline.com/Images/logo/15.jpg"
+    },
+    {
+        "name": "SVU",
+        "name_Ar": "الجامعة السورية الافتراضية",
+        "image_url": "https://mabcoonline.com/Images/logo/16.jpg"
+    },
+    {
+        "name": "Syriatell",
+        "name_Ar": "سيرياتل",
+        "image_url": "https://mabcoonline.com/Images/logo/6.jpg"
+    },
+    {
+        "name": "MTN",
+        "name_Ar": "إم تي إن",
+        "image_url": "https://mabcoonline.com/Images/logo/2.jpg"
+    }
+]

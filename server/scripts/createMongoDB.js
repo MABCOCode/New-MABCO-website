@@ -728,6 +728,12 @@ function getProductIndexes() {
     { spec: { 'colorVariants.name': 1, 'colorVariants.isAvailable': 1 } },
     { spec: { 'chargeOptions.isActive': 1, 'chargeOptions.sortOrder': 1 } },
     { spec: { 'chargeOptions.id': 1 } },
+    { spec: { 'offers.offer_type': 1, updatedAt: -1 } },
+    { spec: { 'offers.type': 1, updatedAt: -1 } },
+    { spec: { 'colorVariants.offers.offer_type': 1 } },
+    { spec: { 'colorVariants.offers.type': 1 } },
+    { spec: { 'chargeOptions.offers.offer_type': 1 } },
+    { spec: { 'chargeOptions.offers.type': 1 } },
     { spec: { updatedAt: -1 } }
   ];
 }

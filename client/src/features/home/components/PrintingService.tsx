@@ -1,21 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CURRENCY_LABEL } from "../../../utils/currency";
 import {
   X,
   Printer,
-  Upload,
   ShoppingCart,
   Check,
-  Image as ImageIcon,
-  Palette,
   Ruler,
   Package,
   ArrowRight,
   Info,
-  AlertCircle,
-  FileImage,
-  Maximize,
-  Layers,
 } from "lucide-react";
 
 interface PrintingServiceProps {
@@ -24,70 +17,37 @@ interface PrintingServiceProps {
   onAddToCart: (item: any) => void;
 }
 
-type PrintType = "tshirt" | "hat" | "mug";
-
 interface PrintProduct {
-  type: PrintType;
+  id: string;
   nameAr: string;
   nameEn: string;
-  icon: string;
   basePrice: number;
   sizes?: string[];
   colors: string[];
-  mockupImage: string;
+  image: string;
+  raw: any;
 }
-
-const printProducts: PrintProduct[] = [
-  {
-    type: "tshirt",
-    nameAr: "طباعة على تيشيرت",
-    nameEn: "T-Shirt Printing",
-    icon: "👕",
-    basePrice: 150000,
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["#FFFFFF", "#000000", "#FF0000", "#0000FF", "#FFFF00", "#00FF00", "#FF69B4", "#FFA500"],
-    mockupImage: "https://images.unsplash.com/photo-1737094540182-d602f8a7dd1d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3aGl0ZSUyMGJsYW5rJTIwdC1zaGlydCUyMG1vY2t1cCUyMGZyb250fGVufDF8fHx8MTc3MDgwNDYyNXww&ixlib=rb-4.1.0&q=80&w=1080",
-  },
-  {
-    type: "hat",
-    nameAr: "طباعة على قبعة",
-    nameEn: "Hat Printing",
-    icon: "🧢",
-    basePrice: 100000,
-    colors: ["#000000", "#FFFFFF", "#FF0000", "#0000FF", "#00FF00", "#FFA500", "#8B4513"],
-    mockupImage: "https://images.unsplash.com/photo-1691256676359-20e5c6d4bc92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibGFuayUyMGJhc2ViYWxsJTIwY2FwJTIwbW9ja3VwJTIwZnJvbnR8ZW58MXx8fHwxNzcwODA0NjI2fDA&ixlib=rb-4.1.0&q=80&w=1080",
-  },
-  {
-    type: "mug",
-    nameAr: "طباعة على كوب",
-    nameEn: "Mug Printing",
-    icon: "☕",
-    basePrice: 80000,
-    colors: ["#FFFFFF", "#000000", "#FF0000", "#0000FF", "#FFFF00", "#00FF00", "#FF69B4"],
-    mockupImage: "https://images.unsplash.com/photo-1622445272011-0f71226e7622?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3aGl0ZSUyMGNvZmZlZSUyMG11ZyUyMG1vY2t1cCUyMGJsYW5rfGVufDF8fHx8MTc3MDgwNDYyNnww&ixlib=rb-4.1.0&q=80&w=1080",
-  },
-];
 
 export function PrintingService({
   language,
   onClose,
   onAddToCart,
 }: PrintingServiceProps) {
-  const [selectedType, setSelectedType] = useState<PrintType | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<string>("");
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [customText, setCustomText] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [imageError, setImageError] = useState<string>("");
+  const [step, setStep] = useState<1 | 2>(1);
+  const [printProducts, setPrintProducts] = useState<PrintProduct[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const t = {
     ar: {
       title: "خدمة الطباعة المخصصة",
       subtitle: "صمم منتجك الفريد معنا",
       selectProduct: "اختر المنتج",
-      customize: "التخصيص",
       confirm: "التأكيد",
       chooseType: "اختر نوع المنتج",
       uploadDesign: "ارفع تصميمك",
@@ -105,6 +65,7 @@ export function PrintingService({
       syp: CURRENCY_LABEL,
       uploadImage: "رفع صورة",
       imageUploaded: "تم رفع الصورة",
+      imageNote: "سيتم تسليم صورة التصميم إلى صالة العرض بعد تأكيد الطلب",
       preview: "المعاينة",
       productDetails: "تفاصيل المنتج",
       designType: "نوع التصميم",
@@ -132,7 +93,6 @@ export function PrintingService({
       title: "Custom Printing Service",
       subtitle: "Design your unique product with us",
       selectProduct: "Select Product",
-      customize: "Customize",
       confirm: "Confirm",
       chooseType: "Choose product type",
       uploadDesign: "Upload your design",
@@ -150,6 +110,7 @@ export function PrintingService({
       syp: CURRENCY_LABEL,
       uploadImage: "Upload Image",
       imageUploaded: "Image Uploaded",
+      imageNote: "Design image will be provided to the showroom after order confirmation",
       preview: "Preview",
       productDetails: "Product Details",
       designType: "Design Type",
@@ -175,72 +136,100 @@ export function PrintingService({
     },
   };
 
-  const selectedProduct = printProducts.find((p) => p.type === selectedType);
+  useEffect(() => {
+    let mounted = true;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+
+    const extractColors = (raw: any) => {
+      const list = Array.isArray(raw) ? raw : [];
+      return list
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (!item || typeof item !== "object") return "";
+          return item.hex || item.color || item.value || item.name || "";
+        })
+        .filter((value) => String(value).trim().length > 0);
+    };
+
+    const extractSizes = (raw: any) => {
+      const list = Array.isArray(raw) ? raw : [];
+      return list
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (!item || typeof item !== "object") return "";
+          return item.size || item.label || item.value || "";
+        })
+        .filter((value) => String(value).trim().length > 0);
+    };
+
+    const load = async () => {
+      setIsLoadingProducts(true);
+      setLoadError(null);
+      try {
+        const params = new URLSearchParams();
+        params.set("brand_code", "3002");
+        params.set("cat_code", "04");
+        params.set("limit", "200");
+        params.set("card", "1");
+        params.set("count", "0");
+        const res = await fetch(`${apiBase}/products?${params.toString()}`);
+        if (!res.ok) throw new Error("Failed to load products");
+        const json = await res.json();
+        const items = Array.isArray(json?.data) ? json.data : [];
+        const mapped: PrintProduct[] = items.map((p: any) => ({
+          id: String(p.id || p.stk_code || p._id || Math.random()),
+          nameAr: p.nameAr || p.name || "",
+          nameEn: p.name || p.nameEn || "",
+          basePrice: Number(p.price || 0),
+          sizes: extractSizes(p.sizes || p.variants || p.sizeVariants),
+          colors: extractColors(p.colorVariants || p.colors),
+          image: p.image || "",
+          raw: p,
+        }));
+        if (mounted) {
+          setPrintProducts(mapped);
+          setIsLoadingProducts(false);
+        }
+      } catch (err) {
+        if (mounted) {
+          setLoadError(language === "ar" ? "تعذر تحميل المنتجات" : "Failed to load products");
+          setIsLoadingProducts(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [language]);
+
+  const selectedProduct = printProducts.find((p) => p.id === selectedProductId);
   const totalPrice = selectedProduct ? selectedProduct.basePrice * quantity : 0;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file size (10MB max)
-      if (file.size > 10 * 1024 * 1024) {
-        setImageError(
-          language === "ar"
-            ? "حجم الملف كبير جداً (الحد الأقصى 10 ميجابايت)"
-            : "File size too large (max 10 MB)"
-        );
-        return;
-      }
-
-      // Validate file type
-      const validTypes = ["image/png", "image/jpeg", "image/jpg"];
-      if (!validTypes.includes(file.type)) {
-        setImageError(
-          language === "ar"
-            ? "نوع الملف غير مدعوم (PNG, JPG فقط)"
-            : "File type not supported (PNG, JPG only)"
-        );
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const img = new Image();
-        img.onload = () => {
-          // Check image dimensions
-          if (img.width < 1000 || img.height < 1000) {
-            setImageError(
-              language === "ar"
-                ? "الصورة صغيرة جداً (الحد الأدنى 1000×1000 بكسل)"
-                : "Image too small (minimum 1000×1000 pixels)"
-            );
-            return;
-          }
-
-          setUploadedImage(reader.result as string);
-          setImageError("");
-        };
-        img.src = reader.result as string;
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  useEffect(() => {
+    setSelectedColor("");
+    setSelectedSize("");
+    setCustomText("");
+    setQuantity(1);
+  }, [selectedProductId]);
 
   const handleAddToCart = () => {
     if (!selectedProduct) return;
 
     const item = {
-      id: Date.now(),
+      ...selectedProduct.raw,
+      id: selectedProduct.raw?.id || selectedProduct.id,
       name: language === "ar" ? selectedProduct.nameAr : selectedProduct.nameEn,
       nameAr: selectedProduct.nameAr,
       price: totalPrice,
       quantity,
-      image: uploadedImage || selectedProduct.mockupImage,
+      image: selectedProduct.image,
       customization: {
-        type: selectedProduct.type,
         color: selectedColor,
         size: selectedSize,
-        design: uploadedImage ? "image" : "text",
-        designContent: uploadedImage || customText,
+        design: customText ? "text" : "showroom",
+        designContent: customText || "",
       },
     };
 
@@ -248,11 +237,9 @@ export function PrintingService({
     onClose();
   };
 
-  const canProceedToStep2 = selectedType !== null;
-  const canProceedToStep3 =
-    selectedColor &&
-    (selectedProduct?.sizes ? selectedSize : true) &&
-    (uploadedImage || customText);
+  const requiresColor = (selectedProduct?.colors || []).length > 0;
+  const requiresSize = (selectedProduct?.sizes || []).length > 0;
+  const canProceedToStep2 = selectedProductId !== null;
 
   // Product Preview Component
   const ProductPreview = () => {
@@ -270,7 +257,15 @@ export function PrintingService({
     return (
       <div className="aspect-square rounded-2xl border-4 border-dashed border-purple-300 bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center"  style={{ zIndex: 2000 }}>
         <div className="text-center p-8">
-          <div className="text-8xl mb-4">{selectedProduct.icon}</div>
+          {selectedProduct.image ? (
+            <img
+              src={selectedProduct.image}
+              alt={language === "ar" ? selectedProduct.nameAr : selectedProduct.nameEn}
+              className="w-40 h-40 object-contain mx-auto mb-4"
+            />
+          ) : (
+            <Package className="w-20 h-20 text-purple-300 mx-auto mb-4" />
+          )}
           <h3 className="text-2xl font-bold text-gray-900 mb-2">
             {language === "ar" ? selectedProduct.nameAr : selectedProduct.nameEn}
           </h3>
@@ -283,19 +278,12 @@ export function PrintingService({
               <span className="text-gray-600">{language === "ar" ? "اللون المختار" : "Selected Color"}</span>
             </div>
           )}
-          {(uploadedImage || customText) && (
+          {customText && (
             <div className="mt-4 p-4 bg-white rounded-lg border-2 border-purple-200">
-              {uploadedImage ? (
-                <div className="flex items-center gap-2 text-green-600">
-                  <Check className="w-5 h-5" />
-                  <span className="font-semibold">{language === "ar" ? "تم رفع التصميم" : "Design Uploaded"}</span>
-                </div>
-              ) : (
-                <div className="text-gray-700">
-                  <p className="text-sm font-semibold mb-2">{language === "ar" ? "النص:" : "Text:"}</p>
-                  <p className="text-lg font-bold">{customText}</p>
-                </div>
-              )}
+              <div className="text-gray-700">
+                <p className="text-sm font-semibold mb-2">{language === "ar" ? "النص:" : "Text:"}</p>
+                <p className="text-lg font-bold">{customText}</p>
+              </div>
             </div>
           )}
         </div>
@@ -338,42 +326,40 @@ export function PrintingService({
             </button>
           </div>
 
-          {/* Steps Progress */}
-          <div className="flex items-center gap-4">
-            {[1, 2, 3].map((s) => (
-              <div key={s} className="flex items-center flex-1">
+        {/* Steps Progress */}
+        <div className="flex items-center gap-4">
+          {[1, 2].map((s) => (
+            <div key={s} className="flex items-center flex-1">
+              <div
+                className={`flex items-center gap-2 ${
+                  step >= s ? "text-white" : "text-purple-200"
+                }`}
+              >
                 <div
-                  className={`flex items-center gap-2 ${
-                    step >= s ? "text-white" : "text-purple-200"
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                    step >= s
+                      ? "bg-white text-purple-500"
+                      : "bg-white/20 text-purple-200"
                   }`}
                 >
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                      step >= s
-                        ? "bg-white text-purple-500"
-                        : "bg-white/20 text-purple-200"
-                    }`}
-                  >
-                    {step > s ? <Check className="w-5 h-5" /> : s}
-                  </div>
-                  <span className="font-semibold hidden sm:inline">
-                    {s === 1
-                      ? t[language].selectProduct
-                      : s === 2
-                      ? t[language].customize
-                      : t[language].confirm}
-                  </span>
+                  {step > s ? <Check className="w-5 h-5" /> : s}
                 </div>
-                {s < 3 && (
-                  <div
-                    className={`flex-1 h-1 mx-2 rounded ${
-                      step > s ? "bg-white" : "bg-white/20"
-                    }`}
-                  ></div>
-                )}
+                <span className="font-semibold hidden sm:inline">
+                  {s === 1
+                    ? t[language].selectProduct
+                    : t[language].confirm}
+                </span>
               </div>
-            ))}
-          </div>
+              {s < 2 && (
+                <div
+                  className={`flex-1 h-1 mx-2 rounded ${
+                    step > s ? "bg-white" : "bg-white/20"
+                  }`}
+                ></div>
+              )}
+            </div>
+          ))}
+        </div>
         </div>
 
         {/* Content */}
@@ -385,238 +371,57 @@ export function PrintingService({
                 <Package className="w-6 h-6 text-purple-500" />
                 {t[language].chooseType}
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                {printProducts.map((product) => (
-                  <button
-                    key={product.type}
-                    onClick={() => setSelectedType(product.type)}
-                    className={`p-6 rounded-2xl border-2 transition-all text-center ${
-                      selectedType === product.type
-                        ? "border-purple-500 bg-purple-50 shadow-lg scale-105"
-                        : "border-gray-200 hover:border-purple-300 hover:shadow-md"
-                    }`}
-                  >
-                    <div className="text-6xl mb-4">{product.icon}</div>
-                    <h4 className="text-xl font-bold text-gray-900 mb-2">
-                      {language === "ar" ? product.nameAr : product.nameEn}
-                    </h4>
-                    <p className="text-2xl font-bold text-purple-500 mb-1">
-                      {product.basePrice.toLocaleString()} {t[language].syp}
-                    </p>
-                    <p className="text-sm text-gray-600">{t[language].basePrice}</p>
-                  </button>
-                ))}
-              </div>
+              {isLoadingProducts ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {Array.from({ length: 6 }).map((_, idx) => (
+                    <div key={`print-skeleton-${idx}`} className="p-6 rounded-2xl border-2 border-gray-200">
+                      <div className="w-full h-40 rounded-xl shimmer-surface mb-4" />
+                      <div className="h-4 w-3/4 mx-auto shimmer-surface mb-2" />
+                      <div className="h-4 w-1/2 mx-auto shimmer-surface" />
+                    </div>
+                  ))}
+                </div>
+              ) : loadError ? (
+                <div className="text-center text-red-600 font-semibold">{loadError}</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {printProducts.map((product) => (
+                    <button
+                      key={product.id}
+                      onClick={() => setSelectedProductId(product.id)}
+                      className={`p-6 rounded-2xl border-2 transition-all text-center ${
+                        selectedProductId === product.id
+                          ? "border-purple-500 bg-purple-50 shadow-lg scale-105"
+                          : "border-gray-200 hover:border-purple-300 hover:shadow-md"
+                      }`}
+                    >
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={language === "ar" ? product.nameAr : product.nameEn}
+                          className="w-full h-40 object-contain rounded-xl mb-4"
+                        />
+                      ) : (
+                        <div className="w-full h-40 rounded-xl bg-gray-100 flex items-center justify-center mb-4">
+                          <Package className="w-10 h-10 text-gray-400" />
+                        </div>
+                      )}
+                      <h4 className="text-xl font-bold text-gray-900 mb-2">
+                        {language === "ar" ? product.nameAr : product.nameEn}
+                      </h4>
+                      <p className="text-2xl font-bold text-purple-500 mb-1">
+                        {product.basePrice.toLocaleString()} {t[language].syp}
+                      </p>
+                      <p className="text-sm text-gray-600">{t[language].basePrice}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Step 2: Customize */}
+          {/* Step 2: Confirm */}
           {step === 2 && selectedProduct && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left: Options */}
-              <div className="space-y-6">
-                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Palette className="w-6 h-6 text-purple-500" />
-                  {t[language].customize}
-                </h3>
-
-                {/* Color Selection */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-3">
-                    {t[language].selectColor}
-                  </label>
-                  <div className="flex flex-wrap gap-3">
-                    {selectedProduct.colors.map((color) => (
-                      <button
-                        key={color}
-                        onClick={() => setSelectedColor(color)}
-                        className={`w-12 h-12 rounded-lg border-4 transition-all ${
-                          selectedColor === color
-                            ? "border-purple-500 scale-110 shadow-lg"
-                            : "border-gray-300 hover:border-gray-400"
-                        }`}
-                        style={{ backgroundColor: color }}
-                        title={color}
-                      >
-                        {selectedColor === color && (
-                          <Check
-                            className="w-full h-full p-2"
-                            style={{ color: color === "#FFFFFF" || color === "#FFFF00" ? "#000000" : "#FFFFFF" }}
-                          />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Size Selection */}
-                {selectedProduct.sizes && (
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-3">
-                      {t[language].selectSize}
-                    </label>
-                    <div className="flex flex-wrap gap-3">
-                      {selectedProduct.sizes.map((size) => (
-                        <button
-                          key={size}
-                          onClick={() => setSelectedSize(size)}
-                          className={`px-6 py-3 rounded-lg border-2 font-bold transition-all ${
-                            selectedSize === size
-                              ? "border-purple-500 bg-purple-50 text-purple-700 scale-105"
-                              : "border-gray-300 text-gray-700 hover:border-purple-300"
-                          }`}
-                        >
-                          {size}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Image Requirements */}
-                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                  <div className="flex items-start gap-2 mb-3">
-                    <FileImage className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <span className="font-bold text-blue-900">{t[language].imageRequirements}</span>
-                  </div>
-                  <ul className="space-y-1 text-sm text-blue-800">
-                    <li className="flex items-start gap-2">
-                      <Maximize className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      <span>{t[language].requirement1}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Package className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      <span>{t[language].requirement2}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <FileImage className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      <span>{t[language].requirement3}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Layers className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      <span>{t[language].requirement4}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      <span>{t[language].requirement5}</span>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Design Upload */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-3">
-                    {t[language].uploadDesign}
-                  </label>
-                  <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-500 transition-colors cursor-pointer bg-gray-50">
-                    {uploadedImage ? (
-                      <div className="flex items-center gap-2 text-green-600">
-                        <Check className="w-5 h-5" />
-                        <span className="font-semibold">{t[language].imageUploaded}</span>
-                      </div>
-                    ) : (
-                      <>
-                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                        <span className="text-gray-600 font-semibold">
-                          {t[language].uploadImage}
-                        </span>
-                        <span className="text-xs text-gray-500 mt-1">PNG, JPG (Max 10MB)</span>
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                  </label>
-                  {imageError && (
-                    <div className="mt-2 flex items-start gap-2 text-red-600 text-sm">
-                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      <span>{imageError}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Text Input */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-3">
-                    {t[language].orAddText}
-                  </label>
-                  <textarea
-                    value={customText}
-                    onChange={(e) => setCustomText(e.target.value)}
-                    placeholder={t[language].textPlaceholder}
-                    rows={4}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                  />
-                </div>
-
-                {/* Design Guidelines */}
-                <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
-                  <div className="flex items-start gap-2 mb-3">
-                    <Info className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                    <span className="font-bold text-purple-900">{t[language].imageGuidelines}</span>
-                  </div>
-                  <ul className="space-y-1 text-sm text-purple-800">
-                    <li>• {t[language].guideline1}</li>
-                    <li>• {t[language].guideline2}</li>
-                    <li>• {t[language].guideline3}</li>
-                    <li>• {t[language].guideline4}</li>
-                  </ul>
-                </div>
-
-                {/* Quantity */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-3">
-                    {t[language].quantity}
-                  </label>
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-12 h-12 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors font-bold text-xl"
-                    >
-                      -
-                    </button>
-                    <span className="text-2xl font-bold text-gray-900 w-16 text-center">
-                      {quantity}
-                    </span>
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg transition-all font-bold text-xl"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Preview */}
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <ImageIcon className="w-6 h-6 text-purple-500" />
-                  {t[language].preview}
-                </h3>
-                <ProductPreview />
-
-                {/* Notes */}
-                <div className="mt-6 bg-purple-50 rounded-xl p-4 border border-purple-200">
-                  <div className="flex items-start gap-2 mb-2">
-                    <Info className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                    <span className="font-bold text-purple-900">{t[language].notes}</span>
-                  </div>
-                  <ul className="space-y-1 text-sm text-purple-800">
-                    <li>• {t[language].note1}</li>
-                    <li>• {t[language].note2}</li>
-                    <li>• {t[language].note3}</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Confirm */}
-          {step === 3 && selectedProduct && (
             <div className="max-w-2xl mx-auto">
               <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                 <Check className="w-6 h-6 text-green-500" />
@@ -632,6 +437,14 @@ export function PrintingService({
 
                   {/* Details */}
                   <div className="space-y-4">
+                    <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-blue-900 font-semibold">
+                          {t[language].imageNote}
+                        </span>
+                      </div>
+                    </div>
                     <div>
                       <p className="text-sm text-gray-600 mb-1">
                         {language === "ar" ? "المنتج" : "Product"}
@@ -666,7 +479,7 @@ export function PrintingService({
                     <div>
                       <p className="text-sm text-gray-600 mb-1">{t[language].designType}</p>
                       <p className="text-lg font-bold text-gray-900">
-                        {uploadedImage ? t[language].imageDesign : t[language].textDesign}
+                        {customText ? t[language].textDesign : (language === "ar" ? "سوف يتم تسليم التصميم في صالة العرض" : "Design provided at showroom")}
                       </p>
                     </div>
 
@@ -693,7 +506,7 @@ export function PrintingService({
           <div>
             {step > 1 && (
               <button
-                onClick={() => setStep((step - 1) as 1 | 2 | 3)}
+                onClick={() => setStep((step - 1) as 1 | 2)}
                 className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all"
               >
                 {t[language].back}
@@ -702,15 +515,13 @@ export function PrintingService({
           </div>
 
           <div className="flex items-center gap-4">
-            {step < 3 ? (
+            {step < 2 ? (
               <button
                 onClick={() => {
                   if (step === 1 && canProceedToStep2) setStep(2);
-                  if (step === 2 && canProceedToStep3) setStep(3);
                 }}
                 disabled={
-                  (step === 1 && !canProceedToStep2) ||
-                  (step === 2 && !canProceedToStep3)
+                  step === 1 && !canProceedToStep2
                 }
                 className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >

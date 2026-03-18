@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 // Allow using google maps JS types at runtime without requiring TS types
 declare const google: any;
 declare global {
@@ -51,12 +51,29 @@ interface CartItem {
 }
 
 interface Showroom {
-  id: number;
+  id: string;
   name: string;
   city: string;
   address: string;
   phone: string;
   hours: string;
+  nameAr?: string;
+  cityAr?: string;
+  addressAr?: string;
+  nameEn?: string;
+  cityEn?: string;
+  addressEn?: string;
+}
+
+interface RawShowroom {
+  Loc_code: string;
+  City_name: string;
+  Loc_name: string;
+  Phone: string;
+  Address: string;
+  Winter_from_date: string;
+  Winter_to_date: string;
+  week_end: string;
 }
 
 interface CheckoutPageProps {
@@ -77,32 +94,6 @@ interface LocationData {
 }
 
 
-const showrooms: Showroom[] = [
-  {
-    id: 1,
-    name: "MABCO Damascus - Main Branch",
-    city: "Damascus",
-    address: "Damascus, Mazzeh Highway, near Al-Jalaa Stadium",
-    phone: "+963 11 9909",
-    hours: "9:00 AM - 8:00 PM",
-  },
-  {
-    id: 2,
-    name: "MABCO Aleppo",
-    city: "Aleppo",
-    address: "Aleppo, Al-Furqan Street",
-    phone: "+963 21 5555",
-    hours: "9:00 AM - 7:00 PM",
-  },
-  {
-    id: 3,
-    name: "MABCO Homs",
-    city: "Homs",
-    address: "Homs, Al-Quwatli Street",
-    phone: "+963 31 4444",
-    hours: "9:00 AM - 7:00 PM",
-  },
-];
 
 // Default center for Syria (Damascus)
 const DEFAULT_CENTER = { lat: 33.5138, lng: 36.2765 };
@@ -110,6 +101,7 @@ const DEFAULT_CENTER = { lat: 33.5138, lng: 36.2765 };
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useCart } from "../../../context/CartContext";
+import { CartOfferDisplay } from "@/features/offer/components/CartOfferDisplay";
 
 export function CheckoutPage() {
   const { language } = useLanguage();
@@ -138,15 +130,104 @@ export function CheckoutPage() {
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [selectedShowroom, setSelectedShowroom] = useState<Showroom | null>(null);
   const [showroomSearch, setShowroomSearch] = useState("");
+  const [showrooms, setShowrooms] = useState<Showroom[]>([]);
+  const [showroomsLoading, setShowroomsLoading] = useState(true);
+  const [showroomsError, setShowroomsError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [appliedCoupons, setAppliedCoupons] = useState<Map<number, CouponOffer>>(new Map());
-  const [freeProductsAdded, setFreeProductsAdded] = useState<Map<number, number>>(new Map());
-  const [bundleProductsAdded, setBundleProductsAdded] = useState<Map<number, number[]>>(new Map());
+  const [appliedCoupons, setAppliedCoupons] = useState<Map<string, CouponOffer>>(new Map());
+  const [freeProductsAdded, setFreeProductsAdded] = useState<Map<string, number>>(new Map());
+  const [bundleProductsAdded, setBundleProductsAdded] = useState<Map<string, number[]>>(new Map());
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any | null>(null);
   const markerRef = useRef<any | null>(null);
+  const showroomSliderRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const resolveList = (data: any, lang: "ar" | "en") => {
+      if (Array.isArray(data)) {
+        const directList = data.find((item) => item && Array.isArray(item?.[lang]));
+        if (directList) return directList[lang];
+        if (data.length > 0 && Array.isArray(data[0]?.[lang])) return data[0][lang];
+        return data;
+      }
+      if (data && Array.isArray(data[lang])) return data[lang];
+      return [];
+    };
+
+    (async () => {
+      setShowroomsLoading(true);
+      setShowroomsError(null);
+      try {
+        const res = await fetch("/static/showrooms.json");
+        if (!res.ok) throw new Error(`Failed to load showrooms: ${res.status}`);
+        const json = await res.json();
+        if (!mounted) return;
+
+        const arList: RawShowroom[] = resolveList(json, "ar");
+        const enList: RawShowroom[] = resolveList(json, "en");
+        const byCode = new Map<string, { ar?: RawShowroom; en?: RawShowroom }>();
+
+        arList.forEach((row) => {
+          if (!row?.Loc_code) return;
+          const entry = byCode.get(row.Loc_code) || {};
+          entry.ar = row;
+          byCode.set(row.Loc_code, entry);
+        });
+
+        enList.forEach((row) => {
+          if (!row?.Loc_code) return;
+          const entry = byCode.get(row.Loc_code) || {};
+          entry.en = row;
+          byCode.set(row.Loc_code, entry);
+        });
+
+        const rows: Showroom[] = Array.from(byCode.values())
+          .map(({ ar, en }) => {
+            const chosen = (language === "ar" ? ar : en) || ar || en;
+            if (!chosen) return null;
+            const hours = `${chosen.Winter_from_date || ""} ${chosen.Winter_to_date || ""}`.trim();
+            return {
+              id: chosen.Loc_code,
+              name:
+                (language === "ar" ? ar?.Loc_name : en?.Loc_name) ||
+                chosen.Loc_name ||
+                "",
+              city:
+                (language === "ar" ? ar?.City_name : en?.City_name) ||
+                chosen.City_name ||
+                "",
+              address:
+                (language === "ar" ? ar?.Address : en?.Address) ||
+                chosen.Address ||
+                "",
+              phone: chosen.Phone || ar?.Phone || en?.Phone || "",
+              hours,
+              nameAr: ar?.Loc_name,
+              cityAr: ar?.City_name,
+              addressAr: ar?.Address,
+              nameEn: en?.Loc_name,
+              cityEn: en?.City_name,
+              addressEn: en?.Address,
+            };
+          })
+          .filter(Boolean) as Showroom[];
+
+        setShowrooms(rows);
+      } catch (err: any) {
+        setShowroomsError(err?.message || "Failed to load showrooms.");
+        setShowrooms([]);
+      } finally {
+        if (mounted) setShowroomsLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [language]);
 
   // Load Google Maps
   useEffect(() => {
@@ -163,22 +244,24 @@ export function CheckoutPage() {
   }, [fulfillmentType]);
 
   useEffect(() => {
-    const nextFree = new Map<number, number>();
-    const nextBundle = new Map<number, number[]>();
+    const nextFree = new Map<string, number>();
+    const nextBundle = new Map<string, number[]>();
 
     cartItems.forEach((item) => {
       if (!item.linkedToProductId) return;
-      const relatedId = item.productId ?? Number(item.id);
-      if (!relatedId) return;
+      const linkedKey = String(item.linkedToProductId);
+      const rawRelatedId = item.productId ?? item.id;
+      const relatedId = typeof rawRelatedId === "number" ? rawRelatedId : Number(rawRelatedId);
+      if (!Number.isFinite(relatedId) || relatedId <= 0) return;
 
       if (item.isFreeGift) {
-        nextFree.set(item.linkedToProductId, relatedId);
+        nextFree.set(linkedKey, relatedId);
       }
 
       if (item.isBundleItem) {
-        const list = nextBundle.get(item.linkedToProductId) ?? [];
+        const list = nextBundle.get(linkedKey) ?? [];
         if (!list.includes(relatedId)) {
-          nextBundle.set(item.linkedToProductId, [...list, relatedId]);
+          nextBundle.set(linkedKey, [...list, relatedId]);
         }
       }
     });
@@ -276,8 +359,9 @@ export function CheckoutPage() {
   };
 
   // Calculate prices
-  const parsePrice = (price: string | undefined) => {
-    if (!price || typeof price !== 'string') return 0;
+  const parsePrice = (price: string | number | undefined) => {
+    if (price === null || typeof price === "undefined") return 0;
+    if (typeof price === "number") return Number.isFinite(price) ? price : 0;
     return parseInt(price.replace(/,/g, "")) || 0;
   };
   const subtotal = cartItems.reduce((sum, item) => sum + parsePrice(item.price) * item.quantity, 0);
@@ -297,12 +381,19 @@ export function CheckoutPage() {
         savings += bundleSavings * item.quantity;
       }
 
-      const productId = item.productId ?? Number(item.id);
+      const productId = item.productId ?? item.id;
       if (!productId) return;
-      const offers = getProductOffers(productId);
+      const offers = item.appliedOffers?.length
+        ? getProductOffers({ offers: item.appliedOffers } as any)
+        : getProductOffers(productId);
       offers.forEach((offer) => {
         if (offer.type === "direct_discount") {
-          const itemPrice = parsePrice(item.price);
+          const itemPrice =
+            typeof (item as any).basePrice === "number"
+              ? (item as any).basePrice
+              : item.oldPrice
+              ? parsePrice(item.oldPrice)
+              : parsePrice(item.price);
           if (offer.discountType === "percentage") {
             savings += (itemPrice * offer.discountValue / 100) * item.quantity;
           } else {
@@ -327,40 +418,63 @@ export function CheckoutPage() {
   const formatPrice = (price: number) => price.toLocaleString();
 
   // Filter showrooms
-  const filteredShowrooms = showrooms.filter((showroom) =>
-    showroom.name.toLowerCase().includes(showroomSearch.toLowerCase()) ||
-    showroom.city.toLowerCase().includes(showroomSearch.toLowerCase())
-  );
+  const filteredShowrooms = showrooms
+    .slice()
+    .sort((a, b) => {
+      const cityCompare = a.city.localeCompare(b.city);
+      if (cityCompare !== 0) return cityCompare;
+      return a.name.localeCompare(b.name);
+    })
+    .filter((showroom) =>
+      [
+        showroom.name,
+        showroom.city,
+        showroom.address,
+        showroom.nameAr,
+        showroom.cityAr,
+        showroom.addressAr,
+        showroom.nameEn,
+        showroom.cityEn,
+        showroom.addressEn,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(showroomSearch.toLowerCase())
+    );
 
-  const clearCouponOffer = (productId: number) => {
+  const clearCouponOffer = (productId: number | string) => {
     setAppliedCoupons((prev) => {
-      if (!prev.has(productId)) return prev;
+      const key = String(productId);
+      if (!prev.has(key)) return prev;
       const next = new Map(prev);
-      next.delete(productId);
+      next.delete(key);
       return next;
     });
   };
 
-  const clearFreeOffer = (productId: number) => {
+  const clearFreeOffer = (productId: number | string) => {
+    const key = String(productId);
     cartItems
-      .filter((item) => item.isFreeGift && item.linkedToProductId === productId)
+      .filter((item) => item.isFreeGift && String(item.linkedToProductId) === key)
       .forEach((item) => removeFromCart(item.id));
     setFreeProductsAdded((prev) => {
-      if (!prev.has(productId)) return prev;
+      if (!prev.has(key)) return prev;
       const next = new Map(prev);
-      next.delete(productId);
+      next.delete(key);
       return next;
     });
   };
 
-  const clearBundleOffer = (productId: number) => {
+  const clearBundleOffer = (productId: number | string) => {
+    const key = String(productId);
     cartItems
-      .filter((item) => item.isBundleItem && item.linkedToProductId === productId)
+      .filter((item) => item.isBundleItem && String(item.linkedToProductId) === key)
       .forEach((item) => removeFromCart(item.id));
     setBundleProductsAdded((prev) => {
-      if (!prev.has(productId)) return prev;
+      if (!prev.has(key)) return prev;
       const next = new Map(prev);
-      next.delete(productId);
+      next.delete(key);
       return next;
     });
   };
@@ -986,43 +1100,104 @@ export function CheckoutPage() {
                     />
                   </div>
 
-                  {/* Showroom List */}
-                  <div className="space-y-3">
-                    {filteredShowrooms.map((showroom) => (
-                      <button
-                        key={showroom.id}
-                        onClick={() => setSelectedShowroom(showroom)}
-                        className={`w-full p-4 rounded-xl border-2 transition-all duration-300 text-left ${
-                          selectedShowroom?.id === showroom.id
-                            ? "border-[#009FE3] bg-blue-50 shadow-md"
-                            : "border-gray-200 hover:border-[#009FE3]/50 hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <h3 className="font-bold text-gray-900 mb-1">{showroom.name}</h3>
-                            <div className="text-sm text-gray-600 space-y-1">
-                              <p className="flex items-center gap-2">
-                                <MapPin className="w-4 h-4" />
-                                {showroom.address}
-                              </p>
-                              <p className="flex items-center gap-2">
-                                <Phone className="w-4 h-4" />
-                                {showroom.phone}
-                              </p>
-                              <p className="flex items-center gap-2">
-                                <Clock className="w-4 h-4" />
-                                {showroom.hours}
-                              </p>
-                            </div>
-                          </div>
-                          {selectedShowroom?.id === showroom.id && (
-                            <CheckCircle className="w-6 h-6 text-[#009FE3] flex-shrink-0" />
-                          )}
+                  {showroomsLoading && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {Array.from({ length: 4 }).map((_, idx) => (
+                        <div
+                          key={`showroom-skeleton-${idx}`}
+                          className="rounded-xl border-2 border-gray-100 bg-white p-4"
+                        >
+                          <div className="h-4 w-2/3 skeleton-line shimmer-surface mb-3" />
+                          <div className="h-3 w-full skeleton-line shimmer-surface mb-2" />
+                          <div className="h-3 w-5/6 skeleton-line shimmer-surface mb-2" />
+                          <div className="h-3 w-1/2 skeleton-line shimmer-surface" />
                         </div>
-                      </button>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!showroomsLoading && showroomsError && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+                      {showroomsError}
+                    </div>
+                  )}
+
+                  {!showroomsLoading && !showroomsError && (
+                    <>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm text-gray-600">
+                          {language === "ar" ? "اختر المعرض" : "Select a showroom"}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (showroomSliderRef.current) {
+                                showroomSliderRef.current.scrollBy({ top: -240, behavior: "smooth" });
+                              }
+                            }}
+                            className="w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:text-[#009FE3] hover:border-[#009FE3] transition-colors"
+                            aria-label="Scroll up"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (showroomSliderRef.current) {
+                                showroomSliderRef.current.scrollBy({ top: 240, behavior: "smooth" });
+                              }
+                            }}
+                            className="w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:text-[#009FE3] hover:border-[#009FE3] transition-colors"
+                            aria-label="Scroll down"
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
+
+                      <div
+                        ref={showroomSliderRef}
+                        className="space-y-3 max-h-[384px] overflow-y-auto pr-1 scrollbar-hide snap-y snap-mandatory"
+                      >
+                        {filteredShowrooms.map((showroom) => (
+                          <button
+                            key={showroom.id}
+                            onClick={() => setSelectedShowroom(showroom)}
+                            className={`w-full min-h-[120px] p-4 rounded-xl border-2 transition-all duration-300 text-left snap-start ${
+                              selectedShowroom?.id === showroom.id
+                                ? "border-[#009FE3] bg-blue-50 shadow-md"
+                                : "border-gray-200 hover:border-[#009FE3]/50 hover:bg-gray-50"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <h3 className="font-bold text-gray-900 mb-1">{showroom.name}</h3>
+                                <p className="text-xs text-gray-500 mb-2">{showroom.city}</p>
+                                <div className="text-sm text-gray-600 space-y-1">
+                                  <p className="flex items-center gap-2">
+                                    <MapPin className="w-4 h-4" />
+                                    {showroom.address}
+                                  </p>
+                                  <p className="flex items-center gap-2">
+                                    <Phone className="w-4 h-4" />
+                                    {showroom.phone}
+                                  </p>
+                                  <p className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4" />
+                                    {showroom.hours}
+                                  </p>
+                                </div>
+                              </div>
+                              {selectedShowroom?.id === showroom.id && (
+                                <CheckCircle className="w-6 h-6 text-[#009FE3] flex-shrink-0" />
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
 
                   {selectedShowroom && (
                     <div className="mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-4">
@@ -1104,6 +1279,12 @@ export function CheckoutPage() {
                           {item.bundleDiscount}% {isArabic ? "خصم" : "Off"}
                         </div>
                       )}
+                      {item.isCouponItem && (
+                        <div className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold mb-1">
+                          <Gift className="w-3 h-3" />
+                          {isArabic ? "قسيمة" : "Coupon"}
+                        </div>
+                      )}
 
                       {/* Variant / Color info */}
                       {item.variant && (
@@ -1156,11 +1337,9 @@ export function CheckoutPage() {
                                   {formatPrice(oldPrice)} {t.currency}
                                 </span>
                                 <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
-                                  {isArabic ? `${percent}% خصم` : `${percent}% OFF`}
+                                  {isArabic ? `${formatPrice(saved)} ${t.currency} خصم` : `${formatPrice(saved)} ${t.currency} OFF`}
                                 </span>
-                                <span className="text-xs text-gray-600 ml-2">
-                                  {isArabic ? `وفّر ${formatPrice(saved)} ${t.currency}` : `Save ${formatPrice(saved)} ${t.currency}`}
-                                </span>
+                               
                               </div>
                               <p className="text-sm font-bold text-[#009FE3]">
                                 {formatPrice(itemPrice * item.quantity)} {t.currency}
@@ -1173,6 +1352,28 @@ export function CheckoutPage() {
                           {formatPrice(parsePrice(item.price) * item.quantity)} {t.currency}
                         </p>
                       )}
+
+                      {(() => {
+                        const productId = Number(item.productId ?? item.id);
+                        if (!productId) return null;
+                        const hasOffers =
+                          ((item as any).appliedOffers?.length ?? 0) > 0 ||
+                          getProductOffers(productId).length > 0;
+                        if (!hasOffers) return null;
+                        return (
+                          <div className="mt-2">
+                            <CartOfferDisplay
+                              productId={productId}
+                              quantity={item.quantity}
+                              language={language}
+                              currencyLabel={asText(t.currency)}
+                              onAddBundleItem={handleAddBundleProduct}
+                              offers={(item as any).appliedOffers || undefined}
+                              basePrice={(item as any).basePrice ?? undefined}
+                            />
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}

@@ -763,7 +763,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                 </div>
                 <div>
                   <span className="text-blue-200">{t('admin.content.price')}:</span>
-                  <span className="ml-2">{product.price} SYP</span>
+                  <span className="ml-2">{product.price} $</span>
                 </div>
                 <div>
                   <span className="text-blue-200">{t('admin.content.syncSource')}:</span>

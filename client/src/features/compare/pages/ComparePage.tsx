@@ -30,6 +30,11 @@ export function ComparePage(props: ComparePageProps) {
     new Map(mergedProducts.map((p) => [getProductRef(p), p])).values(),
   );
   const [allProducts, setAllProducts] = useState<Product[]>(uniqueProducts);
+  const normalizedCompareItems = useMemo(
+    () => (Array.isArray(compareItems) ? compareItems.map((item) => String(item).trim()).filter(Boolean) : []),
+    [compareItems],
+  );
+  const compareItemSet = useMemo(() => new Set(normalizedCompareItems), [normalizedCompareItems]);
   
   const t = translations[language];
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -39,13 +44,20 @@ export function ComparePage(props: ComparePageProps) {
   const [isLoadingFilteredProducts, setIsLoadingFilteredProducts] = useState(false);
 
   useEffect(() => {
-    const missingRefs = compareItems.filter(
-      (ref) => !allProducts.some((p) => getProductRef(p) === String(ref)),
+    const missingRefs = normalizedCompareItems.filter(
+      (ref) =>
+        !allProducts.some((p) => {
+          const refId = getProductRef(p);
+          const id = toSafeCode((p as any)?.id);
+          const stk = toSafeCode((p as any)?.stk_code);
+          return ref === refId || ref === id || ref === stk;
+        }),
     );
     if (missingRefs.length === 0) return;
 
     const params = new URLSearchParams();
     params.set("stk_codes", missingRefs.join(","));
+    params.set("ids", missingRefs.join(","));
     params.set("limit", String(Math.max(200, missingRefs.length)));
     params.set("lite", "1");
 
@@ -156,7 +168,12 @@ export function ComparePage(props: ComparePageProps) {
   }, [apiBase, selectedCategory, selectedBrand]);
 
   // Get compared products
-  const comparedProducts = allProducts.filter((p) => compareItems.includes(getProductRef(p)));
+  const comparedProducts = allProducts.filter((p) => {
+    const refId = getProductRef(p);
+    const id = toSafeCode((p as any)?.id);
+    const stk = toSafeCode((p as any)?.stk_code);
+    return compareItemSet.has(refId) || compareItemSet.has(id) || compareItemSet.has(stk);
+  });
 
   useEffect(() => {
     if (comparedProducts.length === 0) return;
@@ -170,10 +187,13 @@ export function ComparePage(props: ComparePageProps) {
   // Get available products for selection (excluding already compared)
   const availableProducts = useMemo(
     () =>
-      filteredProducts.filter(
-        (product) => !compareItems.includes(getProductRef(product)),
-      ),
-    [filteredProducts, compareItems],
+      filteredProducts.filter((product) => {
+        const refId = getProductRef(product);
+        const id = toSafeCode((product as any)?.id);
+        const stk = toSafeCode((product as any)?.stk_code);
+        return !compareItemSet.has(refId) && !compareItemSet.has(id) && !compareItemSet.has(stk);
+      }),
+    [filteredProducts, compareItemSet],
   );
 
   // Get unique categories and brands
@@ -557,7 +577,7 @@ export function ComparePage(props: ComparePageProps) {
                       }}
                       className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-[#009FE3] focus:ring-2 focus:ring-[#009FE3]/20 transition-all"
                     >
-                      <option value="">{t.allCategories || "All Categories"}</option>
+                      <option value="">{t.allCategories || "Select Category"}</option>
                       {categories.map((cat: any) => (
                         <option key={cat.value} value={cat.value}>
                           {cat.label}
@@ -628,7 +648,7 @@ export function ComparePage(props: ComparePageProps) {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-                    {availableProducts.slice(0, 8).map((product) => (
+                    {availableProducts.map((product) => (
                       <div
                         key={product.id}
                         className="bg-white rounded-lg shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col h-full"

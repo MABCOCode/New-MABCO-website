@@ -22,6 +22,7 @@ interface CartItem {
   chargeOptionSku?: string | null;
   chargeOptionPrice?: number | null;
   appliedOffers?: any[] | null;
+  availableOffers?: any[] | null;
   chargeOption?: {
     optionId: string;
     value: string;
@@ -59,7 +60,7 @@ export function ShoppingCart({
     const map = new Map<number, number[]>();
     cartItems.forEach((item) => {
       if (!item.isBundleItem || !item.linkedToProductId) return;
-      const relatedId = item.productId ?? Number(item.id);
+      const relatedId = item.productId ?? item.id;
       if (!relatedId) return;
       const list = map.get(item.linkedToProductId) ?? [];
       if (!list.includes(relatedId)) {
@@ -68,6 +69,7 @@ export function ShoppingCart({
     });
     return map;
   }, [cartItems]);
+
 
   // Calculate totals
   const parsePrice = (price: string | number | undefined | null) => {
@@ -140,6 +142,7 @@ export function ShoppingCart({
       bundleDiscount: bundleOffer.discountPercentage,
     });
   };
+
 
   if (!isOpen) return null;
 
@@ -313,20 +316,47 @@ export function ShoppingCart({
                         </div>
 
                         {/* Remove Button */}
-                        <button
-                          onClick={() => handleRemove(item.id)}
-                          className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-all duration-200 hover:scale-110"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                        {(() => {
+                          const isLinked = !!item.linkedToProductId;
+                          const hasMain = isLinked
+                            ? cartItems.some((it) => {
+                                const mainId = String(it.productId ?? it.id ?? "");
+                                return (
+                                  mainId === String(item.linkedToProductId) &&
+                                  !it.isBundleItem &&
+                                  !it.isFreeGift
+                                );
+                              })
+                            : false;
+                          const disabled = isLinked && hasMain;
+                          return (
+                            <button
+                              onClick={() => {
+                                if (disabled) return;
+                                handleRemove(item.id);
+                              }}
+                              className={`p-2 rounded-lg transition-all duration-200 ${
+                                disabled
+                                  ? "text-gray-300 cursor-not-allowed"
+                                  : "text-red-500 hover:text-red-600 hover:bg-red-50 hover:scale-110"
+                              }`}
+                              title={
+                                disabled
+                                  ? t.remove_main_product_first || "Remove the main product first"
+                                  : ""
+                              }
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                     </div>
                   </div>
 
                     {/* Offers for this item */}
-                    {((item.appliedOffers && item.appliedOffers.length > 0) ||
-                      (item.productId && getProductOffers(Number(item.productId)).length > 0)) && (
+                    {item.appliedOffers && item.appliedOffers.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-gray-100">
                         <CartOfferDisplay
                           productId={Number(item.productId)}
@@ -344,10 +374,10 @@ export function ShoppingCart({
               ))}
             </div>
           )}
-        </div>
+      </div>
 
-        {/* Cart Summary - Fixed at bottom */}
-        {cartItems.length > 0 && (
+      {/* Cart Summary - Fixed at bottom */}
+      {cartItems.length > 0 && (
           <div className="border-t border-gray-200 bg-white p-6 shadow-lg">
             {/* Subtotal */}
             <div className="flex justify-between items-center mb-3">

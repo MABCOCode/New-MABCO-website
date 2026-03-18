@@ -49,7 +49,18 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
         if (!res.ok) return;
         const json = await res.json();
         if (!mounted) return;
-        setShowroomsData(json);
+        const resolveList = (data: any) => {
+          if (Array.isArray(data)) {
+            const directList = data.find((item) => item && Array.isArray(item?.[language]));
+            if (directList) return directList[language];
+            if (data.length > 0 && Array.isArray(data[0]?.[language])) return data[0][language];
+            return data;
+          }
+          if (data && Array.isArray(data[language])) return data[language];
+          return [];
+        };
+        const list = resolveList(json);
+        setShowroomsData(list);
       } catch (err) {
         console.warn('Failed to load showrooms.json', err);
       } finally {
@@ -81,7 +92,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
   };
 
   return (
-    <div className={`min-h-screen bg-gray-50 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-gray-50">
       {/* Breadcrumb - Sticky */}
       <div className="sticky top-20 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200/50">
         <div className="container mx-auto px-4 py-3">

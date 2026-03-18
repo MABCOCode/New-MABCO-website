@@ -13,6 +13,7 @@ const BrandPage: React.FC = () => {
   const { language, t } = useLanguage();
   const term = id ? decodeURIComponent(id) : '';
   const categoryParam = category ? decodeURIComponent(category) : '';
+  const isServiceBrand = ["2020", "2022"].includes(String(term));
   const [staticCategories, setStaticCategories] = useState<any[]>([]);
   const [apiProducts, setApiProducts] = useState<any[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
@@ -44,6 +45,7 @@ const BrandPage: React.FC = () => {
     if (categoryParam) params.set('cat_code', categoryParam);
     params.set('limit', '200');
     params.set('card', '1');
+    params.set('count', '0');
     setIsLoadingProducts(true);
 
     (async () => {
@@ -169,6 +171,9 @@ const BrandPage: React.FC = () => {
     ? inferredCategory.cat_code || inferredCategory.nameEn || inferredCategory.name
     : '';
 
+  const servicesLabel = language === "ar" ? "الخدمات" : "Services";
+  const servicesHref = "/#services";
+
   const displayBrandName = (() => {
     if (matchedBrandMeta?.brand) {
       const b: any = matchedBrandMeta.brand;
@@ -206,11 +211,12 @@ const BrandPage: React.FC = () => {
       <div className="sticky top-[72px] z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
+              <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'}`} />
+
             <button
               onClick={() => navigate('/')}
               className={language === 'ar' ? 'flex-row-reverse group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0' : 'group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0'}
             >
-              <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'}`} />
               <span className="font-medium">{t('home')}</span>
             </button>
             <span className="text-gray-300 flex-shrink-0">/</span>
@@ -218,11 +224,13 @@ const BrandPage: React.FC = () => {
               <>
                 <button
                   onClick={() =>
-                    navigate(`/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`)
+                    isServiceBrand
+                      ? navigate(servicesHref)
+                      : navigate(`/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`)
                   }
                   className="text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0"
                 >
-                  {displayCategoryName}
+                  {isServiceBrand ? servicesLabel : displayCategoryName}
                 </button>
                 <span className="text-gray-300 flex-shrink-0">/</span>
               </>
@@ -281,16 +289,20 @@ const BrandPage: React.FC = () => {
                         ...(displayCategoryName
                           ? [
                               {
-                                label: displayCategoryName,
-                                href: `/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`,
+                                label: isServiceBrand ? servicesLabel : displayCategoryName,
+                                href: isServiceBrand
+                                  ? servicesHref
+                                  : `/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`,
                               },
                             ]
                           : []),
                         {
                           label: displayBrandName,
-                          href: categoryRouteName
-                            ? `/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`
-                            : "/#categories",
+                          href: isServiceBrand
+                            ? servicesHref
+                            : categoryRouteName
+                              ? `/brand/${encodeURIComponent(String(categoryRouteName))}/${encodeURIComponent(String(term))}`
+                              : `/brand/${encodeURIComponent(String(term))}`,
                         },
                       ],
                     },

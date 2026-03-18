@@ -29,10 +29,50 @@ router.get('/', asyncHandler(async (req, res) => {
       query.stk_code = { $in: codes };
     }
   }
+  if (req.query.ids) {
+    const ids = String(req.query.ids)
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (ids.length > 0) {
+      query.id = { $in: ids };
+    }
+  }
   if (req.query.category) query.category = String(req.query.category);
   if (req.query.brand) query.brand = String(req.query.brand);
+  if (req.query.offer_type) {
+    const offerType = String(req.query.offer_type);
+    const scope = String(req.query.offer_scope || '').toLowerCase();
+    if (scope === 'product') {
+      query.$or = [
+        { "offers.offer_type": offerType },
+        { "offers.type": offerType },
+      ];
+    } else if (scope === 'color') {
+      query.$or = [
+        { "colorVariants.offers.offer_type": offerType },
+        { "colorVariants.offers.type": offerType },
+      ];
+    } else if (scope === 'charge') {
+      query.$or = [
+        { "chargeOptions.offers.offer_type": offerType },
+        { "chargeOptions.offers.type": offerType },
+      ];
+    } else {
+      query.$or = [
+        { "offers.offer_type": offerType },
+        { "offers.type": offerType },
+        { "colorVariants.offers.offer_type": offerType },
+        { "colorVariants.offers.type": offerType },
+        { "chargeOptions.offers.offer_type": offerType },
+        { "chargeOptions.offers.type": offerType },
+      ];
+    }
+  }
   if (req.query.active === 'true') query['status.isActive'] = true;
   if (req.query.hidden === 'true') query['status.isHidden'] = true;
+
+  const doCount = !(req.query.count === '0' || req.query.count === 'false');
 
   const projection = useCardProjection
     ? {
@@ -93,15 +133,25 @@ router.get('/', asyncHandler(async (req, res) => {
     : undefined;
 
   const [items, total] = await Promise.all([
-    db.collection('products').find(query, projection ? { projection } : {}).skip(skip).limit(limit).sort({ updatedAt: -1 }).toArray(),
-    db.collection('products').countDocuments(query),
+    db.collection('products')
+      .find(query, projection ? { projection } : {})
+      .skip(skip)
+      .limit(limit)
+      .sort({ updatedAt: -1 })
+      .toArray(),
+    doCount
+      ? db.collection('products').countDocuments(query)
+      : Promise.resolve(null),
   ]);
 
-  res.json({
+  const response = {
     success: true,
     data: hydrateCollection('products', items),
-    pagination: { page, limit, total },
-  });
+    pagination: { page, limit },
+  };
+  if (doCount) response.pagination.total = total;
+
+  res.json(response);
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {

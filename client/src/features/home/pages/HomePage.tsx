@@ -292,6 +292,14 @@ const HomePage: React.FC = () => {
             language={language}
             key={`services-${refreshKey}`}
             onServiceClick={(servicePath: string) => {
+              if (servicePath === "gaming") {
+                navigate("/brand/07/2022");
+                return;
+              }
+              if (servicePath === "charging") {
+                navigate("/brand/07/2020");
+                return;
+              }
               setSelectedService(servicePath);
             }}
           />
