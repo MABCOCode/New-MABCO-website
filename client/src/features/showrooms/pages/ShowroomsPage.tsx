@@ -45,21 +45,22 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
     let mounted = true;
     (async () => {
       try {
+        setIsLoading(true);
         const res = await fetch('/static/showrooms.json');
         if (!res.ok) return;
         const json = await res.json();
         if (!mounted) return;
-        const resolveList = (data: any) => {
+        const resolveList = (data: any, lang: "ar" | "en") => {
           if (Array.isArray(data)) {
-            const directList = data.find((item) => item && Array.isArray(item?.[language]));
-            if (directList) return directList[language];
-            if (data.length > 0 && Array.isArray(data[0]?.[language])) return data[0][language];
-            return data;
+            const directList = data.find((item) => item && Array.isArray(item?.[lang]));
+            if (directList) return directList[lang];
+            if (data.length > 0 && Array.isArray(data[0]?.[lang])) return data[0][lang];
+            return [];
           }
-          if (data && Array.isArray(data[language])) return data[language];
+          if (data && Array.isArray(data[lang])) return data[lang];
           return [];
         };
-        const list = resolveList(json);
+        const list = resolveList(json, language);
         setShowroomsData(list);
       } catch (err) {
         console.warn('Failed to load showrooms.json', err);
@@ -70,7 +71,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [language]);
 
   // Group showrooms by city
   const showroomsByCity = showroomsData.reduce((acc, showroom) => {

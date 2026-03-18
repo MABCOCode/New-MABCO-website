@@ -1156,36 +1156,35 @@ export function CheckoutPage() {
                         </div>
                       </div>
 
-                      <div
-                        ref={showroomSliderRef}
-                        className="space-y-3 max-h-[384px] overflow-y-auto pr-1 scrollbar-hide snap-y snap-mandatory"
-                      >
+                      <div className="overflow-hidden" style={{ height: "420px" }}>
+                        <div
+                          ref={showroomSliderRef}
+                          className="space-y-3 overflow-y-auto pr-1 scrollbar-hide snap-y snap-mandatory"
+                          style={{ height: "100%" }}
+                        >
                         {filteredShowrooms.map((showroom) => (
                           <button
                             key={showroom.id}
                             onClick={() => setSelectedShowroom(showroom)}
-                            className={`w-full min-h-[120px] p-4 rounded-xl border-2 transition-all duration-300 text-left snap-start ${
+                            className={`w-full p-4 rounded-xl border-2 transition-all duration-300 snap-start overflow-hidden ${
                               selectedShowroom?.id === showroom.id
                                 ? "border-[#009FE3] bg-blue-50 shadow-md"
                                 : "border-gray-200 hover:border-[#009FE3]/50 hover:bg-gray-50"
                             }`}
+                            style={{ height: "130px", direction: isArabic ? "rtl" : "ltr", textAlign: isArabic ? "right" : "left" }}
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1">
-                                <h3 className="font-bold text-gray-900 mb-1">{showroom.name}</h3>
-                                <p className="text-xs text-gray-500 mb-2">{showroom.city}</p>
+                              <div className={`flex-1 ${isArabic ? "text-right" : "text-left"}`}>
+                                <h3 className="font-bold text-gray-900 mb-1 truncate">{showroom.name}</h3>
+                                <p className="text-xs text-gray-500 mb-2 truncate">{showroom.city}</p>
                                 <div className="text-sm text-gray-600 space-y-1">
                                   <p className="flex items-center gap-2">
                                     <MapPin className="w-4 h-4" />
-                                    {showroom.address}
+                                    <span className="truncate">{showroom.address}</span>
                                   </p>
                                   <p className="flex items-center gap-2">
                                     <Phone className="w-4 h-4" />
-                                    {showroom.phone}
-                                  </p>
-                                  <p className="flex items-center gap-2">
-                                    <Clock className="w-4 h-4" />
-                                    {showroom.hours}
+                                    <span className="truncate">{showroom.phone}</span>
                                   </p>
                                 </div>
                               </div>
@@ -1195,6 +1194,7 @@ export function CheckoutPage() {
                             </div>
                           </button>
                         ))}
+                        </div>
                       </div>
                     </>
                   )}
