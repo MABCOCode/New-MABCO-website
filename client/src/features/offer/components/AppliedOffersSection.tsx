@@ -28,7 +28,6 @@ interface CartItem {
   basePrice?: number | null;
   quantity: number;
   appliedOffers?: ProductOffer[] | null;
-  availableOffers?: ProductOffer[] | null;
   isCouponItem?: boolean;
   linkedToProductId?: number;
 }
@@ -123,8 +122,8 @@ export function AppliedOffersSection({
       if (!productId) return;
       const product = products.find((p) => String(p.id) === String(productId));
 
-      const offers = item.availableOffers?.length
-        ? getProductOffers({ offers: item.availableOffers } as any)
+      const offers = item.appliedOffers?.length
+        ? getProductOffers({ offers: item.appliedOffers } as any)
         : getProductOffers(productId);
 
       offers.forEach((offer) => {
