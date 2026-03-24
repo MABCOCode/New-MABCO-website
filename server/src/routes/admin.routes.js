@@ -3,6 +3,7 @@ const { ObjectId } = require('mongodb');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { hydrateCollection, hydrateDocument } = require('../models');
+const { requireAdminToken } = require('../middleware/adminTokenAuth');
 
 const router = express.Router();
 
@@ -11,6 +12,28 @@ function toObjectIdArray(values = []) {
   return values
     .map((value) => (ObjectId.isValid(String(value)) ? new ObjectId(String(value)) : null))
     .filter(Boolean);
+}
+
+function normalizeBsonLike(value) {
+  if (Array.isArray(value)) {
+    return value.map(normalizeBsonLike);
+  }
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+  if ('$date' in value) {
+    const raw = value.$date;
+    const dateVal = typeof raw === 'number' ? new Date(raw) : new Date(String(raw));
+    return Number.isFinite(dateVal.getTime()) ? dateVal : null;
+  }
+  if ('$oid' in value) {
+    return String(value.$oid);
+  }
+  const next = {};
+  for (const [key, val] of Object.entries(value)) {
+    next[key] = normalizeBsonLike(val);
+  }
+  return next;
 }
 
 router.get('/users', asyncHandler(async (req, res) => {
@@ -30,12 +53,12 @@ router.get('/users/:id/permissions', asyncHandler(async (req, res) => {
   }
 
   const user = await db.collection('users').findOne(
-    { _id: new ObjectId(id), role: { $in: ['admin', 'super_admin'] } },
+    { _id: new ObjectId(id) },
     { projection: { email: 1, role: 1, adminMeta: 1 } },
   );
 
   if (!user) {
-    return res.status(404).json({ success: false, message: 'Admin user not found' });
+    return res.status(404).json({ success: false, message: 'User not found' });
   }
 
   const adminMeta = user.adminMeta || {};
@@ -59,87 +82,198 @@ router.get('/users/:id/permissions', asyncHandler(async (req, res) => {
 }));
 
 router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substr(2, 9);
+
+  console.log(`[${requestId}] 🚀 START PUT /users/${req.params.id}/permissions`);
+  console.log(`[${requestId}] 📨 Request details:`, {
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    origin: req.get('Origin'),
+    contentType: req.get('Content-Type'),
+    contentLength: req.get('Content-Length'),
+    timestamp: new Date().toISOString()
+  });
+  console.log(`[${requestId}] 📦 Request body:`, JSON.stringify(req.body, null, 2));
+
   const db = getDb();
   const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    console.error(`[${requestId}] ❌ Invalid user id: ${id}`);
+    const responseTime = Date.now() - startTime;
+    console.log(`[${requestId}] ⏱️  Response time: ${responseTime}ms - Status: 400`);
+    return res.status(400).json({ success: false, message: 'Invalid user id' });
+  }
+
+  try {
+    const allowAllCategories = Boolean(req.body.allowAllCategories);
+    const allowAllBrands = Boolean(req.body.allowAllBrands);
+    const allowedCategoryIds = Array.isArray(req.body.allowedCategoryIds)
+      ? req.body.allowedCategoryIds.map((v) => String(v))
+      : [];
+    const allowedBrandIds = Array.isArray(req.body.allowedBrandIds)
+      ? req.body.allowedBrandIds.map((v) => String(v))
+      : [];
+    const isSuspended = req.body.isSuspended === undefined ? undefined : Boolean(req.body.isSuspended);
+    const canManageOrders = Boolean(req.body.canManageOrders);
+    const canManageBanners = Boolean(req.body.canManageBanners);
+
+    const setDoc = {
+      'adminMeta.allowAllCategories': allowAllCategories,
+      'adminMeta.allowAllBrands': allowAllBrands,
+      'adminMeta.allowedCategoryIds': allowAllCategories ? [] : allowedCategoryIds,
+      'adminMeta.allowedBrandIds': allowAllBrands ? [] : allowedBrandIds,
+    };
+    if (isSuspended !== undefined) {
+      setDoc['adminMeta.isSuspended'] = isSuspended;
+    }
+    setDoc['adminMeta.canManageOrders'] = canManageOrders;
+    setDoc['adminMeta.canManageBanners'] = canManageBanners;
+
+    console.log(`[${requestId}] 🔧 Processing permissions update for user ${id}:`, {
+      allowAllCategories,
+      allowAllBrands,
+      allowedCategoryIds,
+      allowedBrandIds,
+      isSuspended,
+      canManageOrders,
+      canManageBanners,
+    });
+    console.log(`[${requestId}] 📝 MongoDB update document:`, JSON.stringify(setDoc, null, 2));
+
+    const result = await db.collection('users').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: setDoc }
+    );
+
+    console.log(`[${requestId}] 💾 MongoDB updateOne result:`, {
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+      acknowledged: result.acknowledged,
+    });
+
+    if (result.matchedCount === 0) {
+      console.warn(`[${requestId}] ⚠️  No matching user found for ${id}`);
+      const responseTime = Date.now() - startTime;
+      console.log(`[${requestId}] ⏱️  Response time: ${responseTime}ms - Status: 404`);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const updatedUser = await db.collection('users').findOne(
+      { _id: new ObjectId(id) },
+      { projection: { email: 1, role: 1, adminMeta: 1 } }
+    );
+
+    console.log(`[${requestId}] ✅ Updated user document:`, JSON.stringify(updatedUser, null, 2));
+    const responseTime = Date.now() - startTime;
+    console.log(`[${requestId}] ⏱️  Response time: ${responseTime}ms - Status: 200`);
+    console.log(`[${requestId}] 🎉 END PUT /users/${id}/permissions - SUCCESS`);
+
+    return res.json({ success: true, data: updatedUser });
+
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    console.error(`[${requestId}] 💥 ERROR in PUT /users/${id}/permissions:`, {
+      error: error.message,
+      stack: error.stack,
+      responseTime: `${responseTime}ms`
+    });
+    console.log(`[${requestId}] ⏱️  Response time: ${responseTime}ms - Status: 500`);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}));
+
+router.put('/users/:id', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ success: false, message: 'Invalid user id' });
   }
 
-  const allowAllCategories = Boolean(req.body.allowAllCategories);
-  const allowAllBrands = Boolean(req.body.allowAllBrands);
-  // store the raw codes from the client instead of converting to ObjectId
-  const allowedCategoryIds = Array.isArray(req.body.allowedCategoryIds)
-    ? req.body.allowedCategoryIds.map((v) => String(v))
-    : [];
-  const allowedBrandIds = Array.isArray(req.body.allowedBrandIds)
-    ? req.body.allowedBrandIds.map((v) => String(v))
-    : [];
-  const isSuspended = req.body.isSuspended === undefined ? undefined : Boolean(req.body.isSuspended);
-  const canManageOrders = Boolean(req.body.canManageOrders);
-  const canManageBanners = Boolean(req.body.canManageBanners);
+  const payload = req.body || {};
+  const updates = {};
 
-  const setDoc = {
-    'adminMeta.allowAllCategories': allowAllCategories,
-    'adminMeta.allowAllBrands': allowAllBrands,
-    'adminMeta.allowedCategoryIds': allowAllCategories ? [] : allowedCategoryIds,
-    'adminMeta.allowedBrandIds': allowAllBrands ? [] : allowedBrandIds,
-  };
-  if (isSuspended !== undefined) {
-    setDoc['adminMeta.isSuspended'] = isSuspended;
+  if (payload.role) {
+    if (!['customer', 'admin', 'super_admin'].includes(String(payload.role))) {
+      return res.status(400).json({ success: false, message: 'Invalid role' });
+    }
+    updates.role = String(payload.role);
   }
-  setDoc['adminMeta.canManageOrders'] = canManageOrders;
-  setDoc['adminMeta.canManageBanners'] = canManageBanners;
 
-  console.log('Updating admin permissions for user', id, 'payload', {
-    allowAllCategories,
-    allowAllBrands,
-    allowedCategoryIds,
-    allowedBrandIds,
-    isSuspended,
-    canManageOrders,
-    canManageBanners,
-  });
+  if (payload.adminMeta && typeof payload.adminMeta === 'object') {
+    const adminMeta = payload.adminMeta || {};
+    const allowAllCategories = Boolean(adminMeta.allowAllCategories);
+    const allowAllBrands = Boolean(adminMeta.allowAllBrands);
+    const allowedCategoryIds = Array.isArray(adminMeta.allowedCategoryIds)
+      ? adminMeta.allowedCategoryIds.map((v) => String(v))
+      : [];
+    const allowedBrandIds = Array.isArray(adminMeta.allowedBrandIds)
+      ? adminMeta.allowedBrandIds.map((v) => String(v))
+      : [];
 
-  const result = await db.collection('users').findOneAndUpdate(
-    { _id: new ObjectId(id), role: { $in: ['admin', 'super_admin'] } },
-    { $set: setDoc },
-    {
-      returnDocument: 'after',
-      projection: { email: 1, role: 1, adminMeta: 1 },
-    },
+    updates['adminMeta.allowAllCategories'] = allowAllCategories;
+    updates['adminMeta.allowAllBrands'] = allowAllBrands;
+    updates['adminMeta.allowedCategoryIds'] = allowAllCategories ? [] : allowedCategoryIds;
+    updates['adminMeta.allowedBrandIds'] = allowAllBrands ? [] : allowedBrandIds;
+    if (adminMeta.isSuspended !== undefined) {
+      updates['adminMeta.isSuspended'] = Boolean(adminMeta.isSuspended);
+    }
+    updates['adminMeta.canManageOrders'] = Boolean(adminMeta.canManageOrders);
+    updates['adminMeta.canManageBanners'] = Boolean(adminMeta.canManageBanners);
+  }
+
+  if (Object.keys(updates).length == 0) {
+    return res.status(400).json({ success: false, message: 'No updates provided' });
+  }
+
+  const result = await db.collection('users').updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updates }
   );
-  if (!result) {
-    console.warn('No matching admin user found for', id);
-  } else {
-    console.log('Update result', result);
+
+  if (result.matchedCount == 0) {
+    return res.status(404).json({ success: false, message: 'User not found' });
   }
-  if (!result || !result.value) {
-    return res.status(404).json({ success: false, message: 'Admin user not found' });
-  }
-  return res.json({ success: true, data: result.value });
+
+  const updatedUser = await db.collection('users').findOne(
+    { _id: new ObjectId(id) },
+    { projection: { email: 1, role: 1, adminMeta: 1 } }
+  );
+
+  return res.json({ success: true, data: updatedUser });
 }));
+
 
 // endpoint to change role for a user (promote/demote)
 router.put('/users/:id/role', asyncHandler(async (req, res) => {
   const db = getDb();
   const { id } = req.params;
   const { role } = req.body;
+  console.log('[admin.users.role] request', { id, role });
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ success: false, message: 'Invalid user id' });
   }
   if (!['customer','admin','super_admin'].includes(role)) {
     return res.status(400).json({ success: false, message: 'Invalid role' });
   }
-  const result = await db.collection('users').findOneAndUpdate(
+  const updateResult = await db.collection('users').updateOne(
     { _id: new ObjectId(id) },
-    { $set: { role } },
-    { returnDocument: 'after', projection: { email:1,role:1,adminMeta:1 } }
+    { $set: { role } }
   );
-  if (!result.value) {
-    return res.status(404).json({ success: false, message: 'User not found' });
+  if (updateResult.matchedCount === 0) {
+    console.warn('[admin.users.role] user not found', id);
+    return res.status(404).json({ success: false, message: `User not found: ${id}` });
   }
+  const updatedUser = await db.collection('users').findOne(
+    { _id: new ObjectId(id) },
+    { projection: { email:1, role:1, adminMeta:1 } }
+  );
   console.log('Changed role for', id, 'to', role);
-  res.json({ success: true, data: result.value });
+  res.json({ success: true, data: updatedUser });
 }));
 
 router.get('/orders', asyncHandler(async (req, res) => {
@@ -149,6 +283,89 @@ router.get('/orders', asyncHandler(async (req, res) => {
 
   const items = await db.collection('orders').find(query).sort({ createdAt: -1 }).toArray();
   res.json({ success: true, data: hydrateCollection('orders', items) });
+}));
+
+router.put('/orders/:id', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+  const payload = req.body || {};
+
+  const query = ObjectId.isValid(id)
+    ? { _id: new ObjectId(id) }
+    : { orderNumber: String(id) };
+
+  const existing = await db.collection('orders').findOne(query);
+  if (!existing) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+
+  const actorUserIdRaw = req.headers['x-admin-user-id'] || payload.actorUserId;
+  const actorNameRaw = req.headers['x-admin-user-name'] || payload.actorName;
+  const actorUserId = ObjectId.isValid(String(actorUserIdRaw || ''))
+    ? new ObjectId(String(actorUserIdRaw))
+    : null;
+
+  const updates = {};
+  const now = new Date();
+
+  if (payload.status) {
+    updates.status = payload.status;
+  }
+
+  const incomingInvoice = payload.invoiceNo || payload.inv_no;
+  if (incomingInvoice) {
+    const inv = String(incomingInvoice);
+    updates.invoiceNo = inv;
+    updates.inv_no = inv;
+  }
+
+  if (payload.shippingFee !== undefined) {
+    const shippingFee = Number(payload.shippingFee);
+    if (Number.isFinite(shippingFee)) {
+      updates['pricing.shipping'] = shippingFee;
+    }
+  }
+
+  if (payload.shippingPaidBy) {
+    updates['pricing.shippingPaidBy'] = payload.shippingPaidBy;
+  }
+
+  if (payload.status) {
+    const history = Array.isArray(existing.statusHistory) ? existing.statusHistory : [];
+    history.push({
+      status: payload.status,
+      date: now,
+      note: payload.note || undefined,
+      actorUserId: actorUserId || undefined,
+      actorName: actorNameRaw ? String(actorNameRaw) : undefined,
+    });
+    updates.statusHistory = history;
+  }
+
+  if (actorUserId || actorNameRaw) {
+    updates.lastEditedBy = {
+      userId: actorUserId || undefined,
+      name: actorNameRaw ? String(actorNameRaw) : undefined,
+      at: now,
+    };
+  }
+
+  const subtotal = Number(existing?.pricing?.subtotal || 0);
+  const discount = Number(existing?.pricing?.discount || 0);
+  const shipping = updates['pricing.shipping'] ?? existing?.pricing?.shipping ?? 0;
+  const shippingPaidBy = updates['pricing.shippingPaidBy'] ?? existing?.pricing?.shippingPaidBy ?? null;
+  const shippingContribution = shippingPaidBy === 'customer' ? Number(shipping) : 0;
+  updates['pricing.total'] = Math.max(0, subtotal + shippingContribution - discount);
+
+  if (payload.status === 'delivered' && !updates.invoiceNo && !existing.invoiceNo && !existing.inv_no) {
+    return res.status(400).json({ success: false, message: 'Invoice number is required for delivered orders.' });
+  }
+
+  updates.updatedAt = now;
+
+  await db.collection('orders').updateOne(query, { $set: updates });
+  const updated = await db.collection('orders').findOne(query);
+  res.json({ success: true, data: hydrateDocument('orders', updated) });
 }));
 
 router.get('/notifications', asyncHandler(async (req, res) => {
@@ -305,6 +522,153 @@ router.get('/products', asyncHandler(async (req, res) => {
     data: filtered,
     pagination: { page, limit, total: filtered.length },
   });
+}));
+
+router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) => {
+  const db = getDb();
+  const payload = normalizeBsonLike(req.body || {});
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`[${requestId}] [admin.products.json] payload:`, JSON.stringify(payload, null, 2));
+
+  const identifier =
+    payload.stk_code ||
+    payload.id ||
+    payload.slug ||
+    payload._id ||
+    null;
+
+  if (!identifier) {
+    console.warn(`[${requestId}] [admin.products.json] missing identifier`);
+    return res.status(400).json({ success: false, message: 'Missing product identifier' });
+  }
+
+  const query = ObjectId.isValid(String(identifier))
+    ? { _id: new ObjectId(String(identifier)) }
+    : {
+        $or: [
+          { stk_code: String(identifier) },
+          { id: String(identifier) },
+          { slug: String(identifier) },
+        ],
+      };
+
+  const updates = { ...payload };
+  delete updates._id;
+
+  const now = new Date();
+  updates.updatedAt = now;
+  if (typeof updates.audit === 'undefined') {
+    updates['audit.updatedAt'] = now;
+  }
+
+  try {
+    const existing = await db.collection('products').findOne(query);
+    if (!existing) {
+      updates.createdAt = now;
+      if (typeof updates.audit === 'undefined') {
+        updates['audit.createdAt'] = now;
+      }
+    }
+
+    await db.collection('products').updateOne(query, { $set: updates }, { upsert: true });
+    const updated = await db.collection('products').findOne(query);
+    if (updated) {
+      await db.collection('admin_actions').insertOne({
+        actorUserId: req.adminToken?.userId || new ObjectId('000000000000000000000000'),
+        actorRole: 'admin',
+        actionType: 'product_json_upsert',
+        targetType: 'product',
+        targetId: updated._id,
+        createdAt: new Date(),
+        meta: {
+          source: 'pos',
+          identifier: String(identifier),
+        },
+      });
+    }
+    res.json({ success: true, data: hydrateDocument('products', updated) });
+  } catch (err) {
+    console.error(`[${requestId}] [admin.products.json] failed`, err);
+    return res.status(500).json({ success: false, message: err?.message || 'Failed to update product' });
+  }
+}));
+
+router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, res) => {
+  const db = getDb();
+  const items = Array.isArray(req.body) ? req.body : req.body?.items;
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`[${requestId}] [admin.products.json.bulk] items:`, Array.isArray(items) ? items.length : 0);
+  if (!Array.isArray(items) || items.length === 0) {
+    console.warn(`[${requestId}] [admin.products.json.bulk] no items`);
+    return res.status(400).json({ success: false, message: 'No items provided' });
+  }
+
+  const now = new Date();
+  const results = [];
+  for (const rawPayload of items) {
+    const payload = normalizeBsonLike(rawPayload || {});
+    const identifier =
+      payload?.stk_code ||
+      payload?.id ||
+      payload?.slug ||
+      payload?._id ||
+      null;
+    if (!identifier) {
+      results.push({ success: false, message: 'Missing product identifier', payload });
+      continue;
+    }
+
+    const query = ObjectId.isValid(String(identifier))
+      ? { _id: new ObjectId(String(identifier)) }
+      : {
+          $or: [
+            { stk_code: String(identifier) },
+            { id: String(identifier) },
+            { slug: String(identifier) },
+          ],
+        };
+
+    const updates = { ...payload };
+    delete updates._id;
+    updates.updatedAt = now;
+    if (typeof updates.audit === 'undefined') {
+      updates['audit.updatedAt'] = now;
+    }
+
+    const existing = await db.collection('products').findOne(query);
+    if (!existing) {
+      updates.createdAt = now;
+      if (typeof updates.audit === 'undefined') {
+        updates['audit.createdAt'] = now;
+      }
+    }
+
+    try {
+      await db.collection('products').updateOne(query, { $set: updates }, { upsert: true });
+      const updated = await db.collection('products').findOne(query);
+      if (updated) {
+        await db.collection('admin_actions').insertOne({
+          actorUserId: req.adminToken?.userId || new ObjectId('000000000000000000000000'),
+          actorRole: 'admin',
+          actionType: 'product_json_upsert',
+          targetType: 'product',
+          targetId: updated._id,
+          createdAt: new Date(),
+          meta: {
+            source: 'pos',
+            identifier: String(identifier),
+            bulk: true,
+          },
+        });
+      }
+      results.push({ success: true, identifier });
+    } catch (err) {
+      console.error(`[${requestId}] [admin.products.json.bulk] failed item`, { identifier, err });
+      results.push({ success: false, identifier, error: err?.message || 'Failed to update product' });
+    }
+  }
+
+  res.json({ success: true, data: { count: results.length, results } });
 }));
 
 router.put('/products/:id', asyncHandler(async (req, res) => {

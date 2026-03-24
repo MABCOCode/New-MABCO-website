@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ShoppingBag,
   Package,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { AccountNavBar } from "../components/AccountNavBar";
 import translations from "../../../i18n/translations";
+import { loadSession } from "../storage";
 
 interface UserDashboardProps {
   language: "ar" | "en";
@@ -30,13 +32,77 @@ export function UserDashboard({
 }: UserDashboardProps) {
   const t = translations[language];
 
-  // Mock data
-  const stats = {
-    totalOrders: 12,
-    activeOrders: 2,
-    devices: 5,
-    activeWarranties: 3,
+  const [orders, setOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+
+  const normalizePhone = (raw: string) => {
+    if (!raw) return "";
+    let digits = String(raw).replace(/\D/g, "");
+    if (digits.startsWith("963")) {
+      digits = digits.slice(3);
+    }
+    if (digits.startsWith("9") && digits.length === 9) {
+      digits = `0${digits}`;
+    }
+    if (digits.startsWith("09") && digits.length === 10) {
+      return digits;
+    }
+    if (digits.length >= 8) {
+      return `09${digits.slice(-8)}`;
+    }
+    return "";
   };
+
+  useEffect(() => {
+    let mounted = true;
+    const session = loadSession() as any;
+    const phone = normalizePhone(session?.user?.phone || "");
+    if (!phone) {
+      setOrders([]);
+      setOrdersLoading(false);
+      setOrdersError(
+        language === "ar" ? "رقم الهاتف غير صالح لعرض الطلبات." : "Phone number is invalid for loading orders."
+      );
+      return;
+    }
+
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+    setOrdersLoading(true);
+    setOrdersError(null);
+
+    fetch(`${apiBase}/orders?phone=${encodeURIComponent(phone)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load orders");
+        const json = await res.json();
+        if (!mounted) return;
+        const rows = Array.isArray(json?.data) ? json.data : [];
+        setOrders(rows);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setOrders([]);
+        setOrdersError(language === "ar" ? "تعذر تحميل الطلبات." : "Failed to load orders.");
+      })
+      .finally(() => {
+        if (mounted) setOrdersLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [language]);
+
+  const stats = useMemo(() => {
+    const totalOrders = orders.length;
+    const activeOrders = orders.filter((o) => !["delivered", "cancelled", "returned"].includes(o?.status)).length;
+    return {
+      totalOrders,
+      activeOrders,
+      devices: 0,
+      activeWarranties: 0,
+    };
+  }, [orders]);
 
   const quickLinks = [
     {

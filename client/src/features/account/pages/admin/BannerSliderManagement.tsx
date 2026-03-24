@@ -148,7 +148,7 @@ export function BannerSliderManagement({
         subtitleEn: "",
         subtitleAr: "",
         buttonTextEn: "Shop Now",
-        buttonTextAr: "???????? ????????",
+        buttonTextAr: "تسوق الان",
         order: slides.length + 2,
         isActive: true,
       });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Users, Search, Shield, Crown, UserPlus, Edit3, XCircle, CheckCircle, AlertTriangle } from "lucide-react";
-import { fetchAdminUsers, fetchAdminUserPermissions, updateAdminUserPermissions, updateUserRole } from "../../api/adminDataApi";
+import { fetchAdminUsers, fetchAdminUserPermissions, updateAdminUserPermissions, updateAdminUser, updateUserRole } from "../../api/adminDataApi";
 import { AdminPrivilegesEditor } from "./AdminPrivilegesEditor";
 
 interface AdminManagementProps {
@@ -57,8 +57,6 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
       })
       .catch((err) => {
         console.warn("Failed to load users", err);
-        // when the API fails, show empty list (no test data)
-        setUsersData([]);
         setIsLoading(false);
         setError(isRTL ? "فشل تحميل المستخدمين" : "Failed to load users");
       });
@@ -260,7 +258,7 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
                 transition={{ delay: index * 0.05 }}
                 className="p-6 hover:bg-gray-50 transition-colors"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex items-center gap-4 flex-1">
                     {/* Avatar */}
                     <img
@@ -327,11 +325,11 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
 
                   {/* Actions */}
                   {!user.isSuperAdmin && !user.adminMeta?.isSuspended && (
-                    <div className="flex items-center gap-2">
+                    <div className="w-full md:w-auto flex flex-col sm:flex-row md:flex-row items-stretch md:items-center gap-2">
                       {!user.isAdmin ? (
                         <button
                           onClick={() => handlePromoteToAdmin(user)}
-                          className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all flex items-center gap-2"
+                          className="w-full md:w-auto px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2"
                         >
                           <UserPlus className="w-4 h-4" />
                           {isRTL ? "ترقية إلى مدير" : "Promote to Admin"}
@@ -340,14 +338,14 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
                         <>
                           <button
                             onClick={() => handleEditPrivileges(user)}
-                            className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
+                            className="w-full md:w-auto px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center gap-2"
                           >
                             <Edit3 className="w-4 h-4" />
                             {isRTL ? "تعديل الصلاحيات" : "Edit Privileges"}
                           </button>
                           <button
                             onClick={() => handleRevokeAdmin(user)}
-                            className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
+                            className="w-full md:w-auto px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center justify-center gap-2"
                           >
                             <XCircle className="w-4 h-4" />
                             {isRTL ? "إلغاء الصلاحيات" : "Revoke Admin"}
@@ -374,20 +372,61 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
               setSelectedUser(null);
             }}
             onSave={async (adminMeta) => {
+              const saveRequestId = Math.random().toString(36).substr(2, 9);
+              const saveStartTime = Date.now();
+
+              console.log(`[${saveRequestId}] 🎯 ADMIN SAVE START for user ${selectedUser.id}`);
+              console.log(`[${saveRequestId}] 📋 Admin meta to save:`, adminMeta);
+
               try {
+                // Check if user is already admin
+                const currentUser = usersData.find(u => u.id === selectedUser.id);
+                const isCurrentlyAdmin = currentUser?.isAdmin;
+
+                console.log(`[${saveRequestId}] 👤 User ${selectedUser.id} current admin status: ${isCurrentlyAdmin}`);
+
                 // if user wasn't admin yet, promote role first
-                if (!usersData.find(u => u.id === selectedUser.id)?.isAdmin) {
+                if (!isCurrentlyAdmin) {
+                  console.log(`[${saveRequestId}] ⬆️  Promoting user ${selectedUser.id} to admin role`);
+                  const roleUpdateStart = Date.now();
                   await updateUserRole(selectedUser.id, 'admin');
+                  const roleUpdateTime = Date.now() - roleUpdateStart;
+                  console.log(`[${saveRequestId}] ✅ Role promotion completed in ${roleUpdateTime}ms`);
+                } else {
+                  console.log(`[${saveRequestId}] ⏭️  User already has admin role, skipping promotion`);
                 }
+
                 // attempt to persist permissions too
-                await updateAdminUserPermissions(selectedUser.id, adminMeta);
+                console.log(`[${saveRequestId}] 💾 Saving admin permissions for user ${selectedUser.id}`);
+                const permissionsUpdateStart = Date.now();
+                await updateAdminUser(selectedUser.id, { role: 'admin', adminMeta });
+                const permissionsUpdateTime = Date.now() - permissionsUpdateStart;
+                console.log(`[${saveRequestId}] ✅ Permissions update completed in ${permissionsUpdateTime}ms`);
+
+                const totalSaveTime = Date.now() - saveStartTime;
+                console.log(`[${saveRequestId}] 🎉 ADMIN SAVE SUCCESS - Total time: ${totalSaveTime}ms`);
+
                 alert(isRTL ? "تم حفظ الصلاحيات بنجاح" : "Privileges saved successfully");
                 setPrivilegesModalOpen(false);
                 setSelectedUser(null);
                 loadUsers();
+
               } catch (err: any) {
-                console.error("Failed to save user or permissions via API", err);
-                alert(isRTL ? "فشل حفظ الصلاحيات" : "Failed to save permissions");
+                const totalSaveTime = Date.now() - saveStartTime;
+                console.error(`[${saveRequestId}] 💥 ADMIN SAVE FAILED for user ${selectedUser.id} - Total time: ${totalSaveTime}ms`, err);
+                console.error(`[${saveRequestId}] 📋 Error details:`, {
+                  message: err?.message,
+                  stack: err?.stack,
+                  path: err?.path,
+                  status: err?.status,
+                  adminMeta: adminMeta
+                });
+
+                alert(
+                  isRTL
+                    ? "فشل حفظ الصلاحيات. راجع سجل المتصفح (Console)."
+                    : "Failed to save permissions. Check the browser console for details."
+                );
               }
             }}
           />

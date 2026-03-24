@@ -131,7 +131,7 @@ function SpecIcon({ spec, size }: { spec: any; size: "sm" | "lg" }) {
 }
 
 export function ProductDetailPage(props: ProductDetailPageProps) {
-  const { product, categoryName, brandName, userPermissions = { canEditContent: true }, onSaveProductContent } = props;
+  const { product, categoryName, brandName, userPermissions: userPermissionsProp, onSaveProductContent } = props;
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const currencyLabel = (t as any)?.currency || CURRENCY_LABEL;
@@ -146,10 +146,74 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const [productError, setProductError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [resolvedAdminMeta, setResolvedAdminMeta] = useState<any | null>(null);
 
   const [localProduct, setLocalProduct] = useState<any | null>(
     product ?? (location.state && (location.state as any).product) ?? null,
   );
+
+  const userPermissions = useMemo(() => {
+    if (userPermissionsProp) return userPermissionsProp;
+    try {
+      const raw = localStorage.getItem("session");
+      if (!raw) return { canEditContent: false };
+      const session = JSON.parse(raw);
+      const user = session?.user;
+      if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
+        return { canEditContent: false };
+      }
+      const adminMeta = resolvedAdminMeta || user.adminMeta || {};
+      const allowAllCategories = Boolean(adminMeta.allowAllCategories);
+      const allowAllBrands = Boolean(adminMeta.allowAllBrands);
+      const allowedCategoryIds = Array.isArray(adminMeta.allowedCategoryIds)
+        ? adminMeta.allowedCategoryIds.map(String)
+        : [];
+      const allowedBrandIds = Array.isArray(adminMeta.allowedBrandIds)
+        ? adminMeta.allowedBrandIds.map(String)
+        : [];
+      const catCode = String(
+        localProduct?.cat_code || localProduct?.category_code || localProduct?.catCode || ""
+      );
+      const brandCode = String(
+        localProduct?.brand_code || localProduct?.brandCode || ""
+      );
+      const categoryAllowed = allowAllCategories || (catCode && allowedCategoryIds.includes(catCode));
+      const brandAllowed = allowAllBrands || (brandCode && allowedBrandIds.includes(brandCode));
+      return { canEditContent: Boolean(categoryAllowed && brandAllowed) };
+    } catch {
+      return { canEditContent: false };
+    }
+  }, [localProduct, resolvedAdminMeta, userPermissionsProp]);
+
+  useEffect(() => {
+    if (userPermissionsProp) return;
+    let mounted = true;
+    try {
+      const raw = localStorage.getItem("session");
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const user = session?.user;
+      if (!user || (user.role !== "admin" && user.role !== "super_admin")) return;
+      if (user.adminMeta || resolvedAdminMeta) return;
+      const userId = user.id || user._id || user.userId;
+      if (!userId) return;
+      const apiBase =
+        (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+      fetch(`${apiBase}/admin/users/${encodeURIComponent(userId)}/permissions`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (!mounted || !json?.data) return;
+          const perms = json.data?.permissions || json.data?.adminMeta || json.data?.admin_meta;
+          if (perms) setResolvedAdminMeta(perms);
+        })
+        .catch(() => undefined);
+    } catch {
+      return;
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [resolvedAdminMeta, userPermissionsProp]);
 
   useEffect(() => {
     const stateProduct =
@@ -329,9 +393,18 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     const value = String(spec?.value ?? spec?.valueAr ?? "").trim();
     return title.length > 0 && value.length > 0;
   });
+  const getSpecTitle = (spec: any) =>
+    language === "ar"
+      ? spec?.titleAr || spec?.title || ""
+      : spec?.title || spec?.titleAr || "";
+  const getSpecValue = (spec: any) =>
+    language === "ar"
+      ? spec?.valueAr || spec?.value || ""
+      : spec?.value || spec?.valueAr || "";
   const selectedKeyFeatures = populatedSpecs.filter((spec: any) => spec?.isKeyFeature).slice(0, 4);
   const displayKeyFeatures = selectedKeyFeatures.length > 0 ? selectedKeyFeatures : populatedSpecs.slice(0, 4);
   const shouldShowKeyFeatures = userPermissions.canEditContent || displayKeyFeatures.length > 0;
+  const hasSpecsContent = populatedSpecs.length > 0;
 
   const baseProductOffers = prod ? getProductOffers(prod as any) : [];
   const productOffers = baseProductOffers;
@@ -453,6 +526,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const [offerProducts, setOfferProducts] = useState<any[]>([]);
   const [offerProductsLoading, setOfferProductsLoading] = useState(false);
   const [offerProductsError, setOfferProductsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userPermissions.canEditContent && !hasSpecsContent && tabState === "specs") {
+      setTabState("description");
+    }
+  }, [hasSpecsContent, tabState, userPermissions.canEditContent]);
 
   const displayColor = hoveredColor || selectedColor;
   const currentColorVariant = hasColors
@@ -778,7 +857,17 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     const offer = displayOffers[0];
     if (!offer) return;
     setSelectedOffer(offer);
-    const hasOfferProducts = extractOfferStkCodes(offer).length > 0;
+    const hasOfferProducts = offer.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
+    if (offer.type === "coupon") {
+      addPrimaryWithOffer(offer);
+      closeOfferDialog();
+      return;
+    }
+    if (offer.type === "free_product" && !hasOfferProducts) {
+      addPrimaryWithOffer(offer);
+      closeOfferDialog();
+      return;
+    }
     if (offer.type === "direct_discount" && !hasOfferProducts) {
       handleDirectDiscount(offer);
       return;
@@ -909,7 +998,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     );
   }
 
-  if (!userPermissions.canEditContent && (!hasValidImage || !hasValidName || !hasDetails)) {
+  if (userPermissions.canEditContent && (!hasValidImage || !hasValidName || !hasDetails)) {
     return (
       <section className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
@@ -945,8 +1034,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         )}
       <div className="sticky top-[72px] z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between gap-4 ">
-            <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide ">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
               <button
                 onClick={() => navigate("/")}
                 className="group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0"
@@ -984,14 +1073,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 </div>
               ))}
 
-              <span className="text-[#009FE3] font-semibold truncate max-w-[200px] sm:max-w-md">
+              <span className="text-[#009FE3] font-semibold break-words max-w-full sm:max-w-md">
                 {prod?.name}
               </span>
             </div>
 
             <button
               onClick={handleNavigateBack}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200 flex-shrink-0"
+              className="self-end sm:self-auto p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200 flex-shrink-0"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -1505,8 +1594,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             <SpecIcon spec={spec} size="sm" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs text-gray-500 mb-0.5">{spec.title}</p>
-                            <p className="font-bold text-gray-900 truncate">{spec.value}</p>
+                            <p className="text-xs text-gray-500 mb-0.5">{getSpecTitle(spec)}</p>
+                            <p className="font-bold text-gray-900 truncate">{getSpecValue(spec)}</p>
                           </div>
                         </div>
                       );
@@ -1569,20 +1658,22 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               )}
             </button>
 
-            <button
-              onClick={() => setTabState("specs")}
-              className={`flex-1 px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 ${
-                tabState === "specs"
-                  ? "text-[#009FE3] bg-white"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-              } ${language === "ar" ? "flex-row-reverse" : "flex-row"}`}
-            >
-              <Settings className="w-5 h-5" />
-              <span>{t("specifications")}</span>
-              {tabState === "specs" && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7]" />
-              )}
-            </button>
+            {(userPermissions.canEditContent || hasSpecsContent) && (
+              <button
+                onClick={() => setTabState("specs")}
+                className={`flex-1 px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 ${
+                  tabState === "specs"
+                    ? "text-[#009FE3] bg-white"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                } ${language === "ar" ? "flex-row-reverse" : "flex-row"}`}
+              >
+                <Settings className="w-5 h-5" />
+                <span>{t("specifications")}</span>
+                {tabState === "specs" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7]" />
+                )}
+              </button>
+            )}
 
             <button
               onClick={() => setTabState("offers")}
@@ -1858,7 +1949,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               </div>
             )}
 
-            {tabState === "specs" && (
+            {tabState === "specs" && (userPermissions.canEditContent || hasSpecsContent) && (
               <div className="animate-fadeIn">
                 {/* Inline Editor for Specifications Only */}
                 {userPermissions.canEditContent && (
@@ -1886,10 +1977,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="font-bold text-gray-700 mb-1">
-                                {spec.title}
+                                {getSpecTitle(spec)}
                               </h4>
                               <p className="text-gray-900 font-semibold text-lg">
-                                {spec.value}
+                                {getSpecValue(spec)}
                               </p>
                             </div>
                           </div>
@@ -1972,8 +2063,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             <div className="space-y-6">
               {displayOffers.map((offer: any, idx: number) => {
                 const isSelected = selectedOffer === offer;
-                const hasOfferProducts = extractOfferStkCodes(offer).length > 0;
-                const needsProducts = hasOfferProducts || offer.type !== "direct_discount";
+                const hasOfferProducts = offer.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
+                const needsProducts =
+                  hasOfferProducts ||
+                  (offer.type !== "direct_discount" &&
+                    offer.type !== "coupon" &&
+                    offer.type !== "free_product");
                 return (
                   <div
                     key={`offer-dialog-${offer.type}-${idx}`}
@@ -1998,11 +2093,21 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                       {!singleOffer && (
                         <button
                           onClick={() => {
-                            setSelectedOffer(offer);
-                            if (!needsProducts && offer.type === "direct_discount") {
-                              handleDirectDiscount(offer);
-                              return;
-                            }
+                          setSelectedOffer(offer);
+                          if (offer.type === "coupon") {
+                            addPrimaryWithOffer(offer);
+                            closeOfferDialog();
+                            return;
+                          }
+                          if (offer.type === "free_product" && !hasOfferProducts) {
+                            addPrimaryWithOffer(offer);
+                            closeOfferDialog();
+                            return;
+                          }
+                          if (!needsProducts && offer.type === "direct_discount") {
+                            handleDirectDiscount(offer);
+                            return;
+                          }
                             if (hasOfferProducts) {
                               loadOfferProducts(offer);
                             } else {
@@ -2030,7 +2135,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               })}
             </div>
 
-            {selectedOffer && showOfferProducts && (
+            {selectedOffer && showOfferProducts && selectedOffer.type !== "coupon" && (
               <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4">
                 <h4 className="font-bold text-gray-900 mb-3">
                   {language === "ar"

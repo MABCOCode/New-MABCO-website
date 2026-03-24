@@ -1,11 +1,13 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { Product } from "../types/product";
 
 type CartItem = {
   isCouponItem: any;
   id: number | string;
   productId?: number | string;
+  stkCode?: string | null;
   name: string;
+  nameAr?: string;
   price: string | number | undefined;
   basePrice?: number | null;
   oldPrice?: string | number | null;
@@ -66,6 +68,7 @@ type CartContextType = {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 const MAX_PURCHASE_QUANTITY = 2;
+const CART_STORAGE_KEY = "mabco_cart_v1";
 
 export const useCart = () => {
   const ctx = useContext(CartContext);
@@ -74,10 +77,99 @@ export const useCart = () => {
 };
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      const raw = localStorage.getItem(CART_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [cartOpen, setCartOpen] = useState(false);
 
   const cartCount = cartItems.reduce((s, it) => s + (it.quantity || 0), 0);
+  const apiBase =
+    (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+    } catch {
+      // ignore storage errors
+    }
+  }, [cartItems]);
+
+  useEffect(() => {
+    let mounted = true;
+    const ids = cartItems.map((item) => item.stkCode || item.productId || item.id).filter(Boolean);
+    if (ids.length === 0) return;
+
+    const toNumber = (val: any) => {
+      const n = typeof val === "number" ? val : Number(String(val).replace(/[^0-9.-]/g, ""));
+      return Number.isFinite(n) ? n : null;
+    };
+    const formatPrice = (val: number | null) =>
+      val === null ? undefined : val.toLocaleString("en-US");
+
+    Promise.all(
+      ids.map((id) =>
+        fetch(`${apiBase}/products/${encodeURIComponent(String(id))}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((json) => json?.data ?? null)
+          .catch(() => null),
+      ),
+    ).then((rows) => {
+      if (!mounted) return;
+      const byKey = new Map<string, any>();
+      rows.forEach((product) => {
+        if (!product) return;
+        const key = String(product.stk_code || product.id || product._id || "");
+        if (key) byKey.set(key, product);
+      });
+
+      setCartItems((prev) =>
+        prev.map((item) => {
+          const key = String(item.stkCode || item.productId || item.id || "");
+          const product = byKey.get(key);
+          if (!product) return item;
+
+          const base = toNumber(product.price);
+          let nextPrice = base;
+
+          if (item.variantSku && Array.isArray(product.colorVariants)) {
+            const variant = product.colorVariants.find(
+              (v: any) => String(v.stk_code || v.stkCode) === String(item.variantSku),
+            );
+            const vPrice = toNumber(variant?.price);
+            if (vPrice !== null) nextPrice = vPrice;
+          }
+
+          if (item.chargeOptionSku && Array.isArray(product.chargeOptions)) {
+            const option = product.chargeOptions.find(
+              (o: any) => String(o.stk_code || o.stkCode) === String(item.chargeOptionSku),
+            );
+            const oPrice = toNumber(option?.price);
+            if (oPrice !== null) nextPrice = oPrice;
+          }
+
+          return {
+            ...item,
+            name: product.name || item.name,
+            nameAr: product.nameAr || item.nameAr,
+            image: item.image || product.image || product.thumbnail,
+            basePrice: base,
+            price: formatPrice(nextPrice),
+          };
+        }),
+      );
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const openCart = () => setCartOpen(true);
   const closeCart = () => setCartOpen(false);
@@ -148,7 +240,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         {
           id,
           productId: product.id,
+          stkCode: product.stk_code ?? product.stkCode ?? null,
           name: product.name || product.title || "",
+          nameAr: product.nameAr || product.titleAr || "",
           price: itemPrice,
           basePrice: typeof basePrice === "number" ? basePrice : null,
           oldPrice: itemOldPrice,

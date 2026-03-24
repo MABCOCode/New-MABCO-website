@@ -42,6 +42,12 @@ import savedSpecTitlesManager from "../../../../data/savedSpecTitlesData";
 
 interface ProductContentDashboardProps {
   onClose: () => void;
+  adminMeta?: {
+    allowAllCategories?: boolean;
+    allowAllBrands?: boolean;
+    allowedCategoryIds?: string[];
+    allowedBrandIds?: string[];
+  };
 }
 
 // Content Requirements for synced products
@@ -87,7 +93,7 @@ const CATEGORIES = [
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
 
-export function ProductContentDashboard({ onClose }: ProductContentDashboardProps) {
+export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDashboardProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "incomplete" | "ready">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,6 +101,7 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
   const [contentProducts, setContentProducts] = useState<any[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [resolvedAdminMeta, setResolvedAdminMeta] = useState<any | null>(null);
   const { t, language } = useLanguage();
 
   useEffect(() => {
@@ -148,6 +155,14 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
 
     const missing = product._missing || {};
     const readyToPublish = !product._hasMissing;
+    const hasName = Boolean(String(nameEn || nameAr || "").trim());
+    const hasDescription = Boolean(String(product?.description || product?.descriptionAr || "").trim());
+    const hasSpecs = Array.isArray(product?.specs) && product.specs.length > 0;
+    const hasDetails = hasDescription || hasSpecs;
+    const hasImage = Boolean(String(product?.image || colors?.[0]?.image || "").trim());
+    const hasPrice = Number(product?.price || 0) > 0;
+    const colorHasImages = colors.length === 0 || colors.some((c) => Boolean(String(c.image || "").trim()));
+    const requiredMissing = !(hasName && hasDetails && hasImage && hasPrice && colorHasImages);
 
     return {
       id: String(product?._id || product?.id || product?.stk_code || ""),
@@ -156,6 +171,8 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
       nameAr,
       brand: product?.brand || "",
       category: product?.category || "",
+      brandCode: String(product?.brand_code || product?.brandCode || ""),
+      categoryCode: String(product?.cat_code || product?.category_code || product?.catCode || ""),
       price: product?.price || "",
       syncedAt: product?.audit?.updatedAt || product?.updatedAt || "",
       syncSource: "MongoDB",
@@ -178,6 +195,7 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
         category: Boolean(missing.category),
         brand: Boolean(missing.brand),
       },
+      requiredMissing,
       readyToPublish,
       _raw: product,
     };
@@ -190,7 +208,6 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
       const headers: Record<string, string> = {};
       if (ADMIN_API_KEY) headers["x-admin-key"] = ADMIN_API_KEY;
       const params = new URLSearchParams();
-      params.set("missing", "1");
       params.set("limit", "200");
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
       const res = await fetch(`${API_BASE}/admin/products?${params.toString()}`, { headers });
@@ -209,6 +226,35 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (adminMeta || resolvedAdminMeta) return;
+    let mounted = true;
+    try {
+      const raw = localStorage.getItem("session");
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const user = session?.user;
+      if (!user || (user.role !== "admin" && user.role !== "super_admin")) return;
+      const userId = user.id || user._id || user.userId;
+      if (!userId) return;
+      const apiBase =
+        (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+      fetch(`${apiBase}/admin/users/${encodeURIComponent(userId)}/permissions`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (!mounted || !json?.data) return;
+          const perms = json.data?.permissions || json.data?.adminMeta || json.data?.admin_meta;
+          if (perms) setResolvedAdminMeta(perms);
+        })
+        .catch(() => undefined);
+    } catch {
+      return;
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [adminMeta, resolvedAdminMeta]);
 
   const saveProductUpdate = async (productId: string, update: any) => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -230,16 +276,21 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
 
   // Calculate completion percentage
   const calculateCompletion = (product: any) => {
-    const missing = product?.missingFields || {};
-    const total = 7;
+    const total = 5;
+    const hasName = Boolean(String(product?.nameEn || product?.nameAr || "").trim());
+    const hasDescription = Boolean(
+      String(product?.existingContent?.descriptionEn || product?.existingContent?.descriptionAr || "").trim(),
+    );
+    const hasInTheBox = Array.isArray(product?.existingContent?.whatsInBox) && product.existingContent.whatsInBox.length > 0;
+    const hasImage = Boolean(String(product?.existingContent?.thumbnail || "").trim());
+    const hasColorImages = !product?.hasMultipleColors || (product?.colors || []).some((c: any) => Boolean(String(c.image || "").trim()));
+
     const completed =
-      (missing.productName ? 0 : 1) +
-      (missing.productDetails ? 0 : 1) +
-      (missing.colorImages ? 0 : 1) +
-      (missing.galleryImages ? 0 : 1) +
-      (missing.specs ? 0 : 1) +
-      (missing.category ? 0 : 1) +
-      (missing.brand ? 0 : 1);
+      (hasName ? 1 : 0) +
+      (hasDescription ? 1 : 0) +
+      (hasInTheBox ? 1 : 0) +
+      (hasImage ? 1 : 0) +
+      (hasColorImages ? 1 : 0);
 
     return Math.round((completed / total) * 100);
   };
@@ -269,6 +320,32 @@ export function ProductContentDashboard({ onClose }: ProductContentDashboardProp
   };
 
   const filteredProducts = contentProducts.filter((product) => {
+    const meta = adminMeta || resolvedAdminMeta || {};
+    const allowAllCategories = Boolean(meta?.allowAllCategories);
+    const allowAllBrands = Boolean(meta?.allowAllBrands);
+    const allowedCategoryIds = Array.isArray(meta?.allowedCategoryIds)
+      ? meta?.allowedCategoryIds.map(String)
+      : [];
+    const allowedBrandIds = Array.isArray(meta?.allowedBrandIds)
+      ? meta?.allowedBrandIds.map(String)
+      : [];
+    const categoryAllowed =
+      allowAllCategories ||
+      (allowedCategoryIds.length > 0 && allowedCategoryIds.includes(product.categoryCode));
+    const brandAllowed =
+      allowAllBrands ||
+      (allowedBrandIds.length > 0 && allowedBrandIds.includes(product.brandCode));
+
+    const hasCategoryRules = allowedCategoryIds.length > 0 || allowAllCategories;
+    const hasBrandRules = allowedBrandIds.length > 0 || allowAllBrands;
+    const permissionPass =
+      (hasCategoryRules && hasBrandRules && categoryAllowed && brandAllowed) ||
+      (hasCategoryRules && !hasBrandRules && categoryAllowed) ||
+      (!hasCategoryRules && hasBrandRules && brandAllowed);
+
+    if (!permissionPass) return false;
+
+    if (!product.requiredMissing) return false;
     const completion = calculateCompletion(product);
     const matchesStatus =
       filterStatus === "all" ||
@@ -597,9 +674,33 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   
   const [showIconPicker, setShowIconPicker] = useState<number | null>(null);
 
+  const hasManyColors = Array.isArray(colors) && colors.length > 0;
   const needsCategoryBrand = selectedCategory !== "mobile" && selectedCategory !== "power-station";
 
   const { t, language } = useLanguage();
+
+  useEffect(() => {
+    if (hasManyColors && activeTab === "gallery") {
+      setActiveTab("colors");
+    }
+  }, [activeTab, hasManyColors]);
+
+  useEffect(() => {
+    const rawCategory = product.category || product.categoryCode || "";
+    if (!rawCategory) return;
+    const match = CATEGORIES.find(
+      (cat) =>
+        String(cat.id).toLowerCase() === String(rawCategory).toLowerCase() ||
+        String(cat.nameEn).toLowerCase() === String(rawCategory).toLowerCase() ||
+        String(cat.nameAr).toLowerCase() === String(rawCategory).toLowerCase(),
+    );
+    if (match) {
+      setSelectedCategory(match.id);
+    } else {
+      setSelectedCategory(rawCategory);
+    }
+    setBrandName(product.brand || "");
+  }, [product]);
 
   const addNewSpec = () => {
     if (specs.length >= CONTENT_REQUIREMENTS.maxSpecs) {
@@ -807,20 +908,22 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
               </button>
             )}
 
-            <button
-              onClick={() => setActiveTab("gallery")}
-              className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
-                activeTab === "gallery"
-                  ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <ImageIcon className="w-4 h-4" />
-              {t('admin.content.tabGallery')}
-              <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
-                {galleryImages.length}/{CONTENT_REQUIREMENTS.maxImages}
-              </span>
-            </button>
+            {!hasManyColors && (
+              <button
+                onClick={() => setActiveTab("gallery")}
+                className={`flex-shrink-0 px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-sm ${
+                  activeTab === "gallery"
+                    ? "text-[#009FE3] bg-blue-50 border-b-2 border-[#009FE3]"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <ImageIcon className="w-4 h-4" />
+                {t('admin.content.tabGallery')}
+                <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
+                  {galleryImages.length}/{CONTENT_REQUIREMENTS.maxImages}
+                </span>
+              </button>
+            )}
 
             <button
               onClick={() => setActiveTab("specs")}
@@ -1049,53 +1152,110 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
           )}
 
           {/* Gallery Tab */}
-          {activeTab === "gallery" && (
+          {!hasManyColors && activeTab === "gallery" && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                <ImageIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h4 className="font-bold text-orange-900 mb-1">{t('admin.content.uploadGalleryImages')}</h4>
-                  <p className="text-sm text-orange-700">{t('admin.content.imageGuidelines')}</p>
-                  <p className="text-sm text-orange-700 mt-1">
+                  <h4 className="font-bold text-blue-900 mb-1">{t('admin.content.productGallery')}</h4>
+                  <p className="text-sm text-blue-700">{t('admin.content.imageGuidelines')}</p>
+                  <p className="text-sm text-blue-700 mt-1">
                     {t('admin.content.minRequired')}: {CONTENT_REQUIREMENTS.minImages} | {t('admin.content.maxAllowed')}: {CONTENT_REQUIREMENTS.maxImages}
                   </p>
                 </div>
               </div>
 
-              {/* Upload Area */}
-              <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-[#009FE3] transition-all cursor-pointer group">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Upload className="w-8 h-8 text-white" />
-                  </div>
-                  <div>
-                      <p className="text-lg font-bold text-gray-700 mb-1">{t('admin.content.uploadGalleryImages')}</p>
-                    <p className="text-sm text-gray-500">
-                      {t("admin.content.dragImagesHint")}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {galleryImages.length}/{CONTENT_REQUIREMENTS.maxImages} {t("admin.content.imagesUploaded")}
-                    </p>
+              {/* Existing Gallery Images */}
+              {galleryImages.length > 0 && (
+                <div>
+                  <h5 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-blue-600" />
+                    {t('admin.content.existingImages')} ({galleryImages.length}/{CONTENT_REQUIREMENTS.maxImages})
+                  </h5>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {galleryImages.map((img: string, i: number) => (
+                      <div key={`gallery-${i}`} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border-2 border-green-200">
+                        <img 
+                          src={img} 
+                          alt={`Gallery ${i + 1}`} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3Ctext y='50' font-size='12' fill='%23999' text-anchor='middle' dy='.3em'%3EImage Error%3C/text%3E%3C/svg%3E";
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={() => setGalleryImages(galleryImages.filter((_: any, idx: number) => idx !== i))}
+                            className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                            title={t('admin.content.delete')}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-bold">
+                          {i + 1}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Gallery Grid */}
-              {galleryImages.length > 0 && (
-                <div className="grid grid-cols-4 gap-4">
-                  {galleryImages.map((img: string, i: number) => (
-                    <div key={i} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group">
-                      <img src={img} alt={`Image ${i + 1}`} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <button
-                          onClick={() => setGalleryImages(galleryImages.filter((_: any, idx: number) => idx !== i))}
-                          className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+              {/* Upload Area - Add More Images */}
+              {galleryImages.length < CONTENT_REQUIREMENTS.maxImages && (
+                <div>
+                  <h5 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    {t('admin.content.addMoreImages')} ({CONTENT_REQUIREMENTS.maxImages - galleryImages.length} {t('admin.content.remaining')})
+                  </h5>
+                  <label className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-[#009FE3] transition-all cursor-pointer group block">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Upload className="w-8 h-8 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-gray-700 mb-1">{t('admin.content.uploadGalleryImages')}</p>
+                        <p className="text-sm text-gray-500">
+                          {t("admin.content.dragImagesHint")}
+                        </p>
                       </div>
                     </div>
-                  ))}
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        files.forEach((file) => {
+                          if (galleryImages.length < CONTENT_REQUIREMENTS.maxImages) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setGalleryImages((prev) => [...prev, reader.result as string]);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        });
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* Empty State */}
+              {galleryImages.length === 0 && (
+                <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-2xl">
+                  <ImageIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 font-bold mb-2">{t('admin.content.noImagesYet')}</p>
+                  <p className="text-sm text-gray-400">{t('admin.content.uploadFirstImage')}</p>
+                </div>
+              )}
+
+              {galleryImages.length >= CONTENT_REQUIREMENTS.maxImages && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-green-700">{t('admin.content.maxImagesReached')}</p>
                 </div>
               )}
             </div>
@@ -1247,6 +1407,14 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
 
               {specs.map((spec: any, index: number) => {
                 const IconComponent = AVAILABLE_ICONS.find((i) => i.name === spec.icon)?.icon || Smartphone;
+                const previewTitle =
+                  language === "ar"
+                    ? spec.nameAr || spec.nameEn || ""
+                    : spec.nameEn || spec.nameAr || "";
+                const previewValue =
+                  language === "ar"
+                    ? spec.valueAr || spec.valueEn || ""
+                    : spec.valueEn || spec.valueAr || "";
 
                 return (
                   <div key={index} className="border-2 border-gray-200 rounded-xl p-4 space-y-3 relative hover:border-[#009FE3] transition-all">
@@ -1382,6 +1550,13 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                       </div>
                     </div>
 
+                    {(previewTitle || previewValue) && (
+                      <div className="text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2">
+                        <span className="font-semibold">{previewTitle}</span>
+                        {previewValue && <span className="text-gray-500"> — {previewValue}</span>}
+                      </div>
+                    )}
+
                     {/* Spec Fields */}
                     <div className="space-y-3">
                       {/* Spec Name with Autocomplete */}
@@ -1404,7 +1579,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
                             placeholder={t("admin.content.searchSavedSpecPlaceholder")}
                           />
-                          <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                           
                           {/* Suggestions Dropdown */}
                           {showSpecNameSuggestions === index && (

@@ -9,6 +9,13 @@ async function connectMongo() {
 
   client = new MongoClient(mongoUri, {
     serverApi: ServerApiVersion.v1,
+    maxPoolSize: 10,
+    minPoolSize: 2,
+    maxIdleTimeMS: 30000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    retryWrites: true,
+    retryReads: true,
   });
 
   await client.connect();

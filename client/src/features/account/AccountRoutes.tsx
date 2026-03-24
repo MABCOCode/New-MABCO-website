@@ -54,16 +54,15 @@ const useSession = () => {
 const OrderDetailsRoute = ({ language }: { language: "ar" | "en" }) => {
   const { orderId } = useParams<{ orderId?: string }>();
   const navigate = useNavigate();
-  const parsedId = orderId ? Number(orderId) : NaN;
 
-  if (!orderId || Number.isNaN(parsedId)) {
+  if (!orderId) {
     return <Navigate to="/account/orders" replace />;
   }
 
   return (
     <OrderDetailsPage
       language={language}
-      orderId={parsedId}
+      orderId={orderId}
       onBack={() => navigate("/account/orders")}
     />
   );
@@ -85,6 +84,16 @@ export const AccountRoutes = () => {
     () => location.pathname.startsWith("/account/superadmin"),
     [location.pathname],
   );
+  const adminMeta = user?.adminMeta || {};
+  const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
+  const canManageOrders = Boolean(adminMeta?.canManageOrders);
+  const canManageBanners = Boolean(adminMeta?.canManageBanners);
+  const canManageStore =
+    isAdminUser &&
+    (Boolean(adminMeta?.allowAllCategories) ||
+      Boolean(adminMeta?.allowAllBrands) ||
+      (Array.isArray(adminMeta?.allowedCategoryIds) && adminMeta.allowedCategoryIds.length > 0) ||
+      (Array.isArray(adminMeta?.allowedBrandIds) && adminMeta.allowedBrandIds.length > 0));
 
   useEffect(() => {
     if (!hydrated) return;
@@ -93,6 +102,28 @@ export const AccountRoutes = () => {
       navigate("/account/login", { replace: true });
     }
   }, [isAuthed, isAuthRoute, isAdminRoute, isSuperAdminRoute, navigate, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || !user) return;
+    if (user.role !== "admin" && user.role !== "super_admin") return;
+    if (user.adminMeta) return;
+    let mounted = true;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+    fetch(`${apiBase}/admin/users/${encodeURIComponent(user.id || user._id)}/permissions`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!mounted || !json?.data) return;
+        const nextUser = {
+          ...user,
+          adminMeta: json.data?.permissions || json.data?.adminMeta || json.data?.admin_meta || null,
+        };
+        updateUser(nextUser);
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, [hydrated, user, updateUser]);
 
   const handleLoginSuccess = (nextUser: any) => {
     updateUser(nextUser);
@@ -118,30 +149,35 @@ export const AccountRoutes = () => {
 
   return (
     <>
-      {isAdminRoute && (
+      {isAdminRoute && (canManageStore || canManageBanners || canManageOrders) && (
         <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b shadow-sm">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               
-              <button
-                onClick={() => navigate('/account/admin/content')}
-                className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/content' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
-              >
-                
-                {language === 'ar' ? 'إدارة المتجر' : 'Store Management'}
-              </button>
-              <button
-                onClick={() => navigate('/account/admin/banners')}
-                className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/banners' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
-              >
-                {language === 'ar' ? 'إدارة البانر' : 'Banner Slider'}
-              </button>
-                  <button
-                onClick={() => navigate('/account/admin/orders')}
-                className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/orders' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
-              >
-                {t('admin.orders.title')}
-              </button>
+              {canManageStore && (
+                <button
+                  onClick={() => navigate('/account/admin/content')}
+                  className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/content' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {language === 'ar' ? 'إدارة المتجر' : 'Store Management'}
+                </button>
+              )}
+              {canManageBanners && (
+                <button
+                  onClick={() => navigate('/account/admin/banners')}
+                  className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/banners' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {language === 'ar' ? 'إدارة البانر' : 'Banner Slider'}
+                </button>
+              )}
+              {canManageOrders && (
+                <button
+                  onClick={() => navigate('/account/admin/orders')}
+                  className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/orders' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {t('admin.orders.title')}
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -214,7 +250,7 @@ export const AccountRoutes = () => {
             <OrdersPage
               language={language}
               onBack={() => navigate("/account/dashboard")}
-              onViewOrderDetails={(orderId) => navigate(`/account/orders/${orderId}`)}
+              onViewOrderDetails={(orderId) => navigate(`/account/orders/${encodeURIComponent(orderId)}`)}
             />
           ) : (
             <Navigate to="/account/login" replace />
@@ -268,15 +304,27 @@ export const AccountRoutes = () => {
       />
       <Route
         path="/admin/content"
-        element={<ProductContentDashboard onClose={() => navigate('/account/dashboard')} />}
+        element={
+          canManageStore ? (
+            <ProductContentDashboard onClose={() => navigate('/account/dashboard')} adminMeta={adminMeta} />
+          ) : (
+            <Navigate to="/account/dashboard" replace />
+          )
+        }
       />
       <Route
         path="/admin/banners"
-        element={<BannerSliderManagement language={language} onClose={() => navigate('/account/dashboard')} />}
+        element={
+          canManageBanners ? (
+            <BannerSliderManagement language={language} onClose={() => navigate('/account/dashboard')} />
+          ) : (
+            <Navigate to="/account/dashboard" replace />
+          )
+        }
       />
       <Route
         path="/admin/orders"
-        element={<AdminOrderManagement  />}
+        element={canManageOrders ? <AdminOrderManagement /> : <Navigate to="/account/dashboard" replace />}
       />
       <Route
         path="/superadmin"

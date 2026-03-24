@@ -551,22 +551,51 @@ export function OfferTypePage({
                           <Icon className="w-4 h-4" />
                           {offerType === "direct_discount" && (
                             <span>
-                              {currentOffer && "discountType" in currentOffer
-                                ? currentOffer.discountType === "percentage"
-                                  ? `${currentOffer.discountValue}% ${language === "ar" ? "خصم" : "OFF"}`
-                                  : language === "ar"
-                                  ? "خصم خاص"
-                                  : "Special Deal"
-                                : ""}
+                              {(() => {
+                                if (!currentOffer) return "";
+                                const rawType =
+                                  (currentOffer as any).discountType ??
+                                  (currentOffer as any).discount_type ??
+                                  "";
+                                const type =
+                                  rawType === "percentage" || rawType === "p" ? "percentage" : "value";
+                                const rawValue =
+                                  (currentOffer as any).discountValue ??
+                                  (currentOffer as any).discount ??
+                                  (currentOffer as any).value ??
+                                  0;
+                                const num = typeof rawValue === "number"
+                                  ? rawValue
+                                  : Number(String(rawValue).replace(/[^0-9.-]/g, ""));
+                                if (!Number.isFinite(num) || num <= 0) {
+                                  return language === "ar" ? "خصم" : "OFF";
+                                }
+                                return type === "percentage"
+                                  ? `${num}% ${language === "ar" ? "خصم" : "OFF"}`
+                                  : `${num.toFixed(0)} $ ${language === "ar" ? "خصم" : "OFF"}`;
+                              })()}
                             </span>
                           )}
                           {offerType === "coupon" && (
                             <span>
-                              {currentOffer && "couponValue" in currentOffer
-                                ? `${(currentOffer.couponValue / 1000).toFixed(0)}K ${
-                                    language === "ar" ? "كوبون" : "Coupon"
-                                  }`
-                                : ""}
+                              {(() => {
+                                if (!currentOffer) return "";
+                                const raw =
+                                  (currentOffer as any).couponValue ??
+                                  (currentOffer as any).coupon_value ??
+                                  (currentOffer as any).discount ??
+                                  (currentOffer as any).value ??
+                                  0;
+                                const num = typeof raw === "number"
+                                  ? raw
+                                  : Number(String(raw).replace(/[^0-9.-]/g, ""));
+                                if (!Number.isFinite(num) || num <= 0) {
+                                  return language === "ar" ? "كوبون" : "Coupon";
+                                }
+                                return `${(num).toFixed(0)} $ ${
+                                  language === "ar" ? "كوبون" : "Coupon"
+                                }`;
+                              })()}
                             </span>
                           )}
                           {offerType === "free_product" && (

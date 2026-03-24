@@ -36,14 +36,19 @@ import type { BundleDiscountOffer, CouponOffer } from "../../../types/product";
 interface CartItem {
   id: number | string;
   productId?: number;
+  stkCode?: string | null;
   name: string;
+  nameAr?: string;
   price: string | undefined;
   oldPrice?: string;
   image?: string;
   quantity: number;
   variant?: string;
   variantColor?: string;
+  variantSku?: string | null;
+  chargeOptionSku?: string | null;
   chargeOption?: { optionId: string; value: string } | null;
+  appliedOffers?: any[] | null;
   isFreeGift?: boolean;
   isBundleItem?: boolean;
   linkedToProductId?: number;
@@ -52,6 +57,7 @@ interface CartItem {
 
 interface Showroom {
   id: string;
+  loc_code?: string;
   name: string;
   city: string;
   address: string;
@@ -134,6 +140,8 @@ export function CheckoutPage() {
   const [showroomsLoading, setShowroomsLoading] = useState(true);
   const [showroomsError, setShowroomsError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderSubmitError, setOrderSubmitError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [appliedCoupons, setAppliedCoupons] = useState<Map<string, CouponOffer>>(new Map());
   const [freeProductsAdded, setFreeProductsAdded] = useState<Map<string, number>>(new Map());
@@ -191,6 +199,7 @@ export function CheckoutPage() {
             const hours = `${chosen.Winter_from_date || ""} ${chosen.Winter_to_date || ""}`.trim();
             return {
               id: chosen.Loc_code,
+              loc_code: chosen.Loc_code,
               name:
                 (language === "ar" ? ar?.Loc_name : en?.Loc_name) ||
                 chosen.Loc_name ||
@@ -366,6 +375,26 @@ export function CheckoutPage() {
   };
   const subtotal = cartItems.reduce((sum, item) => sum + parsePrice(item.price) * item.quantity, 0);
 
+  const couponDiscount = (() => {
+    let discount = 0;
+    cartItems.forEach((source, idx) => {
+      const offer = (source as any).appliedOffers?.find((o: any) => o?.type === "coupon");
+      if (!offer) return;
+      let remaining = Number(offer.couponValue ?? offer.discountValue ?? offer.discount ?? 0) * (source.quantity || 1);
+      if (remaining <= 0) return;
+      for (let j = idx + 1; j < cartItems.length && remaining > 0; j += 1) {
+        const target = cartItems[j];
+        if (target.isFreeGift || target.isBundleItem || target.linkedToProductId) continue;
+        const lineTotal = parsePrice(target.price) * target.quantity;
+        if (lineTotal <= 0) continue;
+        const applied = Math.min(remaining, lineTotal);
+        remaining -= applied;
+        discount += applied;
+      }
+    });
+    return discount;
+  })();
+
   const calculateTotalSavings = () => {
     let savings = 0;
 
@@ -406,7 +435,7 @@ export function CheckoutPage() {
     return Math.max(0, savings);
   };
 
-  const totalSavings = calculateTotalSavings();
+  const totalSavings = calculateTotalSavings() + couponDiscount;
   
   let deliveryFee = 0;
   if (fulfillmentType === "delivery" && locationData) {
@@ -414,7 +443,7 @@ export function CheckoutPage() {
     deliveryFee = 50000; // Base fee in IQD
   }
   
-  const total = subtotal + deliveryFee;
+  const total = Math.max(0, subtotal + deliveryFee - couponDiscount);
   const formatPrice = (price: number) => price.toLocaleString();
 
   // Filter showrooms
@@ -547,6 +576,169 @@ export function CheckoutPage() {
     });
   };
 
+  const normalizeOfferForOrder = (offer: any) => {
+    if (!offer || typeof offer !== "object") return null;
+    const offerNo = offer.offer_no ?? offer.offerNo ?? offer.offerNumber ?? offer.offerId ?? null;
+    const type = offer.type ?? offer.offer_type ?? offer.offerType ?? offer.offer ?? null;
+    const title = offer.title ?? offer.titleEn ?? offer.name ?? "";
+    const titleAr = offer.title_ar ?? offer.titleAr ?? offer.nameAr ?? "";
+    const description = offer.description ?? offer.descriptionEn ?? "";
+    const descriptionAr = offer.description_ar ?? offer.descriptionAr ?? "";
+    return {
+      offer_no: offerNo ? String(offerNo) : null,
+      type,
+      title,
+      title_ar: titleAr,
+      name: title,
+      nameAr: titleAr,
+      description,
+      description_ar: descriptionAr,
+      descriptionAr,
+      discount: offer.discount ?? offer.discountValue ?? offer.couponValue ?? offer.value ?? 0,
+      discount_type: offer.discount_type ?? offer.discountType ?? null,
+    };
+  };
+
+  const buildAppliedOffersSnapshot = () => {
+    const offersMap = new Map<string, any>();
+
+    cartItems.forEach((item) => {
+      const offers = (item as any).appliedOffers ?? [];
+      offers.forEach((raw: any) => {
+        const normalized = normalizeOfferForOrder(raw);
+        if (!normalized || !normalized.type) return;
+        const key = `${normalized.type}:${normalized.offer_no ?? normalized.title ?? ""}`;
+        const existing = offersMap.get(key) || { ...normalized, discountAmount: 0 };
+
+        const basePrice =
+          typeof (item as any).basePrice === "number"
+            ? (item as any).basePrice
+            : item.oldPrice
+            ? parsePrice(item.oldPrice)
+            : parsePrice(item.price);
+
+        if (normalized.type === "direct_discount") {
+          if (normalized.discount_type === "percentage" || normalized.discount_type === "p") {
+            existing.discountAmount += (basePrice * Number(normalized.discount || 0) / 100) * item.quantity;
+          } else {
+            existing.discountAmount += Number(normalized.discount || 0) * item.quantity;
+          }
+        }
+
+        if (normalized.type === "bundle_discount" && item.isBundleItem && item.oldPrice) {
+          const bundleSavings = Math.max(0, parsePrice(item.oldPrice) - parsePrice(item.price));
+          existing.discountAmount += bundleSavings * item.quantity;
+        }
+
+        if (normalized.type === "free_product" && item.isFreeGift) {
+          const giftValue = item.oldPrice ? parsePrice(item.oldPrice) : parsePrice(item.price);
+          existing.discountAmount += giftValue * item.quantity;
+        }
+
+        offersMap.set(key, existing);
+      });
+    });
+
+    // Apply coupon discount total once (if any)
+    if (couponDiscount > 0) {
+      const couponOffer = Array.from(offersMap.values()).find((o) => o.type === "coupon");
+      if (couponOffer) {
+        couponOffer.discountAmount = couponDiscount;
+      }
+    }
+
+    return Array.from(offersMap.values());
+  };
+
+  const buildOrderPayload = () => {
+    const items = cartItems.map((item) => {
+      const appliedOffers = ((item as any).appliedOffers ?? [])
+        .map((offer: any) => normalizeOfferForOrder(offer))
+        .filter(Boolean);
+
+      return {
+        id: String(item.id),
+        productId: item.productId ?? null,
+        stk_code: (item as any).stkCode ?? (item as any).stk_code ?? null,
+        name: item.name,
+        nameAr: (item as any).nameAr ?? "",
+        image: item.image ?? "",
+        quantity: item.quantity,
+        price: parsePrice(item.price),
+        basePrice:
+          typeof (item as any).basePrice === "number"
+            ? (item as any).basePrice
+            : item.oldPrice
+            ? parsePrice(item.oldPrice)
+            : parsePrice(item.price),
+        variant: item.variant ?? null,
+        variantColor: item.variantColor ?? null,
+        variantSku: (item as any).variantSku ?? null,
+        chargeOptionSku: (item as any).chargeOptionSku ?? null,
+        chargeOption: item.chargeOption ?? null,
+        isFreeGift: Boolean(item.isFreeGift),
+        isBundleItem: Boolean(item.isBundleItem),
+        linkedToProductId: item.linkedToProductId ?? null,
+        bundleDiscount: item.bundleDiscount ?? null,
+        appliedOffers,
+      };
+    });
+
+    const appliedOffersSnapshot = buildAppliedOffersSnapshot();
+
+    return {
+      customerSnapshot: {
+        fullName: formData.fullName,
+        phone: formData.phone,
+        secondaryPhone: formData.secondaryPhone,
+        email: formData.email,
+      },
+      fulfillment: {
+        type: fulfillmentType,
+        preferredDate: formData.preferredDate || null,
+        preferredTime: formData.preferredTime || null,
+        deliveryInstructions: formData.deliveryInstructions || "",
+        showroom:
+          fulfillmentType === "pickup"
+            ? {
+                ...selectedShowroom,
+                loc_code: selectedShowroom?.loc_code ?? selectedShowroom?.id ?? null,
+              }
+            : null,
+        location: fulfillmentType === "delivery" ? locationData : null,
+      },
+      addresses: {
+        delivery:
+          fulfillmentType === "delivery"
+            ? {
+                area: formData.area,
+                street: formData.street,
+                building: formData.building,
+                addressNotes: formData.addressNotes,
+                formattedAddress: locationData?.formattedAddress ?? "",
+                city: locationData?.city ?? "",
+                country: locationData?.country ?? "",
+              }
+            : null,
+      },
+      items,
+      pricing: {
+        subtotal,
+        shipping: deliveryFee,
+        tax: 0,
+        discount: totalSavings,
+        total,
+      },
+      appliedOffersSnapshot,
+      payment: {
+        method: "cash",
+        status: "pending",
+      },
+      status: "pending",
+      locale: language,
+    };
+  };
+
   // Validation
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -578,7 +770,7 @@ export function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!validate()) {
       // Scroll to first error
       const firstError = document.querySelector(".error-message");
@@ -586,24 +778,41 @@ export function CheckoutPage() {
       return;
     }
 
-    const orderData = {
-      items: cartItems,
-      fulfillmentType,
-      ...(fulfillmentType === "delivery" ? { 
-        delivery: { 
-          ...formData, 
-          location: locationData 
-        }, 
-        deliveryFee 
-      } : {}),
-      ...(fulfillmentType === "pickup" ? { showroom: selectedShowroom } : {}),
-      subtotal,
-      total,
-      timestamp: new Date().toISOString(),
-    };
-    // Clear cart and navigate to a simple confirmation route (or home)
-    clearCart();
-    navigate("/", { state: { confirmedOrder: orderData } });
+    setOrderSubmitting(true);
+    setOrderSubmitError(null);
+    const orderPayload = buildOrderPayload();
+
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderPayload),
+      });
+
+      if (!res.ok) {
+        const message =
+          (await res.json().catch(() => null))?.message ||
+          (language === "ar" ? "تعذر حفظ الطلب." : "Failed to save order.");
+        throw new Error(message);
+      }
+
+      const json = await res.json().catch(() => null);
+      const savedOrder = json?.data ?? orderPayload;
+
+      clearCart();
+      const orderMessage =
+        language === "ar"
+          ? "سيتم التعامل مع طلبك بكل عناية، وسيتواصل معك الفريق المسؤول قريباً."
+          : "Your order will be managed with care, and the responsible team will contact you soon.";
+      navigate("/", { state: { confirmedOrder: savedOrder, orderMessage } });
+    } catch (err: any) {
+      setOrderSubmitError(
+        err?.message ||
+          (language === "ar" ? "تعذر حفظ الطلب." : "Failed to save order.")
+      );
+    } finally {
+      setOrderSubmitting(false);
+    }
   };
 
 
@@ -1263,9 +1472,17 @@ export function CheckoutPage() {
                       className="w-16 h-16 rounded-lg object-cover"
                     />
                     <div className="flex-1">
-                      <h4 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">
-                        {item.name}
-                      </h4>
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">
+                          {item.name}
+                        </h4>
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="text-xs font-semibold text-red-500 hover:text-red-600"
+                        >
+                          {isArabic ? "إزالة" : "Remove"}
+                        </button>
+                      </div>
 
                       {item.isFreeGift && (
                         <div className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-bold mb-1">
@@ -1425,12 +1642,22 @@ export function CheckoutPage() {
               </div>
 
               {/* Confirm Button */}
+              {orderSubmitError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+                  {orderSubmitError}
+                </div>
+              )}
               <button
                 onClick={handleConfirm}
-                className="w-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white py-4 rounded-xl font-bold text-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                disabled={orderSubmitting}
+                className="w-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white py-4 rounded-xl font-bold text-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-6 h-6" />
-                {t.confirmOrder}
+                {orderSubmitting
+                  ? language === "ar"
+                    ? "جاري التأكيد..."
+                    : "Confirming..."
+                  : t.confirmOrder}
               </button>
 
               <button

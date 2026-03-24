@@ -77,14 +77,14 @@ export function ColorSwatch({
       )}
       
       <div className="flex items-center gap-2 flex-wrap">
-        {visibleVariants.map((variant) => {
+        {visibleVariants.map((variant, index) => {
           const isSelected = variant.name === selectedColor;
           const isOutOfStock = false;
           const isHovered = hoveredColorName === variant.name;
 
           return (
             <div
-              key={variant.name}
+              key={`${variant.name}-${variant.hexCode}-${index}`}
               className="relative"
             >
               <button

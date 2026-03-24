@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Package, Search, Eye, EyeOff, Lock, Unlock, Calendar, User, Edit3, AlertCircle } from "lucide-react";
 import { ProductEditHistory } from "./ProductEditHistory";
@@ -27,44 +27,94 @@ export function ProductTracking({ language, onBack }: ProductTrackingProps) {
   const [filterBy, setFilterBy] = useState<'all' | 'hidden' | 'visible'>('all');
   const [selectedProduct, setSelectedProduct] = useState<ProductEdit | null>(null);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [productEdits, setProductEdits] = useState<ProductEdit[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Mock product edit data (in real app, fetch from backend)
-  const productEdits: ProductEdit[] = [
-    {
-      id: '1',
-      name: 'iPhone 15 Pro Max',
-      nameAr: 'آيفون 15 برو ماكس',
-      image: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400',
-      lastEditedBy: 'Ahmad Hassan',
-      lastEditedByAr: 'أحمد حسن',
-      lastEditedAt: new Date('2026-02-16T09:30:00'),
-      editCount: 3,
-      isHidden: false,
-    },
-    {
-      id: '2',
-      name: 'Samsung Galaxy S24 Ultra',
-      nameAr: 'سامسونج جالاكسي اس 24 الترا',
-      image: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=400',
-      lastEditedBy: 'Sara Ali',
-      lastEditedByAr: 'سارة علي',
-      lastEditedAt: new Date('2026-02-15T14:20:00'),
-      editCount: 5,
-      isHidden: false,
-    },
-    {
-      id: '12',
-      name: 'Old Phone Model',
-      nameAr: 'موبايل قديم',
-      image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400',
-      lastEditedBy: 'Mohammad Ahmad',
-      lastEditedByAr: 'محمد أحمد',
-      lastEditedAt: new Date('2026-02-12T11:00:00'),
-      editCount: 1,
-      isHidden: true,
-      hideReason: 'Out of stock - awaiting restock',
-    },
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [{ fetchAdminActions, fetchAdminUsers }] = await Promise.all([
+          import("../../api/adminDataApi"),
+        ]);
+
+        const [actions, users] = await Promise.all([
+          fetchAdminActions(),
+          fetchAdminUsers(),
+        ]);
+
+        const userMap = new Map<string, any>();
+        (users || []).forEach((u: any) => {
+          const key = String(u._id || u.id || "");
+          if (key) userMap.set(key, u);
+        });
+
+        const productActions = (actions || []).filter((a: any) => a?.targetType === "product");
+        const grouped = new Map<string, any[]>();
+        productActions.forEach((a: any) => {
+          const key = String(a?.targetId || "");
+          if (!key) return;
+          const list = grouped.get(key) || [];
+          list.push(a);
+          grouped.set(key, list);
+        });
+
+        const productIds = Array.from(grouped.keys()).slice(0, 200);
+        const products = await Promise.all(
+          productIds.map((id) =>
+            fetch(`${apiBase}/products/${encodeURIComponent(id)}`)
+              .then((res) => (res.ok ? res.json() : null))
+              .then((json) => json?.data ?? null)
+              .catch(() => null),
+          ),
+        );
+
+        const editRows: ProductEdit[] = products
+          .filter(Boolean)
+          .map((prod: any) => {
+            const key = String(prod._id || prod.id || prod.stk_code || "");
+            const list = grouped.get(key) || [];
+            const sorted = [...list].sort((a: any, b: any) => {
+              const ta = new Date(a?.createdAt || 0).getTime();
+              const tb = new Date(b?.createdAt || 0).getTime();
+              return tb - ta;
+            });
+            const latest = sorted[0];
+            const actor = latest ? userMap.get(String(latest.actorUserId || "")) : null;
+            return {
+              id: key,
+              name: prod.name || prod.nameEn || prod.stk_code || "",
+              nameAr: prod.nameAr || prod.name || "",
+              image: prod.image || "",
+              lastEditedBy: actor?.name || actor?.email || "System",
+              lastEditedByAr: actor?.nameAr || actor?.name || "System",
+              lastEditedAt: latest?.createdAt ? new Date(latest.createdAt) : new Date(),
+              editCount: list.length || 0,
+              isHidden: Boolean(prod?.status?.isHidden),
+              hideReason: prod?.availability?.hiddenReason || "",
+            };
+          });
+
+        if (!mounted) return;
+        setProductEdits(editRows);
+      } catch (err: any) {
+        if (!mounted) return;
+        setProductEdits([]);
+        setLoadError(isRTL ? "Failed to load activity log" : "Failed to load activity log");
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [isRTL]);
 
   const filteredProducts = productEdits.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -184,7 +234,20 @@ export function ProductTracking({ language, onBack }: ProductTrackingProps) {
             </h2>
           </div>
 
-          <div className="divide-y divide-gray-200">
+          {isLoading && (
+            <div className="p-6 text-center text-gray-500">
+              {isRTL ? "جارٍ تحميل السجل..." : "Loading activity log..."}
+            </div>
+          )}
+
+          {loadError && !isLoading && (
+            <div className="p-6 text-center text-red-600">
+              {loadError}
+            </div>
+          )}
+
+          {!isLoading && !loadError && (
+            <div className="divide-y divide-gray-200">
             {filteredProducts.map((product, index) => (
               <motion.div
                 key={product.id}
@@ -277,7 +340,8 @@ export function ProductTracking({ language, onBack }: ProductTrackingProps) {
                 </div>
               </motion.div>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

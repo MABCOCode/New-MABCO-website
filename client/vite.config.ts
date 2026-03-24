@@ -57,11 +57,5 @@
     server: {
       port: 3005,
       open: true,
-      proxy: {
-        '/api': {
-          target: 'http://localhost:3005',
-          changeOrigin: true,
-        },
-      },
     },
   });

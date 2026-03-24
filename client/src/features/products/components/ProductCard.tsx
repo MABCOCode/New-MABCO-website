@@ -53,6 +53,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
     return 0;
   };
+  const parseOfferNumber = (value: unknown): number => {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    if (typeof value === "string") {
+      const cleaned = value.replace(/[^0-9.-]/g, "").trim();
+      const parsed = Number(cleaned);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
 
   const safeColorVariants = React.useMemo(
     () => (Array.isArray(product.colorVariants) ? product.colorVariants : []),
@@ -117,8 +126,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
             variant.inStock !== false &&
             variant.isAvailable !== false &&
             (typeof variant.active !== "boolean" || variant.active) &&
-            Boolean(String(variant.name || variant.nameAr || "").trim()) &&
-            Boolean(String(variant.image || (variant.images && variant.images[0]) || "").trim()),
+            Boolean(String(variant.name || variant.nameAr || "").trim())
+            // Allow variants even without images - product can use main image as fallback
         )
         .sort((a: any, b: any) => {
           const aHasOffers = Array.isArray(a?.offers) && a.offers.length > 0 ? 1 : 0;
@@ -181,18 +190,34 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const hasValidVariants = hasColors || hasChargeOptions;
   const hasValidImage =
     Boolean(String(product.image || "").trim()) ||
-    visibleColorVariants.length > 0;
+    safeColorVariants.length > 0 || // Allow if has color variants (even without images)
+    safeChargeOptions.length > 0; // Allow if has charge options
   const hasValidName = Boolean(String(product.name || "").trim());
   const hasSpecs = Array.isArray((product as any).specs) && (product as any).specs.length > 0;
-  const hasDescription = Boolean(String((product as any).description || (product as any).descriptionAr || "").trim());
-  const hasDetails = hasSpecs || hasDescription;
-  const hasDetailsFields =
-    Object.prototype.hasOwnProperty.call(product as any, "specs") ||
-    Object.prototype.hasOwnProperty.call(product as any, "description") ||
-    Object.prototype.hasOwnProperty.call(product as any, "descriptionAr");
-  if (hasAnyVariants && !hasValidVariants) return null;
-  if (!hasValidImage || !hasValidName) return null;
-  if (hasDetailsFields && !hasDetails) return null;
+  const hasDescription = Boolean(
+    String((product as any).description || (product as any).descriptionAr || "").trim(),
+  );
+  const hasDetails = hasDescription || hasSpecs || safeColorVariants.length > 0 || safeChargeOptions.length > 0;
+  const hasPrice = parseNumericPrice((product as any).price) > 0;
+  const hasColorVariants = Array.isArray((product as any).colorVariants) && (product as any).colorVariants.length > 0;
+  
+  // Allow display if:
+  // - Has valid name, image, price AND
+  // - (Has description/specs OR has color variants OR has charge options)
+  // This lets us show products with variants even if description is missing
+  const hasRequiredData =
+    hasValidName &&
+    hasValidImage &&
+    hasPrice &&
+    (hasDescription || hasSpecs || safeColorVariants.length > 0 || safeChargeOptions.length > 0);
+  
+  if (hasAnyVariants && !hasValidVariants) {
+    return null;
+  }
+  
+  if (!hasRequiredData) {
+    return null;
+  }
 
   const badgeText = (() => {
     if (product.isMostSold) return language === "ar" ? "الأكثر مبيعاً" : "MOST SOLD";
@@ -445,8 +470,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
     ],
     [product],
   );
+  const hasDirectDiscount = displayOffers.some((offer: any) => offer?.type === "direct_discount");
   const offerPricing = getOfferPricing(
-    { ...(product as any), offers: displayOffers },
+    { ...(product as any), offers: hasDirectDiscount ? displayOffers : [] },
     { sourcePrice: selectedSourcePrice },
   );
 
@@ -457,7 +483,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
     const offer = displayOffers[0];
     if (!offer) return;
     setSelectedOffer(offer);
-    const hasOfferProducts = extractOfferStkCodes(offer).length > 0;
+    const hasOfferProducts = offer.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
+    if (offer.type === "coupon") {
+      addPrimaryWithOffer(offer);
+      closeOfferDialog();
+      return;
+    }
+    if (offer.type === "free_product" && !hasOfferProducts) {
+      addPrimaryWithOffer(offer);
+      closeOfferDialog();
+      return;
+    }
     if (offer.type === "direct_discount" && !hasOfferProducts) {
       handleDirectDiscount(offer);
       return;
@@ -469,11 +505,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
     setShowOfferProducts(true);
   }, [offerDialogOpen, singleOffer, displayOffers, selectedOffer]);
-  const currentPriceNum = offerPricing.currentPrice;
+  const currentPriceNum = hasDirectDiscount ? offerPricing.currentPrice : selectedSourcePrice;
   const oldPriceNum = offerPricing.originalPrice;
-  const hasOldPrice = offerPricing.hasDiscount;
-  const hasDiscount = offerPricing.hasDiscount;
-  const offerBadgeText = getOfferBadgeText(offerPricing.offers, language);
+  const hasOldPrice = hasDirectDiscount && offerPricing.hasDiscount;
+  const hasDiscount = hasDirectDiscount && offerPricing.hasDiscount;
+  const offerBadgeText = (() => {
+    const coupon = displayOffers.find((o: any) => o?.type === "coupon");
+    if (coupon) {
+      const value =
+        (coupon as any).couponValue ??
+        (coupon as any).coupon_value ??
+        (coupon as any).discount ??
+        (coupon as any).value ??
+        0;
+      const numValue = parseOfferNumber(value);
+      if (numValue <= 0) return language === "ar" ? "كوبون" : "COUPON";
+    }
+    return getOfferBadgeText(offerPricing.offers, language);
+  })();
   const offerBadgeInfo = (() => {
     if (!offerBadgeText) return null;
     const priority = ["direct_discount", "coupon", "free_product", "bundle_discount"] as const;
@@ -682,13 +731,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 )}
               </div>
 
-              {hasDiscount && (
+              {/* {hasDiscount && (
                 <div className="bg-gradient-to-r from-red-500 to-red-600 text-white px-2 py-1 rounded-lg text-xs font-bold shadow-sm">
                   -
                   {Math.round(((oldPriceNum - currentPriceNum) / oldPriceNum) * 100)}
                   %
                 </div>
-              )}
+              )} */}
             </div>
           </div>
 
@@ -731,8 +780,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
             <div className="space-y-6">
               {displayOffers.map((offer: any, idx: number) => {
                 const isSelected = selectedOffer === offer;
-                const hasOfferProducts = extractOfferStkCodes(offer).length > 0;
-                const needsProducts = hasOfferProducts || offer.type !== "direct_discount";
+                const hasOfferProducts = offer.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
+                const needsProducts =
+                  hasOfferProducts ||
+                  (offer.type !== "direct_discount" &&
+                    offer.type !== "coupon" &&
+                    offer.type !== "free_product");
                 return (
                   <div
                     key={`offer-dialog-${offer.type}-${idx}`}
@@ -758,6 +811,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         <button
                           onClick={() => {
                             setSelectedOffer(offer);
+                            if (offer.type === "coupon") {
+                              addPrimaryWithOffer(offer);
+                              closeOfferDialog();
+                              return;
+                            }
+                            if (offer.type === "free_product" && !hasOfferProducts) {
+                              addPrimaryWithOffer(offer);
+                              closeOfferDialog();
+                              return;
+                            }
                             if (!needsProducts && offer.type === "direct_discount") {
                               handleDirectDiscount(offer);
                               return;
@@ -788,7 +851,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
               })}
             </div>
 
-            {selectedOffer && showOfferProducts && (
+            {selectedOffer && showOfferProducts && selectedOffer.type !== "coupon" && (
               <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4">
                 <h4 className="font-bold text-gray-900 mb-3">
                   {language === "ar" ? "اختر المنتج المرتبط بالعرض" : "Select a product for this offer"}

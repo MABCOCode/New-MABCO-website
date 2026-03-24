@@ -90,7 +90,9 @@ export function AppliedOffersSection({
   };
 
   const isOfferApplied = (item: CartItem, offer: ProductOffer) => {
-    const applied = Array.isArray(item.appliedOffers) ? item.appliedOffers : [];
+    const appliedRaw = Array.isArray(item.appliedOffers) ? item.appliedOffers : [];
+    if (appliedRaw.length === 0) return false;
+    const applied = getProductOffers({ offers: appliedRaw } as any);
     if (applied.length === 0) return false;
     return applied.some((a: any) => {
       if (!a || a.type !== offer.type) return false;
@@ -102,10 +104,11 @@ export function AppliedOffersSection({
         );
       }
       if (offer.type === "coupon") {
-        return Number(a.couponValue) === Number((offer as CouponOffer).couponValue);
+        return Number(a.couponValue ?? a.discount) ===
+          Number((offer as CouponOffer).couponValue ?? (offer as any).discount);
       }
       if (offer.type === "free_product") {
-        return Number(a.freeProductId) === Number((offer as FreeProductOffer).freeProductId);
+        return Number(a.freeProductId ?? 0) === Number((offer as FreeProductOffer).freeProductId ?? 0);
       }
       if (offer.type === "bundle_discount") {
         return Number(a.discountPercentage) === Number((offer as BundleDiscountOffer).discountPercentage);

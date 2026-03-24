@@ -48,8 +48,12 @@ export function SalesOrdersReport({ language, dateRange }: SalesOrdersReportProp
   );
 
   const totalOrders = filteredOrders.length;
-  const totalRevenue = filteredOrders.reduce((sum, order) => sum + Number(order?.pricing?.total || 0), 0);
-  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  const totalRevenue = filteredOrders.reduce((sum, order) => {
+    if (!order?.invoiceNo) return sum;
+    return sum + Number(order?.pricing?.total || 0);
+  }, 0);
+  const revenueOrdersCount = filteredOrders.filter((o) => o?.invoiceNo).length;
+  const avgOrderValue = revenueOrdersCount > 0 ? totalRevenue / revenueOrdersCount : 0;
   const totalDiscount = filteredOrders.reduce((sum, order) => sum + Number(order?.pricing?.discount || 0), 0);
 
   const statusCounts = filteredOrders.reduce((acc, order) => {

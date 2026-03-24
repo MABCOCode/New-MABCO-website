@@ -7,7 +7,6 @@ import SearchSection from "../components/SearchSection";
 import SpecialOffers from "../components/OffersSlider";
 import CategorySection from "../components/CategorySection";
 import ProductsSlider from "../components/ProductsSlider";
-import { productsBySection } from "../../../data/products";
 import { Star, Flame } from 'lucide-react';
 import BrandShowcase from "../components/BrandShowcase";
 import ServicesSection from "../components/ServicesSection";
@@ -36,8 +35,13 @@ const HomePage: React.FC = () => {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderConfirmationOpen, setOrderConfirmationOpen] = useState(false);
   const [confirmedOrderData, setConfirmedOrderData] = useState<any>(null);
+  const [orderMessage, setOrderMessage] = useState<string | null>(null);
   const [compareAnimation, setCompareAnimation] = useState(false);
   const [compareAnimationCount, setCompareAnimationCount] = useState(0);
+  const [mostSoldProducts, setMostSoldProducts] = useState<any[]>([]);
+  const [newBestProducts, setNewBestProducts] = useState<any[]>([]);
+  const [mostSoldLoading, setMostSoldLoading] = useState(true);
+  const [newBestLoading, setNewBestLoading] = useState(true);
   const navigateToOfferType = (
     offerType: "direct_discount" | "coupon" | "free_product" | "bundle_discount"
   ) => {
@@ -59,6 +63,14 @@ const HomePage: React.FC = () => {
       }, 100);
     }
   }, [location]);
+
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.orderMessage) {
+      setOrderMessage(state.orderMessage);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   // Effect to handle window resize and zoom for re-rendering
   useEffect(() => {
@@ -136,6 +148,53 @@ const HomePage: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+
+    (async () => {
+      try {
+        console.log('[HomePage] Loading home-sliders from:', `${apiBase}/products/home-sliders?limit=40`);
+        setMostSoldLoading(true);
+        setNewBestLoading(true);
+        const res = await fetch(`${apiBase}/products/home-sliders?limit=40`);
+        
+        if (!res.ok) {
+          console.error('[HomePage] home-sliders response not ok:', {
+            status: res.status,
+            statusText: res.statusText,
+            url: res.url
+          });
+          const errorBody = await res.text().catch(() => 'Could not read response body');
+          console.error('[HomePage] Error response body:', errorBody);
+          throw new Error(`Failed to load home sliders: ${res.status} ${res.statusText}`);
+        }
+        
+        const json = await res.json();
+        console.log('[HomePage] Successfully loaded home-sliders:', json);
+        
+        if (!mounted) return;
+        const payload = json?.data || {};
+        setMostSoldProducts(Array.isArray(payload.mostSold) ? payload.mostSold : []);
+        setNewBestProducts(Array.isArray(payload.newHot) ? payload.newHot : []);
+      } catch (err) {
+        if (!mounted) return;
+        console.error('[HomePage] Error loading home-sliders:', err);
+        setMostSoldProducts([]);
+        setNewBestProducts([]);
+      } finally {
+        if (mounted) {
+          setMostSoldLoading(false);
+          setNewBestLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleBrandClick = (
     brandCode: string,
     categoryCode: string,
@@ -210,6 +269,22 @@ const HomePage: React.FC = () => {
         className="pb-12"
         key={`homepage-${refreshKey}`}
       >
+        {orderMessage && (
+          <div className="container mx-auto px-4 pt-6">
+            <div className="rounded-2xl border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4 flex items-start justify-between gap-4">
+              <p className="text-sm md:text-base text-green-800 font-semibold">
+                {orderMessage}
+              </p>
+              <button
+                onClick={() => setOrderMessage(null)}
+                className="text-green-700 hover:text-green-900 font-bold"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
         {/* Hidden H1 for SEO */}
         <h1 className="sr-only">
           {language === "ar"
@@ -262,10 +337,8 @@ const HomePage: React.FC = () => {
           icon={
             <Star className="w-6 h-6 md:w-8 md:h-8 text-yellow-500 fill-yellow-500" />
           }
-          products={productsBySection.mostBought.map((product) => ({
-            ...product,
-            isMostSold: true,
-          }))}
+          products={mostSoldProducts.map((product) => ({ ...product, isMostSold: true }))}
+          loading={mostSoldLoading}
           onProductClick={handleProductClick}
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}
@@ -278,7 +351,8 @@ const HomePage: React.FC = () => {
           language={language}
           title={t("newProducts") || "New Products"}
           icon={<Flame className="w-6 h-6 md:w-8 md:h-8 text-red-500" />}
-          products={productsBySection.newProducts}
+          products={newBestProducts}
+          loading={newBestLoading}
           onProductClick={handleProductClick}
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}

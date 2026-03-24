@@ -25,7 +25,7 @@ import {
   paymentStatusConfig,
 } from "../../types/orderAdmin";
 import { OrderDetailsModal } from "./OrderDetailsModal";
-import { fetchAdminOrders } from "../../api/adminDataApi";
+import { fetchAdminOrders, updateAdminOrder } from "../../api/adminDataApi";
 
 export function AdminOrderManagement() {
   const { t, language } = useLanguage();
@@ -37,6 +37,7 @@ export function AdminOrderManagement() {
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updateSuccessOpen, setUpdateSuccessOpen] = useState(false);
 
   const loadOrders = () => {
     setIsLoading(true);
@@ -71,7 +72,10 @@ export function AdminOrderManagement() {
       delivered,
       cancelled: orders.filter((o) => o.status === "cancelled").length,
       returned: orders.filter((o) => o.status === "returned").length,
-      totalRevenue: orders.reduce((sum, o) => sum + Number(o.pricing?.total || 0), 0),
+      totalRevenue: orders.reduce((sum, o) => {
+        if (!o.invoiceNo) return sum;
+        return sum + Number(o.pricing?.total || 0);
+      }, 0),
     };
   }, [orders]);
 
@@ -84,8 +88,8 @@ export function AdminOrderManagement() {
       filtered = filtered.filter(
         (order) =>
           order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          order.customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (order.customer?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (order.customer?.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
           order.id.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
@@ -123,44 +127,33 @@ export function AdminOrderManagement() {
     );
   }, [orders, searchQuery, statusFilter, dateFilter]);
 
-  const handleUpdateStatus = (orderId: string, newStatus: OrderStatus, note?: string) => {
-    setOrders((prevOrders) =>
-      prevOrders.map((order) => {
-        if (order.id === orderId) {
-          return {
-            ...order,
-            status: newStatus,
-            timeline: [
-              ...order.timeline,
-              {
-                status: newStatus,
-                date: new Date().toISOString(),
-                note,
-              },
-            ],
-          };
-        }
-        return order;
-      })
-    );
+  const handleUpdateStatus = async (
+    orderId: string,
+    newStatus: OrderStatus,
+    note?: string,
+    meta?: { shippingFee?: number; shippingPaidBy?: "customer" | "company" | null; invoiceNo?: string | null },
+  ) => {
+    try {
+      const updated = await updateAdminOrder(orderId, {
+        status: newStatus,
+        note,
+        shippingFee: meta?.shippingFee,
+        shippingPaidBy: meta?.shippingPaidBy,
+        invoiceNo: meta?.invoiceNo,
+      });
 
-    // Update selected order if it's the one being updated
-    if (selectedOrder && selectedOrder.id === orderId) {
-      const updatedOrder = orders.find((o) => o.id === orderId);
-      if (updatedOrder) {
-        setSelectedOrder({
-          ...updatedOrder,
-          status: newStatus,
-          timeline: [
-            ...updatedOrder.timeline,
-            {
-              status: newStatus,
-              date: new Date().toISOString(),
-              note,
-            },
-          ],
-        });
+      const updatedOrder = updated as Order;
+      setOrders((prevOrders) =>
+        prevOrders.map((order) => (order.id === orderId ? updatedOrder : order)),
+      );
+
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder(updatedOrder);
       }
+      setUpdateSuccessOpen(true);
+    } catch (err) {
+      console.warn("Failed to update order status", err);
+      setError(language === "ar" ? "تعذر تحديث حالة الطلب." : "Failed to update order status.");
     }
   };
 
@@ -183,7 +176,7 @@ export function AdminOrderManagement() {
       ["Order ID", "Customer", "Date", "Status", "Total"],
       ...filteredOrders.map((order) => [
         order.orderNumber,
-        order.customer.name,
+        order.customer?.name ?? "",
         formatDate(order.orderDate),
         order.status,
         order.pricing.total,
@@ -485,10 +478,10 @@ export function AdminOrderManagement() {
                         <td className="px-6 py-4">
                           <div>
                             <p className="font-semibold text-gray-900">
-                              {order.customer.name}
+                              {order.customer?.name ?? "-"}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {order.customer.email}
+                              {order.customer?.email ?? "-"}
                             </p>
                           </div>
                         </td>
@@ -558,6 +551,31 @@ export function AdminOrderManagement() {
           onUpdateStatus={handleUpdateStatus}
           language={language}
         />
+      )}
+
+      {updateSuccessOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white p-5">
+              <h3 className="text-lg font-bold">
+                {language === "ar" ? "تم التحديث بنجاح" : "Update Successful"}
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-gray-700">
+                {language === "ar"
+                  ? "تم تحديث حالة الطلب وحفظ البيانات بنجاح."
+                  : "Order status and details were updated successfully."}
+              </p>
+              <button
+                onClick={() => setUpdateSuccessOpen(false)}
+                className="w-full bg-[#009FE3] text-white py-3 rounded-xl font-bold hover:bg-[#007BC7] transition-all"
+              >
+                {language === "ar" ? "حسناً" : "OK"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

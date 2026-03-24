@@ -35,14 +35,28 @@ export interface Order {
     price: number;
     color?: string;
     specs?: string;
+    stkCode?: string | null;
+    variantSku?: string | null;
+    chargeOptionSku?: string | null;
+    offerNos?: string[];
   }[];
   pricing: {
     subtotal: number;
     shipping: number;
+    shippingPaidBy?: "customer" | "company" | null;
     tax: number;
     discount: number;
     total: number;
   };
+  appliedOffers?: {
+    offer_no?: string | null;
+    type?: string;
+    title?: string;
+    title_ar?: string;
+    description?: string;
+    description_ar?: string;
+    discountAmount?: number;
+  }[];
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod;
@@ -55,6 +69,20 @@ export interface Order {
   }[];
   notes?: string;
   trackingNumber?: string;
+  fulfillmentType?: "delivery" | "pickup" | null;
+  showroom?: {
+    id?: string;
+    name?: string;
+    city?: string;
+    address?: string;
+    phone?: string;
+  } | null;
+  invoiceNo?: string | null;
+  lastEditedBy?: {
+    userId?: string;
+    name?: string;
+    at?: string;
+  } | null;
 }
 
 export const orderStatusConfig: Record<OrderStatus, { labelEn: string; labelAr: string; color: string }> = {

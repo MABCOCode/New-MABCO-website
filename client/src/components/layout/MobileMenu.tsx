@@ -179,42 +179,75 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
             )}
 
             {(() => {
-              const isAdmin = true;
-              const isSuperAdmin = true;
+              const session = loadSession() as any;
+              const role = session?.user?.role;
+              const adminMeta = session?.user?.adminMeta || {};
+              const isAdmin = role === 'admin' || role === 'super_admin';
+              const isSuperAdmin = role === 'super_admin';
+              const canManageOrders = Boolean(adminMeta?.canManageOrders);
+              const canManageBanners = Boolean(adminMeta?.canManageBanners);
+              const canManageStore =
+                isAdmin &&
+                (Boolean(adminMeta?.allowAllCategories) ||
+                  Boolean(adminMeta?.allowAllBrands) ||
+                  (Array.isArray(adminMeta?.allowedCategoryIds) && adminMeta.allowedCategoryIds.length > 0) ||
+                  (Array.isArray(adminMeta?.allowedBrandIds) && adminMeta.allowedBrandIds.length > 0));
               if (!isAdmin) return null;
               return (
                 <div className="space-y-2 mt-2">
-                  <button
-                    onClick={() => {
-                      navigateTo('/account/admin/content');
-                      setMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 transition-all duration-200 group ${
-                      menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-                    }`}
-                    style={{ transitionDelay: '235ms' }}
-                  >
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Edit3 className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="text-gray-700 group-hover:text-orange-600 font-medium">{language === 'ar' ? 'إدارة المتجر' : 'Store Management'}</span>
-                  </button>
+                  {canManageStore && (
+                    <button
+                      onClick={() => {
+                        navigateTo('/account/admin/content');
+                        setMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 transition-all duration-200 group ${
+                        menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                      }`}
+                      style={{ transitionDelay: '235ms' }}
+                    >
+                      <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Edit3 className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-gray-700 group-hover:text-orange-600 font-medium">{language === 'ar' ? 'إدارة المتجر' : 'Store Management'}</span>
+                    </button>
+                  )}
 
-                  <button
-                    onClick={() => {
-                      navigateTo('/account/admin/banners');
-                      setMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-all duration-200 group ${
-                      menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-                    }`}
-                    style={{ transitionDelay: '245ms' }}
-                  >
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Package2 className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="text-gray-700 group-hover:text-purple-600 font-medium">{language === 'ar' ? 'سلايدر البانر' : 'Banner Slider'}</span>
-                  </button>
+                  {canManageBanners && (
+                    <button
+                      onClick={() => {
+                        navigateTo('/account/admin/banners');
+                        setMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-all duration-200 group ${
+                        menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                      }`}
+                      style={{ transitionDelay: '245ms' }}
+                    >
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Package2 className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-gray-700 group-hover:text-purple-600 font-medium">{language === 'ar' ? 'سلايدر البانر' : 'Banner Slider'}</span>
+                    </button>
+                  )}
+
+                  {canManageOrders && (
+                    <button
+                      onClick={() => {
+                        navigateTo('/account/admin/orders');
+                        setMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
+                        menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                      }`}
+                      style={{ transitionDelay: '246ms' }}
+                    >
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Package2 className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-gray-700 group-hover:text-blue-600 font-medium">{language === 'ar' ? 'إدارة الطلبات' : 'Order Management'}</span>
+                    </button>
+                  )}
 
                   {isSuperAdmin && (
                     <button

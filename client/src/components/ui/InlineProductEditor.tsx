@@ -806,7 +806,7 @@ export function InlineProductEditor({
                             className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                             placeholder={t("admin.content.searchSavedSpecPlaceholder")}
                           />
-                          <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                           
                           {/* Suggestions Dropdown */}
                           {showSpecNameSuggestions === index && (

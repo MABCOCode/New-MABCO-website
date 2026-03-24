@@ -25,7 +25,12 @@ import { OrderStatusUpdater } from "./OrderStatusUpdater";
 interface OrderDetailsModalProps {
   order: Order;
   onClose: () => void;
-  onUpdateStatus: (orderId: string, newStatus: any, note?: string) => void;
+  onUpdateStatus: (
+    orderId: string,
+    newStatus: any,
+    note?: string,
+    meta?: { shippingFee?: number; shippingPaidBy?: "customer" | "company" | null; invoiceNo?: string | null },
+  ) => void;
   language: "ar" | "en";
 }
 
@@ -39,6 +44,19 @@ export function OrderDetailsModal({
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
+    return date.toLocaleString(language === "ar" ? "ar-SY" : "en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatShortDate = (dateString?: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "";
     return date.toLocaleString(language === "ar" ? "ar-SY" : "en-US", {
       year: "numeric",
       month: "short",
@@ -165,20 +183,36 @@ export function OrderDetailsModal({
                   </div>
                 </div>
 
-                {/* Shipping Address */}
-                <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
-                    <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
-                    <MapPin className="w-5 h-5 text-[#009FE3]" />
-                    {t('admin.orders.shippingAddress')}
-                  </h3>
-                  <div className="text-gray-700 leading-relaxed">
-                    <p>{order.customer.address.street}</p>
-                    <p>
-                      {order.customer.address.city}, {order.customer.address.state}
-                    </p>
-                    <p>{order.customer.address.zipCode}</p>
+                {/* Shipping Address / Showroom */}
+                {order.fulfillmentType === "delivery" && (
+                  <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
+                      <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
+                      <MapPin className="w-5 h-5 text-[#009FE3]" />
+                      {t('admin.orders.shippingAddress')}
+                    </h3>
+                    <div className="text-gray-700 leading-relaxed">
+                      <p>{order.customer.address.street}</p>
+                      <p>
+                        {order.customer.address.city}, {order.customer.address.state}
+                      </p>
+                      <p>{order.customer.address.zipCode}</p>
+                    </div>
                   </div>
-                </div>
+                )}
+                {order.fulfillmentType === "pickup" && order.showroom && (
+                  <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
+                    <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-lg">
+                      <MapPin className="w-5 h-5 text-[#009FE3]" />
+                      {language === "ar" ? "المعرض المختار" : "Selected Showroom"}
+                    </h3>
+                    <div className="text-gray-700 leading-relaxed space-y-1">
+                      <p className="font-semibold">{order.showroom.name}</p>
+                      {order.showroom.city && <p>{order.showroom.city}</p>}
+                      {order.showroom.address && <p>{order.showroom.address}</p>}
+                      {order.showroom.phone && <p>{order.showroom.phone}</p>}
+                    </div>
+                  </div>
+                )}
 
                 {/* Order Info */}
                 <div className="bg-white rounded-xl border-2 border-gray-200 p-5">
@@ -212,13 +246,38 @@ export function OrderDetailsModal({
                       </div>
                     )}
                     <div className="flex items-center justify-between">
-                        <span className="text-gray-500">
+                      <span className="text-gray-500">
                         {t('admin.orders.paymentMethod')}:
                       </span>
                       <span className="text-gray-900 font-semibold">
                         {paymentMethodLabels[order.paymentMethod]}
                       </span>
                     </div>
+                    {order.invoiceNo && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">
+                          {language === "ar" ? "رقم الفاتورة:" : "Invoice No:"}
+                        </span>
+                        <span className="text-gray-900 font-semibold font-mono">
+                          {order.invoiceNo}
+                        </span>
+                      </div>
+                    )}
+                    {order.lastEditedBy?.name && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">
+                          {language === "ar" ? "آخر تعديل بواسطة:" : "Last Edited By:"}
+                        </span>
+                        <span className="text-gray-900 font-semibold">
+                          {order.lastEditedBy.name}
+                          {order.lastEditedBy.at && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              ({formatShortDate(order.lastEditedBy.at)})
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -257,18 +316,42 @@ export function OrderDetailsModal({
                               {item.specs}
                             </p>
                           )}
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="text-sm text-gray-600">
-                              {t('admin.orders.quantity')}: {item.quantity}
-                            </span>
-                            <span className="font-bold text-[#009FE3]">
-                              {formatCurrency(item.price * item.quantity)}{" "}
-                              {t('admin.common.syp')}
-                            </span>
-                          </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-sm text-gray-600">
+                            {t('admin.orders.quantity')}: {item.quantity}
+                          </span>
+                          <span className="font-bold text-[#009FE3]">
+                            {formatCurrency(item.price * item.quantity)}{" "}
+                            {t('admin.common.syp')}
+                          </span>
                         </div>
+                        {(item.stkCode || item.variantSku || item.chargeOptionSku || (item.offerNos && item.offerNos.length > 0)) && (
+                          <div className="mt-2 space-y-1 text-xs text-gray-500">
+                            {item.stkCode && (
+                              <div>
+                                {language === "ar" ? "كود المنتج: " : "SKU: "}
+                                <span className="font-mono text-gray-700">{item.stkCode}</span>
+                              </div>
+                            )}
+                            {(item.variantSku || item.chargeOptionSku) && (
+                              <div>
+                                {language === "ar" ? "كود اللون/الشحن: " : "Color/Charge SKU: "}
+                                <span className="font-mono text-gray-700">
+                                  {item.variantSku || item.chargeOptionSku}
+                                </span>
+                              </div>
+                            )}
+                            {item.offerNos && item.offerNos.length > 0 && (
+                              <div>
+                                {language === "ar" ? "رقم العرض: " : "Offer No: "}
+                                <span className="font-mono text-gray-700">{item.offerNos.join(", ")}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    </div>
+                  ))}
                   </div>
                 </div>
 
@@ -285,18 +368,27 @@ export function OrderDetailsModal({
                         {formatCurrency(order.pricing.subtotal)} {t('admin.common.syp')}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-gray-700">
-                      <span>{t('admin.orders.shipping')}:</span>
-                      <span className="font-semibold">
-                        {formatCurrency(order.pricing.shipping)} {t('admin.common.syp')}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-gray-700">
-                      <span>{t('admin.orders.tax')}:</span>
-                      <span className="font-semibold">
-                        {formatCurrency(order.pricing.tax)} {t('admin.common.syp')}
-                      </span>
-                    </div>
+                    {order.fulfillmentType === "delivery" && (
+                      <div className="flex items-center justify-between text-gray-700">
+                        <span>
+                          {t('admin.orders.shipping')}:
+                          {order.pricing.shippingPaidBy && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              ({order.pricing.shippingPaidBy === "customer"
+                                ? language === "ar"
+                                  ? "العميل"
+                                  : "Customer"
+                                : language === "ar"
+                                ? "الشركة"
+                                : "Company"})
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-semibold">
+                          {formatCurrency(order.pricing.shipping)} {t('admin.common.syp')}
+                        </span>
+                      </div>
+                    )}
                     {order.pricing.discount > 0 && (
                       <div className="flex items-center justify-between text-green-600">
                         <span>{t('admin.orders.discount')}:</span>
@@ -442,6 +534,10 @@ export function OrderDetailsModal({
           currentStatus={order.status}
           orderId={order.id}
           onUpdate={onUpdateStatus}
+          fulfillmentType={order.fulfillmentType ?? null}
+          shippingFee={order.pricing.shipping}
+          shippingPaidBy={order.pricing.shippingPaidBy ?? null}
+          invoiceNo={order.invoiceNo ?? null}
           onClose={() => setShowStatusUpdater(false)}
           language={language}
         />

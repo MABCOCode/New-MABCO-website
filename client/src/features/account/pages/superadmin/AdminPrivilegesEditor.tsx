@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { X, Shield, Check } from "lucide-react";
-import { fetchCategories, fetchBrands } from "../../api/adminDataApi";
+
 
 interface Category {
   _id: string;
@@ -43,6 +43,14 @@ interface AdminPrivilegesEditorProps {
 
 export function AdminPrivilegesEditor({ user, language, onClose, onSave }: AdminPrivilegesEditorProps) {
   const isRTL = language === "ar";
+  const pickName = (value: any, fallback = "") => {
+    if (!value) return fallback;
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+      return value[language] || value.en || value.ar || fallback;
+    }
+    return fallback;
+  };
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
 
@@ -61,36 +69,45 @@ export function AdminPrivilegesEditor({ user, language, onClose, onSave }: Admin
 
   useEffect(() => {
     let mounted = true;
-    fetchCategories()
-      .then((rows) => {
+    const loadStatic = async () => {
+      try {
+        const [catsRes, brandsRes] = await Promise.all([
+          fetch("/static/categories.json"),
+          fetch("/static/brands.json"),
+        ]);
+        const catsJson = catsRes.ok ? await catsRes.json() : [];
+        const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
         if (!mounted) return;
-        const normalized = (rows || []).map((cat: any) => ({
-          _id: String(cat.cat_code || cat._id),
-          nameEn: cat.nameEn || cat.name || cat.name_ar || "",
-          nameAr: cat.name || cat.nameAr || cat.name_ar || "",
-        }));
-        setCategories(normalized);
-      })
-      .catch(() => {
-        if (mounted) setCategories([]);
-      });
 
-    fetchBrands()
-      .then((rows) => {
-        if (!mounted) return;
-        const normalized = (rows || []).map((brand: any) => ({
-          _id: String(brand.brand_code || brand._id),
-          nameEn: brand.englishName || brand.name || brand.name_en || "",
-          nameAr: brand.name || brand.nameAr || brand.name_ar || "",
+        const normalizedCats = (Array.isArray(catsJson) ? catsJson : []).map((cat: any) => ({
+          _id: String(cat.cat_code || cat._id || ""),
+          nameEn: pickName(cat.nameEn || cat.name?.en || cat.name || cat.name_en || cat.name_ar, ""),
+          nameAr: pickName(cat.nameAr || cat.name?.ar || cat.name || cat.name_ar || cat.name_en, ""),
+        }));
+        setCategories(normalizedCats.filter((cat) => cat._id));
+
+        const normalizedBrands = (Array.isArray(brandsJson) ? brandsJson : []).map((brand: any) => ({
+          _id: String(brand.brand_code || brand._id || ""),
+          nameEn: pickName(
+            brand.englishName || brand.name?.en || brand.name || brand.name_en || brand.name_ar,
+            "",
+          ),
+          nameAr: pickName(brand.nameAr || brand.name?.ar || brand.name || brand.name_ar || brand.name_en, ""),
           categoryIds: Array.isArray(brand.categoryIds)
             ? brand.categoryIds.map(String)
             : [String(brand.category_code || brand.cat_code || "")].filter(Boolean),
         }));
-        setBrands(normalized);
-      })
-      .catch(() => {
-        if (mounted) setBrands([]);
-      });
+        setBrands(normalizedBrands.filter((brand) => brand._id));
+      } catch {
+        if (!mounted) {
+          return;
+        }
+        setCategories([]);
+        setBrands([]);
+      }
+    };
+
+    loadStatic();
 
     return () => {
       mounted = false;
@@ -166,7 +183,7 @@ export function AdminPrivilegesEditor({ user, language, onClose, onSave }: Admin
                   {isRTL ? "تعديل الصلاحيات" : "Edit Permissions"}
                 </h2>
                 <p className="text-purple-100 text-sm">
-                  {isRTL ? user.nameAr : user.name}
+                  {isRTL ? pickName(user.nameAr || user.name, "") : pickName(user.name || user.nameAr, "")}
                 </p>
               </div>
             </div>
@@ -204,6 +221,11 @@ export function AdminPrivilegesEditor({ user, language, onClose, onSave }: Admin
             </div>
             {!meta.allowAllCategories && (
               <div className="grid grid-cols-2 gap-2">
+                {categories.length === 0 && (
+                  <p className="text-sm text-gray-500">
+                    {isRTL ? "لا توجد فئات متاحة" : "No categories available"}
+                  </p>
+                )}
                 {categories.map((cat) => (
                   <div key={cat._id} className="flex items-center gap-2">
                     <input
@@ -212,7 +234,9 @@ export function AdminPrivilegesEditor({ user, language, onClose, onSave }: Admin
                       onChange={() => toggleCategory(cat._id)}
                       id={`cat-${cat._id}`}
                     />
-                    <label htmlFor={`cat-${cat._id}`}>{isRTL ? cat.nameAr : cat.nameEn}</label>
+                    <label htmlFor={`cat-${cat._id}`}>
+                      {isRTL ? cat.nameAr || cat.nameEn || cat._id : cat.nameEn || cat.nameAr || cat._id}
+                    </label>
                   </div>
                 ))}
               </div>

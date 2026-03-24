@@ -6,17 +6,37 @@ import { useLanguage } from "../../../../context/LanguageContext";
 interface OrderStatusUpdaterProps {
   currentStatus: OrderStatus;
   orderId: string;
-  onUpdate: (orderId: string, newStatus: OrderStatus, note?: string) => void;
+  onUpdate: (
+    orderId: string,
+    newStatus: OrderStatus,
+    note?: string,
+    meta?: {
+      shippingFee?: number;
+      shippingPaidBy?: "customer" | "company" | null;
+      invoiceNo?: string | null;
+    },
+  ) => void;
   onClose: () => void;
   language: "ar" | "en";
+  fulfillmentType?: "delivery" | "pickup" | null;
+  shippingFee?: number;
+  shippingPaidBy?: "customer" | "company" | null;
+  invoiceNo?: string | null;
 }
 
-const statusFlow: OrderStatus[] = [
+const deliveryStatusFlow: OrderStatus[] = [
   "pending",
   "confirmed",
   "processing",
   "shipped",
   "out_for_delivery",
+  "delivered",
+];
+
+const pickupStatusFlow: OrderStatus[] = [
+  "pending",
+  "confirmed",
+  "processing",
   "delivered",
 ];
 
@@ -27,16 +47,55 @@ export function OrderStatusUpdater({
   orderId,
   onUpdate,
   onClose,
+  fulfillmentType,
+  shippingFee,
+  shippingPaidBy,
+  invoiceNo,
 }: OrderStatusUpdaterProps) {
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus>(currentStatus);
   const [note, setNote] = useState("");
+  const [shippingFeeInput, setShippingFeeInput] = useState(
+    typeof shippingFee === "number" ? String(shippingFee) : ""
+  );
+  const [shippingPaidByInput, setShippingPaidByInput] = useState<
+    "customer" | "company" | ""
+  >(shippingPaidBy ?? "");
+  const [invoiceNoInput, setInvoiceNoInput] = useState(invoiceNo ?? "");
+  const [formError, setFormError] = useState<string | null>(null);
   const { t, language } = useLanguage();
 
   const handleUpdate = () => {
-    onUpdate(orderId, selectedStatus, note || undefined);
+    const isDelivery = fulfillmentType === "delivery";
+    if (isDelivery) {
+      const feeValue = Number(shippingFeeInput);
+      if (!Number.isFinite(feeValue) || feeValue < 0) {
+        setFormError(language === "ar" ? "يرجى إدخال قيمة الشحن." : "Please enter a shipping fee.");
+        return;
+      }
+      if (!shippingPaidByInput) {
+        setFormError(language === "ar" ? "يرجى اختيار جهة الدفع." : "Please select who pays shipping.");
+        return;
+      }
+    }
+
+    if (selectedStatus === "delivered" && !invoiceNoInput.trim()) {
+      setFormError(language === "ar" ? "يرجى إدخال رقم الفاتورة." : "Please enter the invoice number.");
+      return;
+    }
+
+    setFormError(null);
+    onUpdate(orderId, selectedStatus, note || undefined, {
+      shippingFee: fulfillmentType === "delivery" ? Number(shippingFeeInput) : undefined,
+      shippingPaidBy:
+        fulfillmentType === "delivery"
+          ? (shippingPaidByInput as "customer" | "company")
+          : null,
+      invoiceNo: selectedStatus === "delivered" ? invoiceNoInput.trim() : undefined,
+    });
     onClose();
   };
 
+  const statusFlow = fulfillmentType === "pickup" ? pickupStatusFlow : deliveryStatusFlow;
   const currentIndex = statusFlow.indexOf(currentStatus);
 
   return (
@@ -146,6 +205,57 @@ export function OrderStatusUpdater({
           </div>
 
           {/* Note Input */}
+          {formError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+              {formError}
+            </div>
+          )}
+
+          {fulfillmentType === "delivery" && (
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-gray-700">
+                {language === "ar" ? "قيمة الشحن" : "Shipping Fee"}
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={shippingFeeInput}
+                onChange={(e) => setShippingFeeInput(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] focus:border-transparent"
+                placeholder={language === "ar" ? "أدخل قيمة الشحن" : "Enter shipping fee"}
+              />
+              <label className="block text-sm font-bold text-gray-700">
+                {language === "ar" ? "جهة الدفع" : "Shipping Paid By"}
+              </label>
+              <select
+                value={shippingPaidByInput}
+                onChange={(e) => setShippingPaidByInput(e.target.value as any)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] focus:border-transparent bg-white"
+              >
+                <option value="">
+                  {language === "ar" ? "اختر الجهة" : "Select payer"}
+                </option>
+                <option value="customer">{language === "ar" ? "العميل" : "Customer"}</option>
+                <option value="company">{language === "ar" ? "الشركة" : "Company"}</option>
+              </select>
+            </div>
+          )}
+
+          {selectedStatus === "delivered" && (
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-700">
+                {language === "ar" ? "رقم الفاتورة (POS)" : "Invoice No (POS)"}
+              </label>
+              <input
+                type="text"
+                value={invoiceNoInput}
+                onChange={(e) => setInvoiceNoInput(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] focus:border-transparent"
+                placeholder={language === "ar" ? "أدخل رقم الفاتورة" : "Enter invoice number"}
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
               {t('admin.orders.addNote')}

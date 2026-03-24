@@ -69,6 +69,33 @@ router.get('/', asyncHandler(async (req, res) => {
       ];
     }
   }
+  if (req.query.is_most_sold === 'true' || req.query.isMostSold === 'true') {
+    query.$or = [
+      ...(query.$or || []),
+      { isMostSold: true },
+      { is_most_sold: true },
+    ];
+  }
+  if (req.query.is_new === 'true' || req.query.isNew === 'true') {
+    query.$or = [
+      ...(query.$or || []),
+      { isNew: true },
+      { is_new: true },
+      {price: {$gt: 10}},
+      {cat_code: {$ne: "02"}}, {cat_code: {$ne: "07"}} // treat products with price > 0 as new if isNew flag is missing
+    ];
+  }
+  if (req.query.is_hot === 'true' || req.query.isHot === 'true' || req.query.is_best === 'true' || req.query.isBest === 'true') {
+    query.$or = [
+      ...(query.$or || []),
+      { isHot: true },
+      { is_hot: true },
+      { isBest: true },
+      { is_best: true },
+      
+      {price: {$gt: 10}},
+    ];
+  }
   if (req.query.active === 'true') query['status.isActive'] = true;
   if (req.query.hidden === 'true') query['status.isHidden'] = true;
 
@@ -82,6 +109,8 @@ router.get('/', asyncHandler(async (req, res) => {
         slug: 1,
         name: 1,
         nameAr: 1,
+        description: 1,
+        descriptionAr: 1,
         price: 1,
         image: 1,
         category: 1,
@@ -97,6 +126,7 @@ router.get('/', asyncHandler(async (req, res) => {
         availability: 1,
         colorVariants: 1,
         chargeOptions: 1,
+        specs: 1,
         status: 1,
         updatedAt: 1,
       }
@@ -152,6 +182,87 @@ router.get('/', asyncHandler(async (req, res) => {
   if (doCount) response.pagination.total = total;
 
   res.json(response);
+}));
+
+router.get('/home-sliders', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '30', 10), 1), 100);
+
+  const cardProjection = {
+    _id: 1,
+    stk_code: 1,
+    id: 1,
+    slug: 1,
+    name: 1,
+    nameAr: 1,
+    price: 1,
+    image: 1,
+    category: 1,
+    categoryAr: 1,
+    cat_code: 1,
+    brand: 1,
+    brand_code: 1,
+    badge: 1,
+    isMostSold: 1,
+    isNew: 1,
+    isHot: 1,
+    offers: 1,
+    availability: 1,
+    colorVariants: 1,
+    chargeOptions: 1,
+    status: 1,
+    updatedAt: 1,
+  };
+
+  const parsePrice = (value) => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = Number(String(value).replace(/,/g, '').trim());
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
+  const excludeCat02 = { cat_code: { $ne: '02' } };
+
+  const mostSoldQuery = {
+    ...excludeCat02,
+    $or: [{ isMostSold: true }, { is_most_sold: true }],
+  };
+
+  const newHotQuery = {
+    ...excludeCat02,
+    $or: [{ isNew: true }, { is_new: true }, { isHot: true }, { is_hot: true }],
+  };
+
+  const [mostSold, newHot] = await Promise.all([
+    db
+      .collection('products')
+      .find(mostSoldQuery, { projection: cardProjection })
+      .limit(limit)
+      .toArray(),
+    db
+      .collection('products')
+      .find(newHotQuery, { projection: cardProjection })
+      .limit(limit)
+      .toArray(),
+  ]);
+
+  const sortByPriceDesc = (items) =>
+    items
+      .filter((item) => parsePrice(item.price) > 0)
+      .sort((a, b) => parsePrice(b.price) - parsePrice(a.price));
+
+  const filteredNewHot = sortByPriceDesc(newHot).filter((item) => parsePrice(item.price) > 10);
+  const filteredMostSold = sortByPriceDesc(mostSold);
+
+  res.json({
+    success: true,
+    data: {
+      mostSold: hydrateCollection('products', filteredMostSold),
+      newHot: hydrateCollection('products', filteredNewHot),
+    },
+  });
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {

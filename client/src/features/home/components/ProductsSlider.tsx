@@ -17,6 +17,7 @@ interface ProductsSliderProps {
   title: string;
   icon?: React.ReactNode;
   products: Product[];
+  loading?: boolean;
   onProductClick?: (product: Product) => void;
   onAddToCart?: (product: Product) => void;
   onToggleCompare?: (productId: string) => void;
@@ -28,6 +29,7 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
   title,
   icon,
   products,
+  loading = false,
   onProductClick,
   onAddToCart,
   onToggleCompare,
@@ -36,13 +38,54 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
   const [maxHeight, setMaxHeight] = useState<number>(0);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // Helper function to parse price
+  const parseNumericPrice = (value: unknown): number => {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    if (typeof value === "string") {
+      const cleaned = value.replace(/,/g, "").trim();
+      const parsed = Number(cleaned);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
+  // Filter products to exclude those with missing critical data
+  const validProducts = React.useMemo(() => {
+    if (loading) return products;
+    
+    return products.filter((product: any) => {
+      // Check required fields
+      const hasValidName = Boolean(String(product?.name || "").trim());
+      if (!hasValidName) return false;
+
+      const hasPrice = parseNumericPrice(product?.price) > 0;
+      if (!hasPrice) return false;
+
+      // Check if has image or variants
+      const hasMainImage = Boolean(String(product?.image || "").trim());
+      const hasColorVariants = Array.isArray(product?.colorVariants) && product.colorVariants.length > 0;
+      const hasChargeOptions = Array.isArray(product?.chargeOptions) && product.chargeOptions.length > 0;
+      const hasValidImage = hasMainImage || hasColorVariants || hasChargeOptions;
+      if (!hasValidImage) return false;
+
+      // Check if has details
+      const hasDescription = Boolean(String(product?.description || product?.descriptionAr || "").trim());
+      const hasSpecs = Array.isArray(product?.specs) && product.specs.length > 0;
+      const hasDetails = hasDescription || hasSpecs || hasColorVariants || hasChargeOptions;
+      if (!hasDetails) return false;
+
+      return true;
+    });
+  }, [products, loading]);
+
   React.useEffect(() => {
     console.log("[ProductsSlider] mounted", {
       title,
-      count: products?.length,
+      totalCount: products?.length,
+      validCount: validProducts?.length,
       onToggleCompareExists: !!onToggleCompare,
     });
-  }, [title, products, onToggleCompare]);
+  }, [title, products, validProducts, onToggleCompare]);
   const [carouselKey, setCarouselKey] = useState(0);
   const lastZoomRef = useRef<number>(window.devicePixelRatio);
 
@@ -126,12 +169,12 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
     return () => {
       resizeObservers.forEach((observer) => observer.disconnect());
     };
-  }, [products]);
+  }, [validProducts]);
 
   // Reset card refs array when products change
   useEffect(() => {
-    cardRefs.current = cardRefs.current.slice(0, products.length);
-  }, [products]);
+    cardRefs.current = cardRefs.current.slice(0, validProducts.length);
+  }, [validProducts]);
 
   return (
     <section className="py-16 relative">
@@ -159,9 +202,9 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
             className="ml-0 items-stretch"
             style={{ overflow: "visible" }}
           >
-            {products.map((product, index) => (
+            {(loading ? Array.from({ length: 8 }) : validProducts).map((product: any, index) => (
               <CarouselItem
-                key={`${product.id}-${(product as any).stk_code || index}`}
+                key={`${product?.id || "skeleton"}-${(product as any)?.stk_code || index}`}
                 className="basis-full md:basis-1/3 lg:basis-1/5 px-4 md:px-0"
                 style={{
                   ...(maxHeight > 0
@@ -176,7 +219,14 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
                   className="h-full mx-auto w-full max-w-[360px] md:max-w-none"
                   style={{ overflow: "visible" }}
                 >
-                  {(() => {
+                  {loading ? (
+                    <div className="bg-white rounded-lg shadow-lg border border-gray-100 p-4 h-full">
+                      <div className="w-full aspect-square rounded-lg shimmer-surface mb-4" />
+                      <div className="h-4 w-4/5 shimmer-surface mb-2" />
+                      <div className="h-4 w-3/5 shimmer-surface mb-4" />
+                      <div className="h-9 w-full rounded-lg shimmer-surface" />
+                    </div>
+                  ) : (() => {
                     const topBadge = getOfferBadgeForProduct(product);
                     return (
                       <ProductCard

@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { smsUser, smsPass, smsFrom, smsLang, otpSecret } = require('../config/env');
+const { hashToken } = require('../middleware/adminTokenAuth');
 
 const router = express.Router();
 
@@ -198,6 +199,57 @@ router.post('/login', asyncHandler(async (req, res) => {
       email: user.email || null,
       name: user.name,
       role: user.role,
+    },
+  });
+}));
+
+router.post('/admin/token', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const identifier = String(req.body?.identifier || req.body?.username || '').trim();
+  const password = String(req.body?.password || '');
+  if (!identifier || !password) {
+    return res.status(400).json({ success: false, message: 'Invalid login payload' });
+  }
+
+  const phone = normalizePhone(identifier);
+  const query = phone
+    ? { phone }
+    : { $or: [{ email: identifier.toLowerCase() }, { name: identifier }, { nameAr: identifier }] };
+
+  const user = await db.collection('users').findOne(query);
+  if (!user || !user.passwordHash || !user.passwordSalt) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+  if (!comparePassword(password, user.passwordSalt, user.passwordHash)) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await db.collection('admin_tokens').insertOne({
+    userId: user._id,
+    tokenHash,
+    createdAt: new Date(),
+    expiresAt,
+  });
+
+  res.json({
+    success: true,
+    data: {
+      token: rawToken,
+      expiresAt,
+      user: {
+        id: user._id,
+        phone: user.phone,
+        email: user.email || null,
+        name: user.name,
+        role: user.role,
+      },
     },
   });
 }));

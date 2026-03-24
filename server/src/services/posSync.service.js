@@ -197,7 +197,7 @@ async function fetchPosRows(connString) {
     },
   });
 
-  const result = await pool.request().query('select * from mabco_Website.dbo.GetProductJsonByStock()');
+  const result = await pool.request().query('select * from mabco_Website.dbo.GetAllProductsJson()');
   return result?.recordset || [];
 }
 
