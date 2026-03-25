@@ -249,15 +249,6 @@ router.get('/home-sliders', asyncHandler(async (req, res) => {
     return 0;
   };
 
-  const parsePrice = (value) => {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      const parsed = Number(String(value).replace(/,/g, '').trim());
-      return Number.isFinite(parsed) ? parsed : 0;
-    }
-    return 0;
-  };
-
   const excludeCat02 = { cat_code: { $ne: '02' } };
 
   const mostSoldQuery = {
