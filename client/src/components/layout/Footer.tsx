@@ -1,15 +1,15 @@
 // components/layout/ModernFooter.tsx
-import React, { useEffect, useMemo, useState } from 'react';
-import { 
-  Phone, 
-  Mail, 
-  MapPin,
-  Download,
-  Shield,
-  Wrench,
+import {
+  Briefcase,
   Building2,
-  Briefcase
+  Download,
+  Mail,
+  MapPin,
+  Phone,
+  Shield,
+  Wrench
 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { translations } from '../../i18n/translations';
 
 interface ModernFooterProps {
@@ -20,6 +20,7 @@ interface ModernFooterProps {
   onShowroomsClick?: () => void;
   onWarrantyClick?: () => void;
   onMaintenanceClick?: () => void;
+  onCareerClick?: () => void;
 }
 
 interface StaticCategory {
@@ -43,7 +44,8 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
   onAboutClick,
   onShowroomsClick,
   onWarrantyClick,
-  onMaintenanceClick
+  onMaintenanceClick,
+  onCareerClick
 }) => {
   const t = translations[language];
   const isRTL = language === 'ar';
@@ -146,14 +148,14 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
   }, [brandsData, categoryByCode, language]);
 
   const quickLinks = [
-    { label: t.home, href: "#home" },
-    { label: t.categories, href: "#categories" },
-    { label: t.products, href: "#products" },
-    { label: t.services, href: "#services" },
-    { label: t.showrooms, href: "#showrooms" },
-    { label: t.aboutUs, href: "#about" },
-    { label: t.career, href: "#career" },
-    { label: t.contact, href: "#contact" }
+    { label: t.home, action: () => window.location.href = '/' },
+    { label: t.categories, action: () => window.location.href = '/#categories' },
+    { label: t.products, action: () => window.location.href = '/products' },
+    { label: t.services, action: () => window.location.href = '/#services' },
+    { label: t.showrooms, action: onShowroomsClick },
+    { label: t.aboutUs, action: onAboutClick },
+    { label: t.career, action: onCareerClick },
+    { label: t.contact, action: () => window.location.href = '/#contact' }
   ];
 
   const services = [
@@ -161,7 +163,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
     { label: t.maintenanceService, icon: Wrench, action: onMaintenanceClick },
     { label: t.downloadApp, icon: Download },
     { label: t.aboutCompany, icon: Building2, action: onAboutClick },
-    { label: t.careers, icon: Briefcase }
+    { label: t.careers, icon: Briefcase, action: onCareerClick }
   ];
 
   const contactInfo = [
@@ -251,7 +253,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
               {categories.map((category, index) => (
                 <li
                   key={index}
-                  onClick={() => onCategoryClick && onCategoryClick(category.catCode, category.nameAr, category.nameEn)}
+                  onClick={() => onCategoryClick && onCategoryClick(category.catCode, String(category.nameAr), String(category.nameEn))}
                   className={`flex justify-between items-center hover:text-[#009FE3] transition-colors cursor-pointer group ${flexDirection}`}
                 >
                   <span className={`text-gray-300 group-hover:text-[#009FE3] ${isRTL ? 'group-hover:-translate-x-2' : 'group-hover:translate-x-2'} transition-all duration-300`}>
@@ -326,13 +328,13 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
         <div className="border-t border-gray-700 pt-8 mb-8">
           <div className={`flex flex-wrap gap-6 justify-center`}>
             {quickLinks.map((link, index) => (
-              <a
+              <button
                 key={index}
-                href={link.href}
-                className="text-gray-300 hover:text-[#009FE3] transition-colors"
+                onClick={link.action}
+                className="text-gray-300 hover:text-[#009FE3] transition-colors cursor-pointer bg-transparent border-none p-0"
               >
                 {link.label}
-              </a>
+              </button>
             ))}
           </div>
         </div>

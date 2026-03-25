@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import ProductCard from "../components/ProductCard";
-import { useLanguage } from '../../../context/LanguageContext';
 import { ChevronRight } from 'lucide-react';
-import { useCompareStore } from '../../compare/state';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useLanguage } from '../../../context/LanguageContext';
+import { setSeo } from '../../../services/seo';
 import { getProductRef } from "../../../utils/entityRefs";
+import { useCompareStore } from '../../compare/state';
+import ProductCard from "../components/ProductCard";
 
 const CategoryPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -122,6 +123,27 @@ const CategoryPage: React.FC = () => {
   const categoryRouteName = fallbackCategory
     ? (fallbackCategory.cat_code || fallbackCategory.nameEn || fallbackCategory.name)
     : term;
+
+  useEffect(() => {
+    if (!displayCategoryName) return;
+
+    const title =
+      language === 'ar'
+        ? `${displayCategoryName} - مابكو` 
+        : `${displayCategoryName} | MABCO`;
+
+    const description =
+      language === 'ar'
+        ? `تصفح منتجات ${displayCategoryName} في مابكو. أفضل الأسعار وتوصيل سريع لجميع أنحاء سوريا.`
+        : `Browse ${displayCategoryName} products on MABCO. Best prices and fast delivery across Syria.`;
+
+    setSeo({
+      title,
+      description,
+      url: window.location.href,
+      image: 'https://mabcoonline.com/images/giphy.gif',
+    });
+  }, [displayCategoryName, language]);
 
   const compareItems = useCompareStore((s: any) => s.items) as string[];
   const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;

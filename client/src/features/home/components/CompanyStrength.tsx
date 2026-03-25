@@ -1,5 +1,5 @@
+import { Award, Building2, MapPin, TrendingUp, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Building2, MapPin, Award, Users, TrendingUp } from "lucide-react";
 import translations from '../../../i18n/translations';
 
 interface CompanyStrengthProps {
@@ -55,7 +55,8 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
     const targets = {
       years: new Date().getFullYear() - 1999, // Calculate years based on current year
       cities: 6,
-      brands: 10
+      brands: 39 
+     
     };
 
     let currentStep = 0;

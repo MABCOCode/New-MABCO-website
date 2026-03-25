@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import ProductCard from "../components/ProductCard";
-import { useLanguage } from '../../../context/LanguageContext';
 import { ChevronRight } from 'lucide-react';
-import { useCompareStore } from '../../compare/state';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useLanguage } from '../../../context/LanguageContext';
+import { setSeo } from '../../../services/seo';
 import { getProductRef } from '../../../utils/entityRefs';
+import { useCompareStore } from '../../compare/state';
+import ProductCard from "../components/ProductCard";
 
 const BrandPage: React.FC = () => {
   const { id, category } = useParams<{ id: string; category?: string }>();
@@ -190,6 +191,26 @@ const BrandPage: React.FC = () => {
     }
     return term;
   })();
+
+  useEffect(() => {
+    if (!displayBrandName) return;
+
+    const title =
+      language === 'ar'
+        ? `${displayBrandName} - مابكو`
+        : `${displayBrandName} | MABCO`;
+    const description =
+      language === 'ar'
+        ? `استكشف منتجات ${displayBrandName} على مابكو. تجد جميع موديلات ${displayBrandName} بسعر تنافسي وضمان.`
+        : `Explore ${displayBrandName} products on MABCO. Find all the latest ${displayBrandName} models at competitive prices.`;
+
+    setSeo({
+      title,
+      description,
+      url: window.location.href,
+      image: 'https://mabcoonline.com/images/giphy.gif',
+    });
+  }, [displayBrandName, language]);
 
   const compareItems = useCompareStore((s: any) => s.items) as string[];
   const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;

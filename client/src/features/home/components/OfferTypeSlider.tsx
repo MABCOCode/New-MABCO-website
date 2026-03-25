@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Tag, Gift, Ticket, Package, ArrowRight, Sparkles, TrendingDown, Zap,BadgePercent  } from "lucide-react";
+import Autoplay from "embla-carousel-autoplay";
+import { ArrowRight, BadgePercent, Gift, Package, Sparkles, Tag, Ticket } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -7,7 +8,6 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "../../../components/ui/carousel";
-import Autoplay from "embla-carousel-autoplay";
 
 interface OfferType {
   id: string;
@@ -70,7 +70,7 @@ const offerTypes: OfferType[] = [
     titleEn: "Bundle Deals",
     titleAr: "عروض الحزم",
     descriptionEn: "Buy main product and get special discounts on related items",
-    descriptionAr: "اشترِ المنتج الرئيسي واحصل على خصومات خاصة على المنتجات المرتبطة",
+    descriptionAr: "اشترِ المنتج الرئيسي واحصل على خصومات خاصة على منتجات محددة",
     highlightEn: "Save up to 35%",
     highlightAr: "وفّر حتى 35٪",
     gradient: "from-purple-500 via-violet-500 to-fuchsia-600",

@@ -1,59 +1,58 @@
 import {
-  ChevronRight,
-  X,
-  ShoppingCart,
-  Smartphone,
-  Watch,
-  Headphones,
-  Battery,
-  Camera,
-  Laptop,
-  Shield,
-  Settings,
-  CreditCard,
-  Sparkles,
-  PackageCheck,
-  TrendingUp,
-  FileText,
-  CheckCircle2,
-  Truck,
-  RefreshCw,
-  Award,
-  Minus,
-  Plus,Tag,Badge,
-  Star,
-  Edit3,
-  GitCompare
+    Battery,
+    Camera,
+    CheckCircle2,
+    ChevronRight,
+    CreditCard,
+    Edit3,
+    FileText,
+    GitCompare,
+    Headphones,
+    Laptop,
+    Minus,
+    PackageCheck,
+    Plus,
+    Settings,
+    Shield,
+    ShoppingCart,
+    Smartphone,
+    Sparkles,
+    Star,
+    Tag,
+    TrendingUp,
+    Watch,
+    X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useLanguage } from "../../../context/LanguageContext";
-import { useCart } from "../../../context/CartContext";
-import { useCompareStore } from "../../compare/state";
-import { ColorSwatch } from "../../../components/ui/ColorSwatch";
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+    type CarouselApi,
+} from "../../../components/ui/carousel";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
+import { ColorSwatch } from "../../../components/ui/ColorSwatch";
+import { EditableImage } from "../../../components/ui/EditableImage";
+import { EditableText } from "../../../components/ui/EditableText";
+import { InlineProductEditor } from "../../../components/ui/InlineProductEditor";
+import { KeyFeaturesEditor } from "../../../components/ui/KeyFeaturesEditor";
+import { useCart } from "../../../context/CartContext";
+import { useLanguage } from "../../../context/LanguageContext";
+import {
+    calculateDiscountedPrice,
+    getOfferBadgeText,
+    getOfferPricing,
+    getProductOffers,
+} from "../../../data/products";
+import { setSeo } from "../../../services/seo";
+import { CURRENCY_LABEL } from "../../../utils/currency";
+import { getProductRef } from "../../../utils/entityRefs";
+import { useCompareStore } from "../../compare/state";
 import { OfferDetailsCard } from "../../offer/components/OfferDetailsCard";
 import { RelatedProductsWithDiscount } from "../../offer/components/RelatedProductsWithDiscount";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-  type CarouselApi,
-} from "../../../components/ui/carousel";
-import {
-  calculateDiscountedPrice,
-  getOfferPricing,
-  getProductOffers,
-  getOfferBadgeText,
-} from "../../../data/products";
-import { getProductRef } from "../../../utils/entityRefs";
-import { EditableText } from "../../../components/ui/EditableText";
-import { EditableImage } from "../../../components/ui/EditableImage";
-import { KeyFeaturesEditor } from "../../../components/ui/KeyFeaturesEditor";
-import { InlineProductEditor } from "../../../components/ui/InlineProductEditor";
-import { CURRENCY_LABEL } from "../../../utils/currency";
 
 interface ProductDetailPageProps {
   product?: any;
@@ -242,7 +241,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
           setLocalProduct(json?.data ?? null);
           setIsLoadingProduct(false);
         }
-      } catch (err: any) {
+      } catch (err: any) {
+
         if (mounted) {
           setProductError(err?.message || "Failed to load product");
           setIsLoadingProduct(false);
@@ -256,6 +256,34 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   }, [id]);
 
   const prod = localProduct ?? product;
+
+  useEffect(() => {
+    if (!prod) return;
+
+    const productName =
+      language === 'ar'
+        ? prod.nameAr || prod.name || prod.nameEn || 'منتج مابكو'
+        : prod.nameEn || prod.name || prod.nameAr || 'MABCO Product';
+
+    const descriptionText =
+      language === 'ar'
+        ? String(prod.descriptionAr || prod.description || '').slice(0, 160) ||
+          `منتج ${productName} في مابكو - الجودة والضمان والتوصيل السريع.`
+        : String(prod.description || prod.descriptionAr || '').slice(0, 160) ||
+          `${productName} at MABCO - quality, warranty, and fast delivery.`;
+
+    setSeo({
+      title:
+        language === 'ar'
+          ? `${productName} - مابكو` 
+          : `${productName} | MABCO`,
+      description: descriptionText,
+      url: window.location.href,
+      image: prod.image || 'https://mabcoonline.com/images/giphy.gif',
+      keywords: `${productName}, ${prod.brand || prod.brandName || ''}`,
+    });
+  }, [prod, language]);
+
   const breadcrumbs = useMemo(() => {
     if (Array.isArray(locationState?.breadcrumbs) && locationState.breadcrumbs.length) {
       return locationState.breadcrumbs.filter((item: any) => item && item.label);
@@ -292,7 +320,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     navigate(-1);
   };
 
-  const saveProductToDb = async (productId: string | number, updated: any) => {
+  const saveProductToDb = async (productId: string | number, updated: any) => {
+
     const apiBase =
       (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
     const adminKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
@@ -355,7 +384,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     }
   };
 
-  const persistProductContent = (productId: any, updated: any) => {
+  const persistProductContent = (productId: any, updated: any) => {
+
     if (onSaveProductContent) {
       onSaveProductContent(productId, updated);
       return;
@@ -1646,17 +1676,17 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
         {/* Tabs Section */}
         <div className="mt-12 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="flex border-b border-gray-200 bg-gray-50">
+          <div className="flex overflow-x-auto scrollbar-hide bg-gray-50">
             <button
               onClick={() => setTabState("description")}
-              className={`flex-1 px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 ${
+              className={`flex-shrink-0 px-4 sm:px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 min-w-0 ${
                 tabState === "description"
                   ? "text-[#009FE3] bg-white"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               } ${language === "ar" ? "flex-row-reverse" : "flex-row"}`}
             >
-              <FileText className="w-5 h-5" />
-              <span>{t("description")}</span>
+              <FileText className="w-5 h-5 flex-shrink-0" />
+              <span className="whitespace-nowrap">{t("description")}</span>
               {tabState === "description" && (
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7]" />
               )}
@@ -1665,14 +1695,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             {(userPermissions.canEditContent || hasSpecsContent) && (
               <button
                 onClick={() => setTabState("specs")}
-                className={`flex-1 px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 ${
+                className={`flex-shrink-0 px-4 sm:px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 min-w-0 ${
                   tabState === "specs"
                     ? "text-[#009FE3] bg-white"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 } ${language === "ar" ? "flex-row-reverse" : "flex-row"}`}
               >
-                <Settings className="w-5 h-5" />
-                <span>{t("specifications")}</span>
+                <Settings className="w-5 h-5 flex-shrink-0" />
+                <span className="whitespace-nowrap">{t("specifications")}</span>
                 {tabState === "specs" && (
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7]" />
                 )}
@@ -1681,14 +1711,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
             <button
               onClick={() => setTabState("offers")}
-              className={`flex-1 px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 shadow-lg ${
+              className={`flex-shrink-0 px-4 sm:px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 min-w-0 ${
                 tabState === "offers"
                   ? "text-white bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 scale-105"
                   : "text-orange-600 hover:text-orange-700 bg-gradient-to-r from-orange-50 to-pink-50 hover:from-orange-100 hover:to-pink-100 animate-pulse"
               }`}
             >
-              <Tag className="w-6 h-6" />
-              <span>{language === "ar" ? "العروض" : "Offers"}</span>
+              <Tag className="w-6 h-6 flex-shrink-0" />
+              <span className="whitespace-nowrap">{language === "ar" ? "العروض" : "Offers"}</span>
               {/* {hasOffers && (
                 <Badge className="bg-yellow-400 text-orange-900 hover:bg-yellow-400 font-black animate-bounce">
                   {productOffers.length}

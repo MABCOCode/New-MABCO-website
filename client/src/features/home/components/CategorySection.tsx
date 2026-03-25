@@ -1,6 +1,6 @@
 // components/CategorySection.tsx
-import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { iconsMap } from '../../../utils/iconMap';
 
 // We'll fetch categories from the public static JSON at runtime. This keeps
@@ -33,7 +33,6 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [centerItems, setCenterItems] = useState(false);
-  const [animateIn, setAnimateIn] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -75,7 +74,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
             brands: (Array.isArray(c.brands) ? c.brands : []).map((brand: any) => {
               if (typeof brand === 'string') {
                 const match = brandsByName.get(brand.trim().toLowerCase());
-                return match ? { ...brand, ...match } : { name: brand };
+                return match ? { ...match } : { name: brand };
               }
               const codeMatch = brand?.brand_code != null
                 ? brandsByCode.get(String(brand.brand_code))
@@ -105,35 +104,15 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   }, []);
 
   const triggerAnimation = () => {
-    if (animationTimerRef.current) {
-      window.clearTimeout(animationTimerRef.current);
-    }
-    setAnimateIn(false);
-    animationTimerRef.current = window.setTimeout(() => {
-      window.requestAnimationFrame(() => setAnimateIn(true));
-    }, 160);
+    // Animation removed to prevent lag
   };
 
   useEffect(() => {
-    // Trigger motion when category data is actually rendered (after loading).
-    if (isLoading) return;
-    triggerAnimation();
+    // Animation removed to prevent lag
   }, [isLoading]);
 
   useEffect(() => {
-    const onNavigateSection = (event: Event) => {
-      const customEvent = event as CustomEvent<{ sectionId?: string }>;
-      if (customEvent.detail?.sectionId === 'categories') {
-        triggerAnimation();
-      }
-    };
-    window.addEventListener('mabco:navigate-section', onNavigateSection as EventListener);
-    return () => {
-      window.removeEventListener('mabco:navigate-section', onNavigateSection as EventListener);
-      if (animationTimerRef.current) {
-        window.clearTimeout(animationTimerRef.current);
-      }
-    };
+    // Animation removed to prevent lag
   }, []);
 
   // Determine whether items fit within the container and should be centered
@@ -175,11 +154,26 @@ const CategorySection: React.FC<CategorySectionProps> = ({
     if (selectedCategory === null) return;
 
     const activeCategoryCard = categoryCardRefs.current[selectedCategory];
-    activeCategoryCard?.scrollIntoView({
-      behavior: 'smooth',
-      inline: 'center',
-      block: 'nearest',
-    });
+    const container = categoriesScrollRef.current;
+    
+    if (activeCategoryCard && container) {
+      // Manually scroll the container to center the card without affecting page scroll
+      const cardRect = activeCategoryCard.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      
+      // Calculate the offset needed to center the card within the container
+      const cardCenterOffset = cardRect.left - containerRect.left + cardRect.width / 2;
+      const containerCenterOffset = containerRect.width / 2;
+      
+      // Calculate the scroll position
+      const scrollLeft = container.scrollLeft + (cardCenterOffset - containerCenterOffset);
+      
+      // Smoothly scroll to the calculated position
+      container.scrollTo({
+        left: scrollLeft,
+        behavior: 'smooth'
+      });
+    }
 
     const timer = window.setTimeout(() => {
       const target = brandsPanelRef.current ?? sectionRef.current;
@@ -281,6 +275,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
             scrollbarWidth: "none",
             msOverflowStyle: "none",
             cursor: isDragging ? "grabbing" : "grab",
+            scrollbarGutter: "stable",
+            overflowY: "hidden",
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -318,13 +314,6 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                     ? "border-[#009FE3] bg-blue-50"
                     : "border-gray-100 hover:border-[#009FE3]/30"
                 }`}
-                style={{
-                  transform: animateIn
-                    ? "translate3d(0, 0, 0)"
-                    : "translate3d(0, 28px, 0)",
-                  transition: "transform 560ms cubic-bezier(0.22, 1, 0.36, 1)",
-                  transitionDelay: `${index * 55}ms`,
-                }}
               >
                 <div className="flex flex-col items-center text-center">
                   <div
@@ -449,14 +438,6 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                         <div
                           key={brandObj.brand_code || idx}
                           className="bg-white rounded-2xl p-3 sm:p-4 md:p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group min-w-0"
-                          style={{
-                            transform: animateIn
-                              ? "translate3d(0, 0, 0)"
-                              : "translate3d(0, 24px, 0)",
-                            transition:
-                              "transform 520ms cubic-bezier(0.22, 1, 0.36, 1)",
-                            transitionDelay: `${idx * 45}ms`,
-                          }}
                           onClick={() => {
                             if (onBrandClick) {
                               onBrandClick(

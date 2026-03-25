@@ -37,9 +37,10 @@
   { "brand_code": "2021", "name": "الاشتراكات", "englishName": "Subscriptions", "image": "https://img.icons8.com/?size=100&id=m89SS6QwaJpJ&format=png&color=000000", "category_code": "07", "uiTint": "blue" },
   { "brand_code": "2022", "name": "تحدي مابكو", "englishName": "Mabco club challenges", "image": "https://img.icons8.com/?size=100&id=TJhGlPTwF5HD&format=png&color=000000", "category_code": "07", "uiTint": "blue" },
 
-  { "brand_code": "12", "name": "إيكوفلو", "englishName": "EcoFlow", "image": "https://www.ecoflow.com/cdn/shop/files/ecoflow_logo_580x.png?v=1677741288", "category_code": "09" },
-  { "brand_code": "83", "name": "اكسسوار ايكو فلو", "englishName": "Ecoflow Accessories", "image": "https://img.icons8.com/ios-filled/500/solar-panel.png", "category_code": "09" },
+  { "brand_code": "12", "name": "إيكوفلو", "englishName": "EcoFlow", "image": "https://mabcoonline.com/images/brands/ecoflowbrand.png", "category_code": "09" },
+  { "brand_code": "81", "name": "داي", "englishName": "Deye", "image": "https://mabcoonline.com/images/brands/deye.png", "category_code": "09" },
+  { "brand_code": "83", "name": "اكسسوار ايكو فلو", "englishName": "Ecoflow Accessories", "image": "https://mabcoonline.com/images/brands/ecoflowbrand.png", "category_code": "09" },
 
-  { "brand_code": "19", "name": "سكوتر", "englishName": "Escooter", "image": "https://img.icons8.com/ios-filled/500/electric-scooter.png", "category_code": "17", "uiTint": "blue" },
-  { "brand_code": "18", "name": "كاميرات", "englishName": "Camera", "image": "https://img.icons8.com/ios-filled/500/camera.png", "category_code": "18", "uiTint": "blue" }
+  { "brand_code": "19", "name": "شاومي", "englishName": "Xiaomi", "image": "https://img.icons8.com/?size=100&id=WovKWSCrsTFO&format=png&color=000000", "category_code": "17" },
+  { "brand_code": "18", "name": "Tp-link", "englishName": "TP-Link", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/TPLINK_Logo_2.svg/1280px-TPLINK_Logo_2.svg.png", "category_code": "18"}
 ]

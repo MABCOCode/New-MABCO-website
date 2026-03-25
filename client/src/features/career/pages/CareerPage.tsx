@@ -1,10 +1,27 @@
 import { ArrowUpRight, Briefcase, FileText, ShieldCheck } from "lucide-react";
-import React from "react";
+import React, { useEffect } from "react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { setSeo } from "../../../services/seo";
 
 const CareerPage: React.FC = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
+
+  useEffect(() => {
+    const title = isArabic
+      ? 'وظائف مابكو - انضم إلى فريقنا'
+      : 'MABCO Careers - Join Our Team';
+    const description = isArabic
+      ? 'اكتشف فرص التوظيف في مابكو وسجل بياناتك للانضمام إلى فريق العمل.'
+      : 'Explore career opportunities at MABCO and apply to become part of our team.';
+
+    setSeo({
+      title,
+      description,
+      url: window.location.href,
+      image: 'https://mabcoonline.com/images/giphy.gif',
+    });
+  }, [isArabic]);
 
   const content = isArabic
     ? {

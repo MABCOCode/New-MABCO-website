@@ -1,27 +1,24 @@
 // features/home/pages/HomePage.tsx
-import React, { useState, useEffect, useRef } from "react";
+import { Flame, Star } from 'lucide-react';
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useLanguage } from "../../../context/LanguageContext";
-import HeroCarousel from "../components/HeroCarousel";
-import SearchSection from "../components/SearchSection";
-import SpecialOffers from "../components/OffersSlider";
-import CategorySection from "../components/CategorySection";
-import ProductsSlider from "../components/ProductsSlider";
-import { Star, Flame } from 'lucide-react';
-import BrandShowcase from "../components/BrandShowcase";
-import ServicesSection from "../components/ServicesSection";
-import CompanyStrength from "../components/CompanyStrength";
-import WarrantySection from "../components/WarrantySection";
-import SEOSection from "../components/SEOSection";
-import { useCompareStore } from "../../../features/compare/state";
 import { useCart } from "../../../context/CartContext";
-import { OfferTypeSlider } from "../components/OfferTypeSlider";
-import { ServicesGrid } from "../components/ServicesGrid";
-import { PrintingService } from "../components/PrintingService";
+import { useLanguage } from "../../../context/LanguageContext";
+import { useCompareStore } from "../../../features/compare/state";
+import { setSeo } from "../../../services/seo";
+import CategorySection from "../components/CategorySection";
+import CompanyStrength from "../components/CompanyStrength";
 import { EPaymentService } from "../components/EPaymentService";
-import { WarrantyCheckService } from "../components/WarrantyCheckService";
+import HeroCarousel from "../components/HeroCarousel";
 import { MaintenanceStatusService } from "../components/MaintenanceStatusService";
-import { getProductRef } from "../../../utils/entityRefs";
+import { OfferTypeSlider } from "../components/OfferTypeSlider";
+import { PrintingService } from "../components/PrintingService";
+import ProductsSlider from "../components/ProductsSlider";
+import SearchSection from "../components/SearchSection";
+import SEOSection from "../components/SEOSection";
+import { ServicesGrid } from "../components/ServicesGrid";
+import { WarrantyCheckService } from "../components/WarrantyCheckService";
+import WarrantySection from "../components/WarrantySection";
 
 const HomePage: React.FC = () => {
   const { t, language, navigateToSection } = useLanguage();
@@ -69,6 +66,24 @@ const HomePage: React.FC = () => {
       }, 100);
     }
   }, [location]);
+
+  useEffect(() => {
+    const title =
+      language === 'ar'
+        ? 'مابكو | متجر الأجهزة المحمولة والإلكترونيات في سوريا'
+        : 'MABCO | Mobile Devices, Accessories, and Electronics Retail Company in Syria';
+    const description =
+      language === 'ar'
+        ? 'مرحباً بكم في مابكو، مكانك الأفضل لشراء الهواتف الذكية، الإكسسوارات والإلكترونيات في سوريا.'
+        : 'Welcome to MABCO, your destination for mobile phones, accessories, and electronics in Syria.';
+
+    setSeo({
+      title,
+      description,
+      url: window.location.href,
+      image: 'https://mabcoonline.com/images/giphy.gif',
+    });
+  }, [language]);
 
   useEffect(() => {
     const state = location.state as any;

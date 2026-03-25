@@ -1,32 +1,32 @@
 // App.tsx
-import  { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { LanguageProvider, useLanguage } from './context/LanguageContext';
-import Navbar from './components/layout/Navbar';
+import { useEffect } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import ModernFooter from './components/layout/Footer'; // Make sure this is the correct import
+import Navbar from './components/layout/Navbar';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { setSeo } from './services/seo';
 
-import ScrollToTop from './components/ui/ScrollToTop';
-import { CheckoutPage } from './features/checkout/pages/CheckoutPage';
-import HomePage from './features/home/pages/HomePage';
-import SearchResultsPage from './features/products/pages/SearchResultsPage';
-import ProductDetailPage from './features/products/pages/ProductDetailPage';
-import BrandPage from './features/products/pages/BrandPage';
-import CategoryPage from './features/products/pages/CategoryPage';
-import ShowroomsPage from './features/showrooms/pages/ShowroomsPage';
-import AccountRoutes from './features/account/AccountRoutes';
-import { OfferTypeRoute } from './features/offer/pages/OfferTypePage';
-import {ShoppingCart} from './features/cart/components/ShoppingCart';
-import { CartProvider, useCart } from './context/CartContext';
-import SearchPage from './features/search/pages/SearchPage';
-import './styles/globals.css';
-import './styles/enhanced-ux.css';
-import { ComparePage } from "./features/compare/pages/ComparePage";
-import { useCompareStore } from "./features/compare/state";
-import { compareStorage } from "./features/compare/storage";
 import FloatingCompare from './components/layout/FloatingCompare';
 import FloatingSocialLinks from './components/layout/FloatingSocialLinks';
-import CareerPage from './features/career/pages/CareerPage';
+import ScrollToTop from './components/ui/ScrollToTop';
+import { CartProvider, useCart } from './context/CartContext';
 import AboutPage from './features/about/pages/AboutPage';
+import AccountRoutes from './features/account/AccountRoutes';
+import CareerPage from './features/career/pages/CareerPage';
+import { ShoppingCart } from './features/cart/components/ShoppingCart';
+import { CheckoutPage } from './features/checkout/pages/CheckoutPage';
+import { ComparePage } from "./features/compare/pages/ComparePage";
+import { useCompareStore } from "./features/compare/state";
+import HomePage from './features/home/pages/HomePage';
+import { OfferTypeRoute } from './features/offer/pages/OfferTypePage';
+import BrandPage from './features/products/pages/BrandPage';
+import CategoryPage from './features/products/pages/CategoryPage';
+import ProductDetailPage from './features/products/pages/ProductDetailPage';
+import SearchResultsPage from './features/products/pages/SearchResultsPage';
+import SearchPage from './features/search/pages/SearchPage';
+import ShowroomsPage from './features/showrooms/pages/ShowroomsPage';
+import './styles/enhanced-ux.css';
+import './styles/globals.css';
 
 // Create a wrapper component that can use the LanguageContext
 const AppContent: React.FC = () => {
@@ -46,11 +46,21 @@ const AppContent: React.FC = () => {
     navigate('/about');
   };
 
-  const handleShowroomsClick = () => {};
+  const handleShowroomsClick = () => {
+    navigate('/showrooms');
+  };
 
-  const handleWarrantyClick = () => {};
+  const handleWarrantyClick = () => {
+    navigate('/account/warranty');
+  };
 
-  const handleMaintenanceClick = () => {};
+  const handleMaintenanceClick = () => {
+    navigate('/account/maintenance');
+  };
+
+  const handleCareerClick = () => {
+    navigate('/career');
+  };
   const compareItems = useCompareStore((s) => s.items);
   const compareMode = useCompareStore((s) => s.isOpen);
   const addCompareItem = useCompareStore((s) => s.addItem);
@@ -69,6 +79,37 @@ const AppContent: React.FC = () => {
     closeCart();
     navigate('/checkout');
   };
+
+  // Update page title and meta tags based on app language and route.
+  useEffect(() => {
+    // Skip meta overrides for detailed routes where page components manage their own SEO.
+    const skipPaths = [
+      '/category/',
+      '/brand/',
+      '/product/',
+      '/showrooms',
+    ];
+    if (skipPaths.some((path) => location.pathname.startsWith(path))) {
+      return;
+    }
+
+    const isArabic = language === 'ar';
+    const baseTitle = isArabic
+      ? 'مابكو | شركة بيع الأجهزة المحمولة والملحقات والإلكترونيات في سوريا'
+      : 'MABCO | Mobile Devices, Accessories, and Electronics Retail Company in Syria';
+    const baseDescription = isArabic
+      ? 'شركة مابكو - الرائدة في بيع الأجهزة المحمولة والملحقات والإلكترونيات في سوريا. تسوق أحدث الهواتف الذكية والكمبيوترات المحمولة والأجهزة الإلكترونية بأفضل الأسعار.'
+      : 'MABCO - Leading mobile devices, accessories, and electronics retail company in Syria. Shop latest smartphones, laptops, and gadgets with best prices.';
+
+    setSeo({
+      title: baseTitle,
+      description: baseDescription,
+      url: window.location.href,
+      image: 'https://mabcoonline.com/images/giphy.gif',
+    });
+
+    document.documentElement.lang = isArabic ? 'ar' : 'en';
+  }, [language, location.pathname]);
 
   useEffect(() => {
     const observed = new WeakSet<HTMLImageElement>();
@@ -184,6 +225,7 @@ const AppContent: React.FC = () => {
             onShowroomsClick={handleShowroomsClick}
             onWarrantyClick={handleWarrantyClick}
             onMaintenanceClick={handleMaintenanceClick}
+            onCareerClick={handleCareerClick}
           />
         )}
       </div>

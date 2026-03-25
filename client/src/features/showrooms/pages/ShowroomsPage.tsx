@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { MapPin, Phone, Clock, Calendar, X, Home, ChevronRight } from "lucide-react";
-import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
+import { Calendar, ChevronRight, Clock, Home, MapPin, Phone, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
+import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import translations from "../../../i18n/translations";
+import { setSeo } from '../../../services/seo';
 
 interface Showroom {
   Loc_code: string;
@@ -39,6 +40,64 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
   const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
   const [showroomsData, setShowroomsData] = useState<Showroom[]>([]);
   const t = translations[language];
+
+  useEffect(() => {
+    const title =
+      language === 'ar'
+        ? 'صالات عرض مابكو | مابكو'
+        : 'MABCO Showrooms | MABCO';
+    const description =
+      language === 'ar'
+        ? 'استعرض صالات عرض مابكو في مدن سوريا واختر الموقع الأقرب لك.'
+        : 'Explore MABCO showrooms across Syrian cities and find the nearest location.';
+
+    setSeo({
+      title,
+      description,
+      url: window.location.href,
+      image: 'https://mabcoonline.com/images/giphy.gif',
+    });
+  }, [language]);
+
+  useEffect(() => {
+    if (selectedMap) {
+      const title =
+        language === 'ar'
+          ? `${selectedMap.name} | صالة عرض مابكو`
+          : `${selectedMap.name} | MABCO Showroom`;
+      const description =
+        language === 'ar'
+          ? `تعرف على موقع ${selectedMap.name} في صالات عرض مابكو، مع إحداثيات جوجل ماب.`
+          : `Learn about ${selectedMap.name} in MABCO showrooms with location details.`;
+
+      setSeo({
+        title,
+        description,
+        url: window.location.href,
+        image: 'https://mabcoonline.com/images/giphy.gif',
+      });
+    }
+  }, [selectedMap, language]);
+
+  useEffect(() => {
+    if (selectedImage) {
+      const title =
+        language === 'ar'
+          ? `${selectedImage.name} - صورة الصالة`
+          : `${selectedImage.name} - Showroom Image`;
+      const description =
+        language === 'ar'
+          ? `عرض صورة ${selectedImage.name} في صالات عرض مابكو.`
+          : `Viewing image of ${selectedImage.name} in MABCO showrooms.`;
+
+      setSeo({
+        title,
+        description,
+        url: window.location.href,
+        image: selectedImage.url || 'https://mabcoonline.com/images/giphy.gif',
+      });
+    }
+  }, [selectedImage, language]);
 
   // Load showrooms from public/static/showrooms.json
   useEffect(() => {
