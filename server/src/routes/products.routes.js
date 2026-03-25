@@ -207,7 +207,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
 router.get('/home-sliders', asyncHandler(async (req, res) => {
   const db = getDb();
-  const limit = Math.min(Math.max(parseInt(req.query.limit || '30', 10), 1), 100);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 60);
 
   const cardProjection = {
     _id: 1,
@@ -235,6 +235,20 @@ router.get('/home-sliders', asyncHandler(async (req, res) => {
     updatedAt: 1,
   };
 
+  const baseQuery = {
+    'status.isHidden': { $ne: true },
+    'status.isActive': true,
+  };
+
+  const parsePrice = (value) => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = Number(String(value).replace(/,/g, '').trim());
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
   const parsePrice = (value) => {
     if (typeof value === 'number') return value;
     if (typeof value === 'string') {
@@ -248,34 +262,41 @@ router.get('/home-sliders', asyncHandler(async (req, res) => {
 
   const mostSoldQuery = {
     ...excludeCat02,
+    ...baseQuery,
     $or: [{ isMostSold: true }, { is_most_sold: true }],
   };
 
   const newHotQuery = {
     ...excludeCat02,
+    ...baseQuery,
     $or: [{ isNew: true }, { is_new: true }, { isHot: true }, { is_hot: true }],
+    price: { $exists: true, $ne: '', $ne: null },
   };
 
   const [mostSold, newHot] = await Promise.all([
     db
       .collection('products')
       .find(mostSoldQuery, { projection: cardProjection })
+      .sort({ updatedAt: -1 })
       .limit(limit)
       .toArray(),
     db
       .collection('products')
       .find(newHotQuery, { projection: cardProjection })
+      .sort({ updatedAt: -1 })
       .limit(limit)
       .toArray(),
   ]);
 
   const sortByPriceDesc = (items) =>
     items
-      .filter((item) => parsePrice(item.price) > 0)
-      .sort((a, b) => parsePrice(b.price) - parsePrice(a.price));
+      .map((item) => ({ ...item, _priceValue: parsePrice(item.price) }))
+      .filter((item) => item._priceValue > 0)
+      .sort((a, b) => b._priceValue - a._priceValue)
+      .map(({ _priceValue, ...rest }) => rest);
 
-  const filteredNewHot = sortByPriceDesc(newHot).filter((item) => parsePrice(item.price) > 10);
-  const filteredMostSold = sortByPriceDesc(mostSold);
+  const filteredNewHot = sortByPriceDesc(newHot).filter((item) => parsePrice(item.price) > 10).slice(0, limit);
+  const filteredMostSold = sortByPriceDesc(mostSold).slice(0, limit);
 
   res.json({
     success: true,
