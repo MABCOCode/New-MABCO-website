@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import categoriesData from '../../../testdata/categories.json';
 import ProductCard from "../components/ProductCard";
 import { useLanguage } from '../../../context/LanguageContext';
 import { ChevronRight } from 'lucide-react';
@@ -28,9 +27,7 @@ const BrandPage: React.FC = () => {
         if (mounted && Array.isArray(json)) {
           setStaticCategories(json);
         }
-      } catch {
-        // fallback to bundled testdata
-      }
+      } catch {}
     })();
     return () => {
       mounted = false;
@@ -71,7 +68,7 @@ const BrandPage: React.FC = () => {
   }, [term, categoryParam]);
 
   const categorySource = useMemo(
-    () => (staticCategories.length > 0 ? staticCategories : (categoriesData as any[])),
+    () => staticCategories,
     [staticCategories],
   );
 

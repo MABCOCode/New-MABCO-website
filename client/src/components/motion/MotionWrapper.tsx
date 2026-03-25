@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from "motion/react";
 import { ReactNode } from "react";
-import { useInView } from "../hooks/useInView";
+import { useInView } from "../../hooks/useInView";
 
 interface MotionWrapperProps {
   children: ReactNode;

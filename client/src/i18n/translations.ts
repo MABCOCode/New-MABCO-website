@@ -1,4 +1,3 @@
-import CompanyStrength from "@/features/home/components/CompanyStrength";
 import { CURRENCY_LABEL } from "@/utils/currency";
 
 export type Lang = "ar" | "en";

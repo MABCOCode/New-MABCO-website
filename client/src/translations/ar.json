@@ -74,6 +74,8 @@
   "admin.content.search": "بحث بالاسم أو stk_code...",
   "admin.content.all": "الكل",
   "admin.content.incomplete": "ناقصة البيانات",
+  "admin.content.missingDataOnly": "البيانات الناقصة فقط",
+  "admin.content.allProducts": "كل المنتجات",
   "admin.content.ready": "جاهزة للنشر",
   "admin.content.editContent": "استكمال البيانات",
   "admin.content.sku": "رمز المنتج",
@@ -189,8 +191,8 @@
   "admin.content.noMatchingResults": "لا توجد نتائج مطابقة",
   "admin.content.productNamePlaceholderEn": "iPhone 15 Pro",
   "admin.content.productNamePlaceholderAr": "آيفون 15 برو",
-  "admin.content.descriptionPlaceholderEn": "أدخل وصفاً إنجليزياً مفصلاً (الحد الأدنى 50 حرف، المثالي 200 حرف)...",
-  "admin.content.descriptionPlaceholderAr": "أدخل وصفاً عربياً مفصلاً (الحد الأدنى 50 حرف، المثالي 200 حرف)...",
+  "admin.content.descriptionPlaceholderEn": "أدخل وصفاً إنجليزياً مفصلاً (الحد الأدنى 10 حرف، المثالي 200 حرف)...",
+  "admin.content.descriptionPlaceholderAr": "أدخل وصفاً عربياً مفصلاً (الحد الأدنى 10 حرف، المثالي 200 حرف)...",
   "admin.content.dragImagesHint": "اسحب الصور هنا أو انقر للاختيار (حد أقصى 2 ميجا)",
   "admin.content.imagesUploaded": "صور محملة",
   "admin.content.savedSpecs": "مواصفات محفوظة",
@@ -233,4 +235,6 @@
   "editor.remove": "حذف",
   "editor.minSpecs": "الحد الأدنى للمواصفات",
   "editor.maxSpecs": "الحد الأقصى للمواصفات"
+,
+  "account_navbar_logout": "تسجيل الخروج"
 }

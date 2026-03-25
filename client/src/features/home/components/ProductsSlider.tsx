@@ -78,14 +78,6 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
     });
   }, [products, loading]);
 
-  React.useEffect(() => {
-    console.log("[ProductsSlider] mounted", {
-      title,
-      totalCount: products?.length,
-      validCount: validProducts?.length,
-      onToggleCompareExists: !!onToggleCompare,
-    });
-  }, [title, products, validProducts, onToggleCompare]);
   const [carouselKey, setCarouselKey] = useState(0);
   const lastZoomRef = useRef<number>(window.devicePixelRatio);
 

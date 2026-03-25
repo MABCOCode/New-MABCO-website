@@ -65,24 +65,20 @@ const isAdminRequest = (req) => {
   const adminUserId = req.headers['x-admin-user-id'];
   const authHeader = req.headers.authorization || '';
   const hasBearer = authHeader.toLowerCase().startsWith('bearer ');
-  const isAdmin = Boolean(adminKey || adminToken || hasBearer || adminUserId);
-  
-  if (isAdmin) {
-    console.log(`[RATE-LIMIT] Admin request detected:`, {
-      hasAdminKey: !!adminKey,
-      hasAdminToken: !!adminToken,
-      hasAdminUserId: !!adminUserId,
-      hasBearerToken: hasBearer,
-      path: req.originalUrl
-    });
-  }
-  
-  return isAdmin;
+  return Boolean(adminKey || adminToken || hasBearer || adminUserId);
 };
 
 const isAuthRoute = (req) => {
   const path = String(req.originalUrl || req.url || '');
   return path.includes('/api/auth');
+};
+
+const isProductJsonSyncRoute = (req) => {
+  const path = String(req.originalUrl || req.url || '');
+  return (
+    path.startsWith('/api/admin/products/json') &&
+    (req.method === 'PUT' || req.method === 'POST')
+  );
 };
 
 const isPublicRoute = (req) => {
@@ -113,11 +109,10 @@ const generalLimiter = rateLimit({
     const skipAdmin = isAdminRequest(req);
     const skipAuth = isAuthRoute(req);
     const skipPublic = isPublicRoute(req);
+    const skipProductJsonSync = isProductJsonSyncRoute(req);
     
-    // Always skip admins, auth routes, and public GET requests
-    if (skipAdmin || skipAuth || skipPublic) {
-      const reason = skipAdmin ? 'Admin' : skipAuth ? 'Auth' : 'Public Route';
-      console.log(`[RATE-LIMIT] Skipping rate limit - Reason: ${reason}, Path: ${req.originalUrl}`);
+    // Always skip admins, auth routes, public GET requests, and product JSON sync endpoints
+    if (skipAdmin || skipAuth || skipPublic || skipProductJsonSync) {
       return true;
     }
     
@@ -136,9 +131,9 @@ const formLimiter = rateLimit({
   skip: (req) => {
     const skipAdmin = isAdminRequest(req);
     const skipAuth = isAuthRoute(req);
+    const skipProductJsonSync = isProductJsonSyncRoute(req);
     
-    if (skipAdmin || skipAuth) {
-      console.log(`[RATE-LIMIT-FORM] Skipping form limit - Admin: ${skipAdmin}, Auth: ${skipAuth}, Path: ${req.originalUrl}`);
+    if (skipAdmin || skipAuth || skipProductJsonSync) {
       return true;
     }
     
@@ -159,7 +154,6 @@ const detectBot = (req, res, next) => {
   const userAgent = req.headers['user-agent'] || '';
   const isBot = botPatterns.some(pattern => pattern.test(userAgent));
   if (isBot) {
-    console.log(`Bot detected: ${userAgent} from ${req.ip}`);
     return res.status(403).json({ error: 'Access denied' });
   }
   return next();

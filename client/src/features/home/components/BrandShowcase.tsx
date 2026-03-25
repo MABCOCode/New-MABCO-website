@@ -10,6 +10,7 @@ interface Brand {
   image: string;
   category: string;
   productsCount: number;
+  uiTint?: string;
 }
 
 interface BrandShowcaseProps {
@@ -49,7 +50,8 @@ const BrandShowcase: React.FC<BrandShowcaseProps> = ({
             description: b.description || '',
             image: b.image || 'https://via.placeholder.com/150',
             category: b.category || '',
-            productsCount: b.productsCount || 0
+            productsCount: b.productsCount || 0,
+            uiTint: b.uiTint || '',
           }));
           setFetchedBrands(normalized);
         } catch (err) {
@@ -132,7 +134,9 @@ const BrandShowcase: React.FC<BrandShowcaseProps> = ({
               <div className="h-9 md:h-10 w-full rounded-lg shimmer-surface" />
             </div>
           ))}
-        {!isLoading && brands.map((brand) => (
+        {!isLoading && brands.map((brand) => {
+          const isBlueTint = brand.uiTint === 'blue';
+          return (
           <div
             key={brand.id}
             className="flex-shrink-0 w-32 sm:w-40 md:w-52 bg-white rounded-2xl p-3 sm:p-4 md:p-5 shadow-lg hover:shadow-2xl transition-all duration-300 border-2 border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group"
@@ -144,12 +148,33 @@ const BrandShowcase: React.FC<BrandShowcaseProps> = ({
           >
             <div className="flex flex-col items-center text-center">
               {/* Brand Logo */}
-              <div className="w-full h-24 sm:h-28 md:h-32 bg-gray-50 rounded-2xl flex items-center justify-center mb-2 sm:mb-3 md:mb-4 p-2 sm:p-3 md:p-4 group-hover:bg-gray-100 transition-colors">
+              <div
+                className={`w-full h-24 sm:h-28 md:h-32 rounded-2xl flex items-center justify-center mb-2 sm:mb-3 md:mb-4 p-2 sm:p-3 md:p-4 transition-colors ${
+                  isBlueTint
+                    ? ''
+                    : 'bg-gray-50 group-hover:bg-gray-100'
+                }`}
+              >
                 <img
                   src={brand.image}
                   alt={`${brand.name} Logo`}
                   className="w-auto h-auto max-w-full max-h-full object-contain object-center"
+                  style={
+                    isBlueTint
+                      ? { display: 'none' }
+                      : undefined
+                  }
                 />
+                {isBlueTint && (
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 bg-gradient-to-br from-[#009FE3] to-[#007BC7]">
+                    <img
+                      src={brand.image}
+                      alt={`${brand.name} Logo`}
+                      className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain object-center"
+                      style={{ filter: 'brightness(0) saturate(100%) invert(100%)' }}
+                    />
+                  </div>
+                )}
               </div>
               
               {/* Brand Name */}
@@ -185,7 +210,8 @@ const BrandShowcase: React.FC<BrandShowcaseProps> = ({
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Right Scroll Button */}

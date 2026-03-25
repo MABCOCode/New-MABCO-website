@@ -23,6 +23,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
 }) => {
   const sectionRef = useRef<HTMLDivElement>(null);
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
+  const brandsPanelRef = useRef<HTMLDivElement>(null);
+  const categoryCardRefs = useRef<Array<HTMLDivElement | null>>([]);
   const animationTimerRef = useRef<number | null>(null);
   const lastAppliedCategoryCodeRef = useRef<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -168,6 +170,31 @@ const CategorySection: React.FC<CategorySectionProps> = ({
       lastAppliedCategoryCodeRef.current = selectedCategoryCode;
     }
   }, [categories, onSelectCategory, selectedCategory, selectedCategoryCode]);
+
+  useEffect(() => {
+    if (selectedCategory === null) return;
+
+    const activeCategoryCard = categoryCardRefs.current[selectedCategory];
+    activeCategoryCard?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    });
+
+    const timer = window.setTimeout(() => {
+      const target = brandsPanelRef.current ?? sectionRef.current;
+      if (!target) return;
+      const nav = document.querySelector('nav');
+      const navHeight = nav?.getBoundingClientRect().height ?? 0;
+      const top = Math.max(
+        0,
+        target.getBoundingClientRect().top + window.scrollY - navHeight - 20,
+      );
+      window.scrollTo({ top, behavior: 'smooth' });
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedCategory]);
   
   // `categories` state is loaded from public/static/categories.json
 
@@ -282,6 +309,9 @@ const CategorySection: React.FC<CategorySectionProps> = ({
             return (
               <div
                 key={index}
+                ref={(node) => {
+                  categoryCardRefs.current[index] = node;
+                }}
                 onClick={() => selectCategory(index)}
                 className={`flex-shrink-0 w-32 sm:w-36 md:w-40 bg-white rounded-lg p-4 md:p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-2 group cursor-pointer ${
                   isSelected
@@ -339,6 +369,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
 
       {/* Brands Section - Toggle visibility */}
       <div
+        ref={brandsPanelRef}
         className={`overflow-hidden transition-all duration-500 ease-in-out ${
           selectedCategory !== null
             ? "max-h-[2000px] opacity-100 mt-8"
@@ -413,6 +444,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-5 w-full">
                     {visibleBrands.map((brand: any, idx: number) => {
                       const brandObj = typeof brand === "string" ? { name: brand } : brand;
+                      const isBlueTint = brandObj.uiTint === "blue";
                       return (
                         <div
                           key={brandObj.brand_code || idx}
@@ -436,12 +468,33 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                           }}
                         >
                           <div className="flex flex-col items-center text-center">
-                            <div className="w-full h-32 sm:h-36 md:h-40 bg-gray-50 rounded-2xl flex items-center justify-center mb-3 md:mb-4 p-3 sm:p-4 md:p-6 group-hover:bg-gray-100 transition-colors">
+                            <div
+                              className={`w-full h-32 sm:h-36 md:h-40 rounded-2xl flex items-center justify-center mb-3 md:mb-4 p-3 sm:p-4 md:p-6 transition-colors ${
+                                isBlueTint
+                                  ? ""
+                                  : "bg-gray-50 group-hover:bg-gray-100"
+                              }`}
+                            >
                               <img
                                 src={brandObj.image || "https://via.placeholder.com/150"}
                                 alt={`${brandObj.name} Logo`}
                                 className="w-auto h-auto max-w-full max-h-full object-contain object-center"
+                                style={
+                                  isBlueTint
+                                    ? { display: "none" }
+                                    : undefined
+                                }
                               />
+                              {isBlueTint && (
+                                <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 bg-gradient-to-br from-[#009FE3] to-[#007BC7]">
+                                  <img
+                                    src={brandObj.image || "https://via.placeholder.com/150"}
+                                    alt={`${brandObj.name} Logo`}
+                                    className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain object-center"
+                                    style={{ filter: "brightness(0) saturate(100%) invert(100%)" }}
+                                  />
+                                </div>
+                              )}
                             </div>
                             {language === "ar" ? (
                               <h4 className="text-gray-900 mb-1.5 text-xs sm:text-sm md:text-lg break-words">

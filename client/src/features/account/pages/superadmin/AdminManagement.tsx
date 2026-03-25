@@ -372,39 +372,15 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
               setSelectedUser(null);
             }}
             onSave={async (adminMeta) => {
-              const saveRequestId = Math.random().toString(36).substr(2, 9);
-              const saveStartTime = Date.now();
-
-              console.log(`[${saveRequestId}] 🎯 ADMIN SAVE START for user ${selectedUser.id}`);
-              console.log(`[${saveRequestId}] 📋 Admin meta to save:`, adminMeta);
-
               try {
-                // Check if user is already admin
                 const currentUser = usersData.find(u => u.id === selectedUser.id);
                 const isCurrentlyAdmin = currentUser?.isAdmin;
 
-                console.log(`[${saveRequestId}] 👤 User ${selectedUser.id} current admin status: ${isCurrentlyAdmin}`);
-
-                // if user wasn't admin yet, promote role first
                 if (!isCurrentlyAdmin) {
-                  console.log(`[${saveRequestId}] ⬆️  Promoting user ${selectedUser.id} to admin role`);
-                  const roleUpdateStart = Date.now();
                   await updateUserRole(selectedUser.id, 'admin');
-                  const roleUpdateTime = Date.now() - roleUpdateStart;
-                  console.log(`[${saveRequestId}] ✅ Role promotion completed in ${roleUpdateTime}ms`);
-                } else {
-                  console.log(`[${saveRequestId}] ⏭️  User already has admin role, skipping promotion`);
                 }
 
-                // attempt to persist permissions too
-                console.log(`[${saveRequestId}] 💾 Saving admin permissions for user ${selectedUser.id}`);
-                const permissionsUpdateStart = Date.now();
                 await updateAdminUser(selectedUser.id, { role: 'admin', adminMeta });
-                const permissionsUpdateTime = Date.now() - permissionsUpdateStart;
-                console.log(`[${saveRequestId}] ✅ Permissions update completed in ${permissionsUpdateTime}ms`);
-
-                const totalSaveTime = Date.now() - saveStartTime;
-                console.log(`[${saveRequestId}] 🎉 ADMIN SAVE SUCCESS - Total time: ${totalSaveTime}ms`);
 
                 alert(isRTL ? "تم حفظ الصلاحيات بنجاح" : "Privileges saved successfully");
                 setPrivilegesModalOpen(false);
@@ -412,15 +388,7 @@ export function AdminManagement({ language, onBack }: AdminManagementProps) {
                 loadUsers();
 
               } catch (err: any) {
-                const totalSaveTime = Date.now() - saveStartTime;
-                console.error(`[${saveRequestId}] 💥 ADMIN SAVE FAILED for user ${selectedUser.id} - Total time: ${totalSaveTime}ms`, err);
-                console.error(`[${saveRequestId}] 📋 Error details:`, {
-                  message: err?.message,
-                  stack: err?.stack,
-                  path: err?.path,
-                  status: err?.status,
-                  adminMeta: adminMeta
-                });
+                console.error('[AdminManagement] save failed', err);
 
                 alert(
                   isRTL

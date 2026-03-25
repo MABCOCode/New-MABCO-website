@@ -15,6 +15,19 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+const scrollToSectionWithOffset = (sectionId: string, behavior: ScrollBehavior = 'smooth') => {
+  const element = document.getElementById(sectionId);
+  if (!element) return false;
+
+  const nav = document.querySelector('nav');
+  const navHeight = nav?.getBoundingClientRect().height ?? 0;
+  const offset = navHeight + 20;
+  const top = Math.max(0, element.getBoundingClientRect().top + window.scrollY - offset);
+
+  window.scrollTo({ top, behavior });
+  return true;
+};
+
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
   if (!context) {
@@ -31,7 +44,6 @@ const useSafeNavigate = () => {
   } catch (error) {
     // Return a mock navigate function if useNavigate fails
     return (path: string) => {
-      console.log('Navigation to:', path);
       window.location.href = path;
     };
   }
@@ -100,71 +112,12 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     const currentPath = window.location.pathname;
     
     if (currentPath === '/' || currentPath === '') {
-      // On home page, scroll to section
-      const element = document.getElementById(sectionId);
-      if (element) {
-        // Account for the fixed navbar by adding a temporary scroll-margin-top
-        const nav = document.querySelector('nav');
-        const navHeight = nav?.getBoundingClientRect().height ?? 0;
-        const prevScrollMargin = element.style.scrollMarginTop;
-        element.style.scrollMarginTop = `${navHeight}px`;
-        element.scrollIntoView({ behavior: 'smooth' });
-        // Update URL hash without causing additional scroll
+      const didScroll = scrollToSectionWithOffset(sectionId);
+      if (didScroll) {
         window.history.replaceState(null, '', `#${sectionId}`);
-        // Try to focus the first input inside the section after scrolling
-        setTimeout(() => {
-          try {
-            const focusable = element.querySelector('input, textarea, [contenteditable]') as HTMLElement | null;
-            if (focusable) {
-              // preventScroll keeps the page position while focusing
-              // some browsers/types may not support the option; guard with try/catch
-              try {
-                // @ts-ignore
-                focusable.focus({ preventScroll: true });
-              } catch {
-                focusable.focus();
-              }
-            }
-          } catch {
-            // ignore
-          } finally {
-            // Restore previous style after animation
-            element.style.scrollMarginTop = prevScrollMargin;
-          }
-        }, 400);
       }
     } else {
-      // On different page, navigate to home with hash
       navigate(`/#${sectionId}`);
-      // Scroll to section after navigation
-      setTimeout(() => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-          const nav = document.querySelector('nav');
-          const navHeight = nav?.getBoundingClientRect().height ?? 0;
-          const prevScrollMargin = element.style.scrollMarginTop;
-          element.style.scrollMarginTop = `${navHeight}px`;
-          element.scrollIntoView({ behavior: 'smooth' });
-          // Focus input after scrolling
-          setTimeout(() => {
-            try {
-              const focusable = element.querySelector('input, textarea, [contenteditable]') as HTMLElement | null;
-              if (focusable) {
-                try {
-                  // @ts-ignore
-                  focusable.focus({ preventScroll: true });
-                } catch {
-                  focusable.focus();
-                }
-              }
-            } catch {
-              // ignore
-            } finally {
-              element.style.scrollMarginTop = prevScrollMargin;
-            }
-          }, 400);
-        }
-      }, 100);
     }
   };
 

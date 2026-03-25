@@ -1,39 +1,38 @@
 import {
-  X,
-  Tag,
-  CheckCircle2,
   AlertCircle,
-  Upload,
-  Save,
+  AlertTriangle,
+  Battery,
+  Camera,
+  CheckCircle2,
+  ChevronDown,
+  Cpu,
   Eye,
   EyeOff,
-  Plus,
-  Trash2,
-  Image as ImageIcon,
   FileText,
-  Settings as SettingsIcon,
-  Search,
-  Filter,
-  ChevronDown,
-  AlertTriangle,
-  Info,
-  Smartphone,
-  Camera,
-  Battery,
-  Laptop,
-  Watch,
-  Headphones,
   Gamepad2,
-  Shield,
-  Zap,
-  Wifi,
   HardDrive,
-  Monitor,
-  Speaker,
-  Cpu,
+  Headphones,
+  Image as ImageIcon,
+  Info,
+  Laptop,
   MemoryStick,
+  Monitor,
   Package,
   Palette,
+  Plus,
+  Save,
+  Search,
+  Settings as SettingsIcon,
+  Shield,
+  Smartphone,
+  Speaker,
+  Tag,
+  Trash2,
+  Upload,
+  Watch,
+  Wifi,
+  X,
+  Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../context/LanguageContext";
@@ -50,10 +49,23 @@ interface ProductContentDashboardProps {
   };
 }
 
+interface FilterCategoryOption {
+  id: string;
+  nameEn: string;
+  nameAr: string;
+}
+
+interface FilterBrandOption {
+  id: string;
+  nameEn: string;
+  nameAr: string;
+  categoryIds: string[];
+}
+
 // Content Requirements for synced products
 const CONTENT_REQUIREMENTS = {
-  description: { min: 50, max: 500, optimal: 200 },
-  minImages: 3,
+  description: { min: 10, max: 500, optimal: 200 },
+  minImages: 1,
   maxImages: 10,
   minSpecs: 4,
   maxSpecs: 15,
@@ -93,15 +105,28 @@ const CATEGORIES = [
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
 
+const pickLocalizedStaticName = (value: any, fallback = "") => {
+  if (!value) return fallback;
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    return value.en || value.ar || fallback;
+  }
+  return fallback;
+};
+
 export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDashboardProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [filterStatus, setFilterStatus] = useState<"all" | "incomplete" | "ready">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [productScopeFilter, setProductScopeFilter] = useState<"missing" | "all">("missing");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
+  const [selectedBrandFilter, setSelectedBrandFilter] = useState("");
   const [hiddenProducts, setHiddenProducts] = useState<Set<string>>(new Set());
   const [contentProducts, setContentProducts] = useState<any[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [resolvedAdminMeta, setResolvedAdminMeta] = useState<any | null>(null);
+  const [filterCategories, setFilterCategories] = useState<FilterCategoryOption[]>([]);
+  const [filterBrands, setFilterBrands] = useState<FilterBrandOption[]>([]);
   const { t, language } = useLanguage();
 
   useEffect(() => {
@@ -141,6 +166,8 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
           nameAr: color?.nameAr || color?.color_name_ar || color?.name || color?.color_name || "",
           code: color?.color_hex || color?.hexCode || color?.hex || "",
           image: color?.image || (Array.isArray(color?.images) ? color.images[0] : "") || "",
+          stkCode: String(color?.stk_code || color?.stkCode || color?.id || ""),
+          isHidden: color?.active === false,
         }))
       : [];
 
@@ -152,6 +179,16 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
           quantity: Number(item?.quantity || item?.qty || 1),
         }))
       : [];
+    const thumbnailImage = product?.image || colors[0]?.image || "";
+    const galleryImages = Array.isArray(product?.images)
+      ? product.images.filter((image: any) => Boolean(String(image || "").trim()))
+      : [];
+    const normalizedGalleryImages =
+      galleryImages.length > 0
+        ? galleryImages
+        : thumbnailImage
+          ? [thumbnailImage]
+          : [];
 
     const missing = product._missing || {};
     const readyToPublish = !product._hasMissing;
@@ -179,10 +216,10 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       hasMultipleColors: colors.length > 0,
       colors,
       existingContent: {
-        thumbnail: product?.image || colors[0]?.image || "",
+        thumbnail: thumbnailImage,
         descriptionEn: product?.description || "",
         descriptionAr: product?.descriptionAr || "",
-        images: Array.isArray(product?.images) ? product.images : [],
+        images: normalizedGalleryImages,
         specs: specsNormalized,
         whatsInBox,
       },
@@ -224,8 +261,14 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      fetchProducts();
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     if (adminMeta || resolvedAdminMeta) return;
@@ -255,6 +298,67 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       mounted = false;
     };
   }, [adminMeta, resolvedAdminMeta]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadFilterOptions = async () => {
+      try {
+        const [categoriesRes, brandsRes] = await Promise.all([
+          fetch("/static/categories.json"),
+          fetch("/static/brands.json"),
+        ]);
+
+        const categoriesJson = categoriesRes.ok ? await categoriesRes.json() : [];
+        const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
+        if (!mounted) return;
+
+        const normalizedCategories = (Array.isArray(categoriesJson) ? categoriesJson : [])
+          .map((category: any) => ({
+            id: String(category.cat_code || category._id || ""),
+            nameEn: pickLocalizedStaticName(
+              category.nameEn || category.name?.en || category.name || category.name_en || category.name_ar,
+              "",
+            ),
+            nameAr: pickLocalizedStaticName(
+              category.nameAr || category.name?.ar || category.name || category.name_ar || category.name_en,
+              "",
+            ),
+          }))
+          .filter((category) => category.id);
+
+        const normalizedBrands = (Array.isArray(brandsJson) ? brandsJson : [])
+          .map((brand: any) => ({
+            id: String(brand.brand_code || brand._id || ""),
+            nameEn: pickLocalizedStaticName(
+              brand.englishName || brand.nameEn || brand.name?.en || brand.name || brand.name_en || brand.name_ar,
+              "",
+            ),
+            nameAr: pickLocalizedStaticName(
+              brand.nameAr || brand.name?.ar || brand.name || brand.name_ar || brand.name_en,
+              "",
+            ),
+            categoryIds: Array.isArray(brand.categoryIds)
+              ? brand.categoryIds.map(String)
+              : [String(brand.category_code || brand.cat_code || "")].filter(Boolean),
+          }))
+          .filter((brand) => brand.id);
+
+        setFilterCategories(normalizedCategories);
+        setFilterBrands(normalizedBrands);
+      } catch {
+        if (!mounted) return;
+        setFilterCategories([]);
+        setFilterBrands([]);
+      }
+    };
+
+    loadFilterOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const saveProductUpdate = async (productId: string, update: any) => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -319,16 +423,59 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
     alert(isNowHidden ? t("admin.content.productHidden") : t("admin.content.productVisible"));
   };
 
+  const meta = adminMeta || resolvedAdminMeta || {};
+  const allowAllCategories = Boolean(meta?.allowAllCategories);
+  const allowAllBrands = Boolean(meta?.allowAllBrands);
+  const allowedCategoryIds = Array.isArray(meta?.allowedCategoryIds)
+    ? meta.allowedCategoryIds.map(String)
+    : [];
+  const allowedBrandIds = Array.isArray(meta?.allowedBrandIds)
+    ? meta.allowedBrandIds.map(String)
+    : [];
+  const hasCategoryRules = allowedCategoryIds.length > 0 || allowAllCategories;
+  const hasBrandRules = allowedBrandIds.length > 0 || allowAllBrands;
+
+  const availableCategoryFilters = useMemo(() => {
+    const allowedBrandCategoryIds = new Set(
+      filterBrands
+        .filter((brand) => allowAllBrands || (allowedBrandIds.length > 0 && allowedBrandIds.includes(brand.id)))
+        .flatMap((brand) => brand.categoryIds),
+    );
+
+    return filterCategories.filter((category) => {
+      if (allowAllCategories) return true;
+      if (allowedCategoryIds.length > 0) return allowedCategoryIds.includes(category.id);
+      if (hasBrandRules) return allowedBrandCategoryIds.has(category.id);
+      return false;
+    });
+  }, [allowAllCategories, allowedCategoryIds, allowAllBrands, allowedBrandIds, filterCategories, filterBrands, hasBrandRules]);
+
+  const availableBrandFilters = useMemo(() => {
+    return filterBrands.filter((brand) => {
+      const brandAllowed =
+        allowAllBrands ||
+        (allowedBrandIds.length > 0 && allowedBrandIds.includes(brand.id)) ||
+        (!hasBrandRules &&
+          (allowAllCategories || brand.categoryIds.some((categoryId) => allowedCategoryIds.includes(categoryId))));
+      if (!brandAllowed) return false;
+      if (!selectedCategoryFilter) return true;
+      return brand.categoryIds.includes(selectedCategoryFilter);
+    });
+  }, [allowAllBrands, allowedBrandIds, filterBrands, selectedCategoryFilter, hasBrandRules, allowAllCategories, allowedCategoryIds]);
+
+  useEffect(() => {
+    if (selectedCategoryFilter && !availableCategoryFilters.some((category) => category.id === selectedCategoryFilter)) {
+      setSelectedCategoryFilter("");
+    }
+  }, [availableCategoryFilters, selectedCategoryFilter]);
+
+  useEffect(() => {
+    if (selectedBrandFilter && !availableBrandFilters.some((brand) => brand.id === selectedBrandFilter)) {
+      setSelectedBrandFilter("");
+    }
+  }, [availableBrandFilters, selectedBrandFilter]);
+
   const filteredProducts = contentProducts.filter((product) => {
-    const meta = adminMeta || resolvedAdminMeta || {};
-    const allowAllCategories = Boolean(meta?.allowAllCategories);
-    const allowAllBrands = Boolean(meta?.allowAllBrands);
-    const allowedCategoryIds = Array.isArray(meta?.allowedCategoryIds)
-      ? meta?.allowedCategoryIds.map(String)
-      : [];
-    const allowedBrandIds = Array.isArray(meta?.allowedBrandIds)
-      ? meta?.allowedBrandIds.map(String)
-      : [];
     const categoryAllowed =
       allowAllCategories ||
       (allowedCategoryIds.length > 0 && allowedCategoryIds.includes(product.categoryCode));
@@ -345,18 +492,16 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
 
     if (!permissionPass) return false;
 
-    if (!product.requiredMissing) return false;
-    const completion = calculateCompletion(product);
-    const matchesStatus =
-      filterStatus === "all" ||
-      (filterStatus === "ready" ? completion >= 90 : completion < 90);
+    const matchesScope = productScopeFilter === "all" || product.requiredMissing;
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch =
       !q ||
       product.sku.toLowerCase().includes(q) ||
       product.nameEn.toLowerCase().includes(q) ||
       product.nameAr.toLowerCase().includes(q);
-    return matchesStatus && matchesSearch;
+    const matchesCategory = !selectedCategoryFilter || product.categoryCode === selectedCategoryFilter;
+    const matchesBrand = !selectedBrandFilter || product.brandCode === selectedBrandFilter;
+    return matchesScope && matchesSearch && matchesCategory && matchesBrand;
   });
 
   return (
@@ -403,16 +548,53 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
               />
             </div>
 
-            {/* Status Filter */}
+            {/* Product Scope Filter */}
             <div className="relative">
               <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
+                value={productScopeFilter}
+                onChange={(e) => setProductScopeFilter(e.target.value as "missing" | "all")}
                 className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] bg-white cursor-pointer"
               >
-                <option value="all">{t('admin.content.all')}</option>
-                <option value="incomplete">{t('admin.content.incomplete')}</option>
-                <option value="ready">{t('admin.content.ready')}</option>
+                <option value="missing">{t("admin.content.missingDataOnly")}</option>
+                <option value="all">{t("admin.content.allProducts")}</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* Category Filter */}
+            <div className="relative">
+              <select
+                value={selectedCategoryFilter}
+                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] bg-white cursor-pointer"
+              >
+                <option value="">{language === "ar" ? "كل الفئات" : "All Categories"}</option>
+                {availableCategoryFilters.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {language === "ar"
+                      ? category.nameAr || category.nameEn || category.id
+                      : category.nameEn || category.nameAr || category.id}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* Brand Filter */}
+            <div className="relative">
+              <select
+                value={selectedBrandFilter}
+                onChange={(e) => setSelectedBrandFilter(e.target.value)}
+                className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] bg-white cursor-pointer"
+              >
+                <option value="">{language === "ar" ? "كل العلامات التجارية" : "All Brands"}</option>
+                {availableBrandFilters.map((brand) => (
+                  <option key={brand.id} value={brand.id}>
+                    {language === "ar"
+                      ? brand.nameAr || brand.nameEn || brand.id
+                      : brand.nameEn || brand.nameAr || brand.id}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             </div>
@@ -669,15 +851,129 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   );
   
   // Category & Brand State
-  const [selectedCategory, setSelectedCategory] = useState(product.category || "");
-  const [brandName, setBrandName] = useState(product.brand || "");
+  const [editorCategories, setEditorCategories] = useState<FilterCategoryOption[]>([]);
+  const [editorBrands, setEditorBrands] = useState<FilterBrandOption[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState(product.categoryCode || "");
+  const [selectedBrand, setSelectedBrand] = useState(product.brandCode || "");
   
   const [showIconPicker, setShowIconPicker] = useState<number | null>(null);
 
-  const hasManyColors = Array.isArray(colors) && colors.length > 0;
-  const needsCategoryBrand = selectedCategory !== "mobile" && selectedCategory !== "power-station";
-
   const { t, language } = useLanguage();
+  const editorPreviewImages = useMemo(() => {
+    const imageSet = new Set<string>();
+    const pushImage = (value: any) => {
+      const image = String(value || "").trim();
+      if (image) imageSet.add(image);
+    };
+
+    pushImage(product?.existingContent?.thumbnail);
+    (Array.isArray(galleryImages) ? galleryImages : []).forEach(pushImage);
+    (Array.isArray(colors) ? colors : []).forEach((color: any) => pushImage(color?.image));
+
+    return Array.from(imageSet);
+  }, [product, galleryImages, colors]);
+  const selectedCategoryOption = useMemo(
+    () => editorCategories.find((category) => category.id === selectedCategory) || null,
+    [editorCategories, selectedCategory],
+  );
+  const availableEditorBrands = useMemo(
+    () => editorBrands.filter((brand) => !selectedCategory || brand.categoryIds.includes(selectedCategory)),
+    [editorBrands, selectedCategory],
+  );
+  const selectedBrandOption = useMemo(
+    () => availableEditorBrands.find((brand) => brand.id === selectedBrand) || null,
+    [availableEditorBrands, selectedBrand],
+  );
+  const hasManyColors = Array.isArray(colors) && colors.length > 0;
+  const needsCategoryBrand = !["00", "09"].includes(selectedCategory);
+  const selectedCategoryLabel =
+    (language === "ar"
+      ? selectedCategoryOption?.nameAr || selectedCategoryOption?.nameEn
+      : selectedCategoryOption?.nameEn || selectedCategoryOption?.nameAr) || "";
+  const brandName =
+    (language === "ar"
+      ? selectedBrandOption?.nameAr || selectedBrandOption?.nameEn
+      : selectedBrandOption?.nameEn || selectedBrandOption?.nameAr) || "";
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadStaticOptions = async () => {
+      try {
+        const [categoriesRes, brandsRes] = await Promise.all([
+          fetch("/static/categories.json"),
+          fetch("/static/brands.json"),
+        ]);
+        const categoriesJson = categoriesRes.ok ? await categoriesRes.json() : [];
+        const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
+        if (!mounted) return;
+
+        const normalizedCategories = (Array.isArray(categoriesJson) ? categoriesJson : [])
+          .map((category: any) => ({
+            id: String(category.cat_code || category._id || ""),
+            nameEn: pickLocalizedStaticName(
+              category.nameEn || category.name?.en || category.name || category.name_en || category.name_ar,
+              "",
+            ),
+            nameAr: pickLocalizedStaticName(
+              category.nameAr || category.name?.ar || category.name || category.name_ar || category.name_en,
+              "",
+            ),
+          }))
+          .filter((category) => category.id);
+
+        const normalizedBrands = (Array.isArray(brandsJson) ? brandsJson : [])
+          .map((brand: any) => ({
+            id: String(brand.brand_code || brand._id || ""),
+            nameEn: pickLocalizedStaticName(
+              brand.englishName || brand.nameEn || brand.name?.en || brand.name || brand.name_en || brand.name_ar,
+              "",
+            ),
+            nameAr: pickLocalizedStaticName(
+              brand.nameAr || brand.name?.ar || brand.name || brand.name_ar || brand.name_en,
+              "",
+            ),
+            categoryIds: Array.isArray(brand.categoryIds)
+              ? brand.categoryIds.map(String)
+              : [String(brand.category_code || brand.cat_code || "")].filter(Boolean),
+          }))
+          .filter((brand) => brand.id);
+
+        setEditorCategories(normalizedCategories);
+        setEditorBrands(normalizedBrands);
+
+        const currentCategoryCode = String(product.categoryCode || "").trim();
+        const currentCategoryName = String(product.category || "").trim().toLowerCase();
+        const matchedCategory = normalizedCategories.find(
+          (category) =>
+            category.id === currentCategoryCode ||
+            category.nameEn.toLowerCase() === currentCategoryName ||
+            category.nameAr.toLowerCase() === currentCategoryName,
+        );
+        setSelectedCategory(matchedCategory?.id || currentCategoryCode || "");
+
+        const currentBrandCode = String(product.brandCode || "").trim();
+        const currentBrandName = String(product.brand || "").trim().toLowerCase();
+        const matchedBrand = normalizedBrands.find(
+          (brand) =>
+            brand.id === currentBrandCode ||
+            brand.nameEn.toLowerCase() === currentBrandName ||
+            brand.nameAr.toLowerCase() === currentBrandName,
+        );
+        setSelectedBrand(matchedBrand?.id || currentBrandCode || "");
+      } catch {
+        if (!mounted) return;
+        setEditorCategories([]);
+        setEditorBrands([]);
+      }
+    };
+
+    loadStaticOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, [product]);
 
   useEffect(() => {
     if (hasManyColors && activeTab === "gallery") {
@@ -686,21 +982,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   }, [activeTab, hasManyColors]);
 
   useEffect(() => {
-    const rawCategory = product.category || product.categoryCode || "";
-    if (!rawCategory) return;
-    const match = CATEGORIES.find(
-      (cat) =>
-        String(cat.id).toLowerCase() === String(rawCategory).toLowerCase() ||
-        String(cat.nameEn).toLowerCase() === String(rawCategory).toLowerCase() ||
-        String(cat.nameAr).toLowerCase() === String(rawCategory).toLowerCase(),
-    );
-    if (match) {
-      setSelectedCategory(match.id);
-    } else {
-      setSelectedCategory(rawCategory);
+    if (selectedBrand && !availableEditorBrands.some((brand) => brand.id === selectedBrand)) {
+      setSelectedBrand("");
     }
-    setBrandName(product.brand || "");
-  }, [product]);
+  }, [availableEditorBrands, selectedBrand]);
 
   const addNewSpec = () => {
     if (specs.length >= CONTENT_REQUIREMENTS.maxSpecs) {
@@ -788,6 +1073,12 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     setColors(newColors);
   };
 
+  const toggleColorVisibility = (index: number) => {
+    const newColors = [...colors];
+    newColors[index].isHidden = !Boolean(newColors[index].isHidden);
+    setColors(newColors);
+  };
+
   const handleSave = () => {
     // Save new spec titles to the manager
     specs.forEach((spec: any) => {
@@ -806,9 +1097,8 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     }));
 
     const formattedColors = colors.map((color: any) => ({
-      name: color?.name || "",
-      nameAr: color?.nameAr || "",
-      color_hex: color?.code || "",
+      stk_code: color?.stkCode || "",
+      active: !color?.isHidden,
       images: color?.image ? [color.image] : [],
     }));
 
@@ -824,11 +1114,16 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
       nameAr,
       description: descriptionEn,
       descriptionAr,
+      image: hasManyColors ? (product.existingContent.thumbnail || "") : (galleryImages[0] || ""),
       images: galleryImages,
       specs: formattedSpecs,
       inTheBox: formattedBox,
-      category: selectedCategory,
-      brand: brandName,
+      category: selectedCategoryOption?.nameEn || "",
+      categoryAr: selectedCategoryOption?.nameAr || "",
+      cat_code: selectedCategory,
+      brand: selectedBrandOption?.nameEn || "",
+      brandAr: selectedBrandOption?.nameAr || "",
+      brand_code: selectedBrand,
       colorVariants: formattedColors,
     };
 
@@ -872,6 +1167,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                 </div>
               </div>
             </div>
+
           </div>
 
           {/* Tabs */}
@@ -1117,8 +1413,33 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             <div className="text-xs text-gray-500">
                               {language === "ar" ? color.name : color.nameAr}
                             </div>
+                            {color.stkCode && (
+                              <div className="mt-1 text-xs font-mono text-gray-500">
+                                stk_code: {color.stkCode}
+                              </div>
+                            )}
+                            <div className={`mt-1 text-xs font-semibold ${color.isHidden ? "text-red-600" : "text-green-600"}`}>
+                              {color.isHidden
+                                ? (language === "ar" ? "مخفي من الموقع" : "Hidden from website")
+                                : (language === "ar" ? "ظاهر في الموقع" : "Visible on website")}
+                            </div>
                           </div>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleColorVisibility(index)}
+                          className={`mb-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                            color.isHidden
+                              ? "bg-green-50 text-green-700 hover:bg-green-100"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
+                          {color.isHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                          {color.isHidden
+                            ? (language === "ar" ? "إظهار اللون في الموقع" : "Show color on website")
+                            : (language === "ar" ? "إخفاء اللون من الموقع" : "Hide color from website")}
+                        </button>
 
                         {color.image ? (
                           <div className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group">
@@ -1164,6 +1485,40 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                   </p>
                 </div>
               </div>
+
+              {editorPreviewImages.length > 0 && (
+                <div className="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-blue-600" />
+                    <h5 className="font-bold text-gray-900">
+                      {language === "ar" ? "معاينة صور المنتج" : "Product image preview"}
+                    </h5>
+                  </div>
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                    <div className="h-44 w-full overflow-hidden rounded-2xl bg-gray-50 md:w-52">
+                      <img
+                        src={editorPreviewImages[0]}
+                        alt={product.sku}
+                        className="h-full w-full object-contain p-3"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {editorPreviewImages.slice(0, 6).map((image, index) => (
+                        <div
+                          key={`${product.id}-preview-${index}`}
+                          className="h-16 w-16 overflow-hidden rounded-xl border border-gray-200 bg-white"
+                        >
+                          <img
+                            src={image}
+                            alt={`${product.sku}-${index + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Existing Gallery Images */}
               {galleryImages.length > 0 && (
@@ -1831,10 +2186,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3]"
                 >
-                    <option value="">{t("admin.content.selectCategoryPlaceholder")}</option>
-                  {CATEGORIES.map((cat) => (
+                  <option value="">{t("admin.content.selectCategoryPlaceholder")}</option>
+                  {editorCategories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
-                      {language === "ar" ? cat.nameAr : cat.nameEn}
+                      {language === "ar" ? cat.nameAr || cat.nameEn : cat.nameEn || cat.nameAr}
                     </option>
                   ))}
                 </select>
@@ -1847,13 +2202,26 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                     {t('admin.content.brandName')}
                     <span className="text-red-600 ml-1">({t('admin.content.required')})</span>
                   </label>
-                  <input
-                    type="text"
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
+                  <select
+                    value={selectedBrand}
+                    onChange={(e) => setSelectedBrand(e.target.value)}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3]"
-                    placeholder={t("admin.content.brandExamplePlaceholder")}
-                  />
+                  >
+                    <option value="">{language === "ar" ? "اختر العلامة التجارية" : "Select Brand"}</option>
+                    {availableEditorBrands.map((brand) => (
+                      <option key={brand.id} value={brand.id}>
+                        {language === "ar" ? brand.nameAr || brand.nameEn : brand.nameEn || brand.nameAr}
+                      </option>
+                    ))}
+                  </select>
+                  {(selectedCategoryLabel || brandName) && (
+                    <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                      <span className="font-semibold text-gray-800">
+                        {language === "ar" ? "المحدد حاليا:" : "Currently selected:"}
+                      </span>{" "}
+                      {[selectedCategoryLabel, brandName].filter(Boolean).join(" / ")}
+                    </div>
+                  )}
                 </div>
               )}
 

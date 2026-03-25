@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import categoriesData from '../../../testdata/categories.json';
 import ProductCard from "../components/ProductCard";
 import { useLanguage } from '../../../context/LanguageContext';
 import { ChevronRight } from 'lucide-react';
 import { useCompareStore } from '../../compare/state';
-import { products as allProducts } from "../../../data/products";
 import { getProductRef } from "../../../utils/entityRefs";
 
 const CategoryPage: React.FC = () => {
@@ -27,9 +25,7 @@ const CategoryPage: React.FC = () => {
         if (mounted && Array.isArray(json)) {
           setStaticCategories(json);
         }
-      } catch {
-        // fallback to bundled testdata
-      }
+      } catch {}
     })();
     return () => {
       mounted = false;
@@ -56,7 +52,7 @@ const CategoryPage: React.FC = () => {
         }
       } catch {
         if (mounted) {
-          setApiProducts(null);
+          setApiProducts([]);
           setIsLoadingProducts(false);
         }
       }
@@ -68,7 +64,7 @@ const CategoryPage: React.FC = () => {
   }, [term]);
 
   const categorySource = useMemo(
-    () => (staticCategories.length > 0 ? staticCategories : (categoriesData as any[])),
+    () => staticCategories,
     [staticCategories],
   );
 
@@ -106,8 +102,7 @@ const CategoryPage: React.FC = () => {
     );
   });
 
-  const sourceProducts = apiProducts ?? (allProducts as any[]);
-  const products = sourceProducts.filter(
+  const products = (apiProducts ?? []).filter(
     (p) =>
       (
         (p?.cat_code && String(p.cat_code).toLowerCase() === String(term).toLowerCase()) ||

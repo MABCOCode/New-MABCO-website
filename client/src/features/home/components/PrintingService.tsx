@@ -1,15 +1,14 @@
-import { useEffect, useState } from "react";
-import { CURRENCY_LABEL } from "../../../utils/currency";
 import {
-  X,
+  ArrowRight,
+  Check,
+  Info,
+  Package,
   Printer,
   ShoppingCart,
-  Check,
-  Ruler,
-  Package,
-  ArrowRight,
-  Info,
+  X
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CURRENCY_LABEL } from "../../../utils/currency";
 
 interface PrintingServiceProps {
   language: "ar" | "en";
@@ -479,7 +478,7 @@ export function PrintingService({
                     <div>
                       <p className="text-sm text-gray-600 mb-1">{t[language].designType}</p>
                       <p className="text-lg font-bold text-gray-900">
-                        {customText ? t[language].textDesign : (language === "ar" ? "سوف يتم تسليم التصميم في صالة العرض" : "Design provided at showroom")}
+                        {customText ? t[language].textDesign : (language === "ar" ? "لطفاً تسليم التصميم في صالة العرض" : "Design provided at showroom")}
                       </p>
                     </div>
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { loadSession, saveSession } from "./storage";
+import { getAccountAccess } from "./access";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupFlow } from "./pages/SignupFlow";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
@@ -80,32 +81,29 @@ export const AccountRoutes = () => {
     [location.pathname],
   );
   const isAdminRoute = useMemo(() => location.pathname.startsWith("/account/admin"), [location.pathname]);
-  const isSuperAdminRoute = useMemo(
-    () => location.pathname.startsWith("/account/superadmin"),
-    [location.pathname],
-  );
-  const adminMeta = user?.adminMeta || {};
-  const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
-  const canManageOrders = Boolean(adminMeta?.canManageOrders);
-  const canManageBanners = Boolean(adminMeta?.canManageBanners);
-  const canManageStore =
-    isAdminUser &&
-    (Boolean(adminMeta?.allowAllCategories) ||
-      Boolean(adminMeta?.allowAllBrands) ||
-      (Array.isArray(adminMeta?.allowedCategoryIds) && adminMeta.allowedCategoryIds.length > 0) ||
-      (Array.isArray(adminMeta?.allowedBrandIds) && adminMeta.allowedBrandIds.length > 0));
+  const access = useMemo(() => getAccountAccess(user), [user]);
+  const {
+    adminMeta,
+    isAdminRole,
+    isSuperAdmin,
+    canManageOrders,
+    canManageBanners,
+    canManageStore,
+    hasAnyAdminAccess,
+    permissionsResolved,
+  } = access;
+  const permissionsPending = Boolean(user && isAdminRole && !permissionsResolved);
 
   useEffect(() => {
     if (!hydrated) return;
-    // Allow admin routes to be accessible during development (treat all users as admins)
-    if (!isAuthed && !isAuthRoute && !isAdminRoute && !isSuperAdminRoute) {
+    if (!isAuthed && !isAuthRoute) {
       navigate("/account/login", { replace: true });
     }
-  }, [isAuthed, isAuthRoute, isAdminRoute, isSuperAdminRoute, navigate, hydrated]);
+  }, [isAuthed, isAuthRoute, navigate, hydrated]);
 
   useEffect(() => {
     if (!hydrated || !user) return;
-    if (user.role !== "admin" && user.role !== "super_admin") return;
+    if (!isAdminRole || isSuperAdmin) return;
     if (user.adminMeta) return;
     let mounted = true;
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
@@ -123,7 +121,7 @@ export const AccountRoutes = () => {
     return () => {
       mounted = false;
     };
-  }, [hydrated, user, updateUser]);
+  }, [hydrated, user, updateUser, isAdminRole, isSuperAdmin]);
 
   const handleLoginSuccess = (nextUser: any) => {
     updateUser(nextUser);
@@ -143,13 +141,13 @@ export const AccountRoutes = () => {
   if (!hydrated) {
     return null;
   }
-  if (!isAuthed && !isAuthRoute && !isAdminRoute && !isSuperAdminRoute) {
+  if (!isAuthed && !isAuthRoute) {
     return null;
   }
 
   return (
     <>
-      {isAdminRoute && (canManageStore || canManageBanners || canManageOrders) && (
+      {isAdminRoute && !permissionsPending && hasAnyAdminAccess && (
         <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b shadow-sm">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -305,62 +303,102 @@ export const AccountRoutes = () => {
       <Route
         path="/admin/content"
         element={
-          canManageStore ? (
+          permissionsPending ? null : canManageStore ? (
             <ProductContentDashboard onClose={() => navigate('/account/dashboard')} adminMeta={adminMeta} />
           ) : (
-            <Navigate to="/account/dashboard" replace />
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
           )
         }
       />
       <Route
         path="/admin/banners"
         element={
-          canManageBanners ? (
+          permissionsPending ? null : canManageBanners ? (
             <BannerSliderManagement language={language} onClose={() => navigate('/account/dashboard')} />
           ) : (
-            <Navigate to="/account/dashboard" replace />
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
           )
         }
       />
       <Route
         path="/admin/orders"
-        element={canManageOrders ? <AdminOrderManagement /> : <Navigate to="/account/dashboard" replace />}
+        element={
+          permissionsPending ? null : canManageOrders ? (
+            <AdminOrderManagement />
+          ) : (
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
+          )
+        }
       />
       <Route
         path="/superadmin"
         element={
-          <SuperAdminDashboard
-            language={language}
-            onNavigate={(view) => {
-              if (view === "admin-management") navigate("/account/superadmin/admin-management");
-              else if (view === "product-tracking") navigate("/account/superadmin/product-tracking");
-              else if (view === "analytics") navigate("/account/superadmin/analytics");
-              else if (view === "notifications") navigate("/account/superadmin/notifications");
-              else if (view === "activity-log") navigate("/account/superadmin/activity-log");
-            }}
-            onClose={() => navigate("/")}
-          />
+          isSuperAdmin ? (
+            <SuperAdminDashboard
+              language={language}
+              onNavigate={(view) => {
+                if (view === "admin-management") navigate("/account/superadmin/admin-management");
+                else if (view === "product-tracking") navigate("/account/superadmin/product-tracking");
+                else if (view === "analytics") navigate("/account/superadmin/analytics");
+                else if (view === "notifications") navigate("/account/superadmin/notifications");
+                else if (view === "activity-log") navigate("/account/superadmin/activity-log");
+              }}
+              onClose={() => navigate("/")}
+            />
+          ) : (
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
+          )
         }
       />
       <Route
         path="/superadmin/admin-management"
-        element={<AdminManagement language={language} onBack={() => navigate("/account/superadmin")} />}
+        element={
+          isSuperAdmin ? (
+            <AdminManagement language={language} onBack={() => navigate("/account/superadmin")} />
+          ) : (
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
+          )
+        }
       />
       <Route
         path="/superadmin/product-tracking"
-        element={<ProductTracking language={language} onBack={() => navigate("/account/superadmin")} />}
+        element={
+          isSuperAdmin ? (
+            <ProductTracking language={language} onBack={() => navigate("/account/superadmin")} />
+          ) : (
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
+          )
+        }
       />
       <Route
         path="/superadmin/activity-log"
-        element={<ProductTracking language={language} onBack={() => navigate("/account/superadmin")} />}
+        element={
+          isSuperAdmin ? (
+            <ProductTracking language={language} onBack={() => navigate("/account/superadmin")} />
+          ) : (
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
+          )
+        }
       />
       <Route
         path="/superadmin/analytics"
-        element={<AnalyticsReports language={language} onBack={() => navigate("/account/superadmin")} />}
+        element={
+          isSuperAdmin ? (
+            <AnalyticsReports language={language} onBack={() => navigate("/account/superadmin")} />
+          ) : (
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
+          )
+        }
       />
       <Route
         path="/superadmin/notifications"
-        element={<NotificationManager language={language} onBack={() => navigate("/account/superadmin")} />}
+        element={
+          isSuperAdmin ? (
+            <NotificationManager language={language} onBack={() => navigate("/account/superadmin")} />
+          ) : (
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
+          )
+        }
       />
       <Route path="*" element={<Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />} />
     </Routes>

@@ -9,12 +9,13 @@ const router = express.Router();
 router.get('/', asyncHandler(async (req, res) => {
   const db = getDb();
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 500);
   const skip = (page - 1) * limit;
   const useLiteProjection = req.query.lite === '1' || req.query.lite === 'true';
   const useCardProjection = req.query.card === '1' || req.query.card === 'true';
 
   const query = {};
+  const search = String(req.query.search || '').trim();
   if (req.query.categoryId) query.categoryIds = new ObjectId(req.query.categoryId);
   if (req.query.brandId) query.brandId = new ObjectId(req.query.brandId);
   if (req.query.cat_code) query.cat_code = String(req.query.cat_code);
@@ -98,6 +99,26 @@ router.get('/', asyncHandler(async (req, res) => {
   }
   if (req.query.active === 'true') query['status.isActive'] = true;
   if (req.query.hidden === 'true') query['status.isHidden'] = true;
+  if (search) {
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.$or = [
+      { stk_code: { $regex: escaped, $options: 'i' } },
+      { id: { $regex: escaped, $options: 'i' } },
+      { name: { $regex: escaped, $options: 'i' } },
+      { nameAr: { $regex: escaped, $options: 'i' } },
+      { description: { $regex: escaped, $options: 'i' } },
+      { descriptionAr: { $regex: escaped, $options: 'i' } },
+      { brand: { $regex: escaped, $options: 'i' } },
+      { brand_code: { $regex: escaped, $options: 'i' } },
+      { category: { $regex: escaped, $options: 'i' } },
+      { categoryAr: { $regex: escaped, $options: 'i' } },
+      { cat_code: { $regex: escaped, $options: 'i' } },
+      { 'specs.title': { $regex: escaped, $options: 'i' } },
+      { 'specs.titleAr': { $regex: escaped, $options: 'i' } },
+      { 'specs.value': { $regex: escaped, $options: 'i' } },
+      { 'specs.valueAr': { $regex: escaped, $options: 'i' } },
+    ];
+  }
 
   const doCount = !(req.query.count === '0' || req.query.count === 'false');
 

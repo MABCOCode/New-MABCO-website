@@ -3,7 +3,7 @@ import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, RefreshCw, Gift, Spark
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import translations from "../../../i18n/translations";
 import { CartOfferDisplay } from "../../offer/components/CartOfferDisplay";
-import { getProductOffers, products } from "../../../data/products";
+import { getProductOffers } from "../../../data/products";
 import { useCart } from "../../../context/CartContext";
 
 interface CartItem {
@@ -56,6 +56,7 @@ export function ShoppingCart({
   const t = translations[language];
   const isArabic = language === "ar";
   const [removingItemId, setRemovingItemId] = useState<number | string | null>(null);
+  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
   const bundleItems = useMemo(() => {
     const map = new Map<number, number[]>();
     cartItems.forEach((item) => {
@@ -115,16 +116,23 @@ export function ShoppingCart({
     }
   };
 
-  const handleAddBundleItem = (productId: number, bundleItemId: number) => {
+  const handleAddBundleItem = async (productId: number, bundleItemId: number) => {
     const existing = bundleItems.get(productId) || [];
     if (existing.includes(bundleItemId)) return;
-
-    const bundleProduct = products.find((p) => p.id === bundleItemId);
-    if (!bundleProduct) return;
 
     const offers = getProductOffers(productId);
     const bundleOffer = offers.find((offer) => offer.type === "bundle_discount") as any;
     if (!bundleOffer) return;
+
+    let bundleProduct: any = null;
+    try {
+      const res = await fetch(`${apiBase}/products/${encodeURIComponent(String(bundleItemId))}`);
+      if (res.ok) {
+        const json = await res.json();
+        bundleProduct = json?.data || null;
+      }
+    } catch {}
+    if (!bundleProduct) return;
 
     const basePrice = parsePrice(bundleProduct.price);
     const discountedPrice = Math.max(

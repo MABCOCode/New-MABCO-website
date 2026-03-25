@@ -8,7 +8,7 @@ import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { getProductRef } from "../../../utils/entityRefs";
-import { getOfferPricing, getOfferBadgeText, getProductOffers, products } from "../../../data/products";
+import { getOfferPricing, getOfferBadgeText, getProductOffers } from "../../../data/products";
 import { OfferDetailsCard } from "../../offer/components/OfferDetailsCard";
 
 export interface ProductCardProps {
@@ -74,50 +74,73 @@ const ProductCard: React.FC<ProductCardProps> = ({
     if (/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
     return "#999999";
   };
-  const normalizedColorVariants = React.useMemo(
-    () =>
-      safeColorVariants.map((variant: any) => {
-        const images = Array.isArray(variant.images)
-          ? variant.images
-              .map((img: any) => (typeof img === "string" ? img : img?.image_link || img?.url || ""))
-              .filter(Boolean)
-          : [];
-        const image = variant.image || images[0] || "";
-        const name = variant.name || variant.color_name || "";
-        const nameAr = variant.nameAr || variant.color_name_ar || name;
-        const hexCode = normalizeHex(variant.hexCode || variant.color_hex || variant.hex);
-        const inStock =
-          typeof variant.inStock === "boolean"
-            ? variant.inStock
-            : typeof variant.in_stock === "boolean"
-              ? variant.in_stock
-              : typeof variant.isAvailable === "boolean"
-                ? variant.isAvailable
-                : typeof variant.is_available === "boolean"
-                  ? variant.is_available
-                  : undefined;
-        const isAvailable =
-          typeof variant.isAvailable === "boolean"
-            ? variant.isAvailable
-            : typeof variant.is_available === "boolean"
-              ? variant.is_available
-              : typeof variant.active === "boolean"
-                ? variant.active
+  const normalizedColorVariants = React.useMemo(() => {
+    const deduped = new Map<string, any>();
+    const scoreVariant = (variant: any) => {
+      const hasImage = Boolean(String(variant.image || (variant.images && variant.images[0]) || "").trim());
+      const isActive = typeof variant.active !== "boolean" || variant.active;
+      const isAvailable = variant.isAvailable !== false;
+      const inStock = variant.inStock !== false;
+      return (hasImage ? 4 : 0) + (isActive ? 2 : 0) + (isAvailable && inStock ? 1 : 0);
+    };
+
+    safeColorVariants.forEach((variant: any) => {
+      const images = Array.isArray(variant.images)
+        ? variant.images
+            .map((img: any) => (typeof img === "string" ? img : img?.image_link || img?.url || ""))
+            .filter(Boolean)
+        : [];
+      const image = variant.image || images[0] || "";
+      const name = variant.name || variant.color_name || "";
+      const nameAr = variant.nameAr || variant.color_name_ar || name;
+      const hexCode = normalizeHex(variant.hexCode || variant.color_hex || variant.hex);
+      const inStock =
+        typeof variant.inStock === "boolean"
+          ? variant.inStock
+          : typeof variant.in_stock === "boolean"
+            ? variant.in_stock
+            : typeof variant.isAvailable === "boolean"
+              ? variant.isAvailable
+              : typeof variant.is_available === "boolean"
+                ? variant.is_available
                 : undefined;
-        return {
-          ...variant,
-          name,
-          nameAr,
-          hexCode,
-          image,
-          images,
-          price: typeof variant.price === "number" ? variant.price : Number(variant.price),
-          inStock,
-          isAvailable,
-        };
-      }),
-    [safeColorVariants],
-  );
+      const isAvailable =
+        typeof variant.isAvailable === "boolean"
+          ? variant.isAvailable
+          : typeof variant.is_available === "boolean"
+            ? variant.is_available
+            : typeof variant.active === "boolean"
+              ? variant.active
+              : undefined;
+
+      const normalized = {
+        ...variant,
+        name,
+        nameAr,
+        hexCode,
+        image,
+        images,
+        price: typeof variant.price === "number" ? variant.price : Number(variant.price),
+        inStock,
+        isAvailable,
+      };
+
+      const key = String(
+        variant.stk_code ||
+          variant.stkCode ||
+          `${name}|${nameAr}|${hexCode}`,
+      )
+        .trim()
+        .toLowerCase();
+
+      const existing = deduped.get(key);
+      if (!existing || scoreVariant(normalized) > scoreVariant(existing)) {
+        deduped.set(key, normalized);
+      }
+    });
+
+    return Array.from(deduped.values());
+  }, [safeColorVariants]);
   const visibleColorVariants = React.useMemo(
     () =>
       normalizedColorVariants
@@ -126,8 +149,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
             variant.inStock !== false &&
             variant.isAvailable !== false &&
             (typeof variant.active !== "boolean" || variant.active) &&
-            Boolean(String(variant.name || variant.nameAr || "").trim())
-            // Allow variants even without images - product can use main image as fallback
+            Boolean(String(variant.name || variant.nameAr || "").trim()) &&
+            Boolean(String(variant.image || (variant.images && variant.images[0]) || "").trim())
         )
         .sort((a: any, b: any) => {
           const aHasOffers = Array.isArray(a?.offers) && a.offers.length > 0 ? 1 : 0;
@@ -190,7 +213,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const hasValidVariants = hasColors || hasChargeOptions;
   const hasValidImage =
     Boolean(String(product.image || "").trim()) ||
-    safeColorVariants.length > 0 || // Allow if has color variants (even without images)
+    visibleColorVariants.length > 0 ||
     safeChargeOptions.length > 0; // Allow if has charge options
   const hasValidName = Boolean(String(product.name || "").trim());
   const hasSpecs = Array.isArray((product as any).specs) && (product as any).specs.length > 0;
@@ -291,11 +314,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
         setOfferProducts(items);
         return;
       }
-      const fallback = products.filter((p) => codes.includes(String((p as any).stk_code)));
-      setOfferProducts(fallback);
+      setOfferProducts([]);
     } catch (err: any) {
-      const fallback = products.filter((p) => extractOfferStkCodes(offer).includes(String((p as any).stk_code)));
-      setOfferProducts(fallback);
+      setOfferProducts([]);
       setOfferProductsError(err?.message || "Failed to load offer products");
     } finally {
       setOfferProductsLoading(false);
@@ -594,11 +615,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  console.log("[ProductCard] compare button click", {
-                    id: resolvedProductId ?? product.id,
-                    toggleCompareType: typeof toggleCompare,
-                    toggleCompareExists: !!toggleCompare,
-                  });
                   try {
                     if (toggleCompare && productRef) {
                       toggleCompare(productRef);

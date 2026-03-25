@@ -24,11 +24,13 @@ import { ComparePage } from "./features/compare/pages/ComparePage";
 import { useCompareStore } from "./features/compare/state";
 import { compareStorage } from "./features/compare/storage";
 import FloatingCompare from './components/layout/FloatingCompare';
+import FloatingSocialLinks from './components/layout/FloatingSocialLinks';
+import CareerPage from './features/career/pages/CareerPage';
+import AboutPage from './features/about/pages/AboutPage';
 
 // Create a wrapper component that can use the LanguageContext
 const AppContent: React.FC = () => {
   const handleBrandClick = (brandName: string, categoryName: string, categoryNameEn: string) => {
-    console.log('Brand clicked:', brandName, categoryName);
     const categoryForRoute = categoryNameEn || categoryName || '';
     const encodedCategory = encodeURIComponent(categoryForRoute);
     const encodedBrand = encodeURIComponent(brandName);
@@ -41,24 +43,14 @@ const AppContent: React.FC = () => {
   };
 
   const handleAboutClick = () => {
-    console.log('About clicked');
-    // Navigate to about page
+    navigate('/about');
   };
 
-  const handleShowroomsClick = () => {
-    console.log('Showrooms clicked');
-    // Navigate to showrooms
-  };
+  const handleShowroomsClick = () => {};
 
-  const handleWarrantyClick = () => {
-    console.log('Warranty clicked');
-    // Scroll to warranty section or navigate
-  };
+  const handleWarrantyClick = () => {};
 
-  const handleMaintenanceClick = () => {
-    console.log('Maintenance clicked');
-    // Navigate to maintenance page
-  };
+  const handleMaintenanceClick = () => {};
   const compareItems = useCompareStore((s) => s.items);
   const compareMode = useCompareStore((s) => s.isOpen);
   const addCompareItem = useCompareStore((s) => s.addItem);
@@ -131,6 +123,7 @@ const AppContent: React.FC = () => {
       <div className="min-h-screen flex flex-col bg-white">
         {!isAccountRoute && <Navbar />}
         {!isAccountRoute && <FloatingCompare />}
+        {!isAccountRoute && <FloatingSocialLinks />}
         {!isAccountRoute && compareMode && (
           <ComparePage
             compareItems={compareItems}
@@ -164,6 +157,8 @@ const AppContent: React.FC = () => {
             <Route path="/category/:id" element={<CategoryPage />} />
             <Route path="/offers/:offerType" element={<OfferTypeRoute />} />
             <Route path="/showrooms" element={<ShowroomsPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/career" element={<CareerPage />} />
             <Route path="/account/*" element={<AccountRoutes />} />
             <Route path="/login" element={<Navigate to="/account/login" replace />} />
             <Route path="/dashboard" element={<Navigate to="/account/dashboard" replace />} />

@@ -44,11 +44,9 @@ import {
 } from "../../../components/ui/carousel";
 import {
   calculateDiscountedPrice,
-  getProductById,
   getOfferPricing,
   getProductOffers,
   getOfferBadgeText,
-  products,
 } from "../../../data/products";
 import { getProductRef } from "../../../utils/entityRefs";
 import { EditableText } from "../../../components/ui/EditableText";
@@ -235,34 +233,17 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
     (async () => {
       try {
-        console.log("ProductDetailPage: Fetching product from API", `${apiBase}/products/${encodeURIComponent(id)}`);
         const res = await fetch(`${apiBase}/products/${encodeURIComponent(id)}`);
         if (!res.ok) {
-          if (res.status === 404) {
-            console.log("ProductDetailPage: Product not found in API, checking local data");
-            const found = getProductById(id);
-            if (found && mounted) {
-              setLocalProduct(found);
-              setIsLoadingProduct(false);
-              return;
-            }
-          }
           throw new Error(`Failed to load product: ${res.status}`);
         }
         const json = await res.json();
-        console.log("ProductDetailPage: Product loaded from API", json?.data);
         if (mounted) {
           setLocalProduct(json?.data ?? null);
           setIsLoadingProduct(false);
         }
-      } catch (err: any) {
-        console.error("ProductDetailPage: Error loading product", err);
+      } catch (err: any) {
         if (mounted) {
-          const found = getProductById(id);
-          if (found) {
-            console.log("ProductDetailPage: Using local data as fallback");
-            setLocalProduct(found);
-          }
           setProductError(err?.message || "Failed to load product");
           setIsLoadingProduct(false);
         }
@@ -311,8 +292,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     navigate(-1);
   };
 
-  const saveProductToDb = async (productId: string | number, updated: any) => {
-    console.log("[ProductDetailPage] saveProductToDb called", { productId, updated });
+  const saveProductToDb = async (productId: string | number, updated: any) => {
     const apiBase =
       (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
     const adminKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
@@ -375,8 +355,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     }
   };
 
-  const persistProductContent = (productId: any, updated: any) => {
-    console.log("[ProductDetailPage] persistProductContent called", { productId, updated });
+  const persistProductContent = (productId: any, updated: any) => {
     if (onSaveProductContent) {
       onSaveProductContent(productId, updated);
       return;
@@ -411,7 +390,16 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   const normalizedColorVariants = useMemo(() => {
     const variants = Array.isArray(prod?.colorVariants) ? prod.colorVariants : [];
-    return variants.map((variant: any) => {
+    const deduped = new Map<string, any>();
+    const scoreVariant = (variant: any) => {
+      const hasImage = Boolean(String(variant.image || (variant.images && variant.images[0]) || "").trim());
+      const isActive = typeof variant.active !== "boolean" || variant.active;
+      const isAvailable = variant.isAvailable !== false;
+      const inStock = variant.inStock !== false;
+      return (hasImage ? 4 : 0) + (isActive ? 2 : 0) + (isAvailable && inStock ? 1 : 0);
+    };
+
+    variants.forEach((variant: any) => {
       const images = Array.isArray(variant.images)
         ? variant.images
             .map((img: any) =>
@@ -441,7 +429,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
           : typeof variant.active === "boolean"
           ? variant.active
           : undefined;
-      return {
+
+      const normalized = {
         ...variant,
         name,
         nameAr,
@@ -452,7 +441,22 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         inStock,
         isAvailable,
       };
+
+      const key = String(
+        variant.stk_code ||
+          variant.stkCode ||
+          `${name}|${nameAr}|${hexCode}`,
+      )
+        .trim()
+        .toLowerCase();
+
+      const existing = deduped.get(key);
+      if (!existing || scoreVariant(normalized) > scoreVariant(existing)) {
+        deduped.set(key, normalized);
+      }
     });
+
+    return Array.from(deduped.values());
   }, [prod]);
 
   const availableColorVariants = normalizedColorVariants

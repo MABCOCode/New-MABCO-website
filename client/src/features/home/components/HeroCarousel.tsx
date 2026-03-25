@@ -10,9 +10,6 @@ import {
 import Autoplay from "embla-carousel-autoplay";
 //import { Autoplay } from '@carouseljs/plugin-autoplay';
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
-import banners from '../../../testdata/banners.json';
-
-const fallbackSlides = banners as any[];
 
 type Props = {
   language?: 'ar' | 'en';
@@ -73,9 +70,9 @@ const HeroCarousel: React.FC<Props> = ({ language = 'ar' }) => {
         const json = await res.json();
         const rows = Array.isArray(json?.data) ? json.data : [];
         if (!mounted) return;
-        setSlides(rows.length ? rows : fallbackSlides);
+        setSlides(rows);
       } catch {
-        if (mounted) setSlides(fallbackSlides);
+        if (mounted) setSlides([]);
       } finally {
         if (mounted) setIsLoading(false);
       }

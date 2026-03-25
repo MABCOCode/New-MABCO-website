@@ -16,10 +16,7 @@ const FloatingCompare: React.FC = () => {
     <div className={`hidden md:flex fixed top-24 ${containerSideClass} z-[45] flex-col items-center gap-1 transition-all duration-500`}>
       <button
         className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110"
-        onClick={() => {
-          console.log('[FloatingCompare] openCompare click, count=', compareCount);
-          openCompare();
-        }}
+        onClick={() => openCompare()}
         aria-label={language === 'ar' ? 'فتح المقارنة' : 'Open compare'}
       >
         <svg

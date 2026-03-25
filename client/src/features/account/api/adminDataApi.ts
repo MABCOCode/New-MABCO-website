@@ -2,7 +2,7 @@ const RAW_API_BASE = (import.meta as any).env?.VITE_API_BASE_URL;
 const NORMALIZED_BASE = RAW_API_BASE && String(RAW_API_BASE).trim() && String(RAW_API_BASE).trim() !== "undefined"
   ? String(RAW_API_BASE).trim()
   : "";
-const API_BASE = NORMALIZED_BASE || "/api";
+const API_BASE = NORMALIZED_BASE || "http://localhost:5000/api";
 
 const buildApiUrl = (path: string) => {
   if (API_BASE.startsWith("/")) return `${API_BASE}${path}`;
@@ -39,86 +39,39 @@ function getErrorMessage(path: string, status?: number) {
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const requestId = Math.random().toString(36).substr(2, 9);
-  const startTime = Date.now();
-
-  console.log(`[${requestId}] ?? CLIENT START GET ${path}`);
-
   const headers: Record<string, string> = {};
   if (ADMIN_API_KEY) {
     headers["x-admin-key"] = ADMIN_API_KEY;
   }
-
-  console.log(`[${requestId}] ?? Request headers:`, {
-    ...headers,
-    'x-admin-key': headers['x-admin-key'] ? '[REDACTED]' : undefined
-  });
 
   let timeoutId: number | undefined;
   const controller = new AbortController();
 
   try {
     timeoutId = window.setTimeout(() => {
-      console.warn(`[${requestId}] ? Request timeout after ${API_TIMEOUT_MS}ms for ${path}`);
       controller.abort();
     }, API_TIMEOUT_MS);
 
     const url = buildApiUrl(path);
-    console.log(`[${requestId}] ?? Full URL: ${url}`);
-
-    const fetchStartTime = Date.now();
     const res = await fetch(url, {
       headers,
       signal: controller.signal,
     });
-    const fetchTime = Date.now() - fetchStartTime;
-
-    console.log(`[${requestId}] ?? Fetch completed in ${fetchTime}ms - Status: ${res.status} ${res.statusText}`);
 
     if (!res.ok) {
       const rawText = await res.text().catch(() => "");
-      console.error(`[${requestId}] ? API ERROR for ${path}:`, {
-        status: res.status,
-        statusText: res.statusText,
-        url: url,
-        responseBody: rawText,
-        headers: Object.fromEntries(res.headers.entries())
-      });
       throw new ApiError(`${getErrorMessage(path, res.status)}${rawText ? ` - ${rawText}` : ''}`, path, res.status);
     }
 
     const json = await res.json();
-    const totalTime = Date.now() - startTime;
-    console.log(`[${requestId}] ? SUCCESS for ${path} - Total time: ${totalTime}ms`);
-    console.log(`[${requestId}] ?? Response data:`, JSON.stringify(json, null, 2));
-    console.log(`[${requestId}] ?? CLIENT END GET ${path}`);
-
     return (json?.data ?? {}) as T;
 
   } catch (error: any) {
-    const totalTime = Date.now() - startTime;
-
     if (error?.name === "AbortError") {
-      console.error(`[${requestId}] ? REQUEST TIMEOUT for ${path} after ${totalTime}ms`);
       throw new ApiError(`Request timed out for ${path}.`, path);
     }
 
-    if (error instanceof ApiError) {
-      console.error(`[${requestId}] ?? API ERROR for ${path}:`, {
-        message: error.message,
-        path: error.path,
-        status: error.status,
-        totalTime: `${totalTime}ms`
-      });
-      throw error;
-    }
-
-    console.error(`[${requestId}] ?? NETWORK ERROR for ${path}:`, {
-      error: error.message,
-      stack: error.stack,
-      totalTime: `${totalTime}ms`,
-      url: buildApiUrl(path)
-    });
+    if (error instanceof ApiError) throw error;
     throw new ApiError(getErrorMessage(path), path);
   } finally {
     if (timeoutId !== undefined) {
@@ -152,105 +105,49 @@ function getAdminActorHeaders() {
 }
 
 export async function putJson<T>(path: string, data: any): Promise<T> {
-  const requestId = Math.random().toString(36).substr(2, 9);
-  const startTime = Date.now();
-
-  console.log(`[${requestId}] ?? CLIENT START PUT ${path}`);
-  console.log(`[${requestId}] ?? Request data:`, JSON.stringify(data, null, 2));
-
   const headers: Record<string, string> = {"Content-Type": "application/json", ...getAdminActorHeaders()};
   if (ADMIN_API_KEY) headers["x-admin-key"] = ADMIN_API_KEY;
-
-  console.log(`[${requestId}] ?? Request headers:`, {
-    ...headers,
-    'x-admin-key': headers['x-admin-key'] ? '[REDACTED]' : undefined
-  });
 
   let timeoutId: number | undefined;
   const controller = new AbortController();
 
   try {
     timeoutId = window.setTimeout(() => {
-      console.warn(`[${requestId}] ? Request timeout after ${API_TIMEOUT_MS}ms for ${path}`);
       controller.abort();
     }, API_TIMEOUT_MS);
 
     const url = buildApiUrl(path);
-    console.log(`[${requestId}] ?? Full URL: ${url}`);
-
-    const fetchStartTime = Date.now();
     let res = await fetch(url, {
       method: "PUT",
       headers,
       body: JSON.stringify(data),
       signal: controller.signal,
     });
-    const fetchTime = Date.now() - fetchStartTime;
-
-    console.log(`[${requestId}] ?? Fetch completed in ${fetchTime}ms - Status: ${res.status} ${res.statusText}`);
-    console.log(`[${requestId}] ?? Response headers:`, {
-      'content-type': res.headers.get('content-type'),
-      'access-control-allow-origin': res.headers.get('access-control-allow-origin'),
-      'access-control-allow-credentials': res.headers.get('access-control-allow-credentials'),
-    });
 
     if (!res.ok && res.status === 404 && path.startsWith("/admin") && !url.includes("/api/")) {
       const retryUrl = `/api${path}`;
-      console.log(`[${requestId}] ?? Retrying with fallback URL: ${retryUrl}`);
       res = await fetch(retryUrl, {
         method: "PUT",
         headers,
         body: JSON.stringify(data),
         signal: controller.signal,
       });
-      console.log(`[${requestId}] ?? Retry fetch completed - Status: ${res.status} ${res.statusText}`);
     }
 
     if (!res.ok) {
       const rawText = await res.text().catch(() => "");
-      console.error(`[${requestId}] ? API ERROR for ${path}:`, {
-        status: res.status,
-        statusText: res.statusText,
-        url: url,
-        responseBody: rawText,
-        requestData: JSON.stringify(data),
-        headers: Object.fromEntries(res.headers.entries())
-      });
       throw new ApiError(`${getErrorMessage(path, res.status)}${rawText ? ` - ${rawText}` : ''}`, path, res.status);
     }
 
     const json = await res.json();
-    const totalTime = Date.now() - startTime;
-    console.log(`[${requestId}] ? SUCCESS for ${path} - Total time: ${totalTime}ms`);
-    console.log(`[${requestId}] ?? Response data:`, JSON.stringify(json, null, 2));
-    console.log(`[${requestId}] ?? CLIENT END PUT ${path}`);
-
     return (json?.data ?? {}) as T;
 
   } catch (error: any) {
-    const totalTime = Date.now() - startTime;
-
     if (error?.name === "AbortError") {
-      console.error(`[${requestId}] ? REQUEST TIMEOUT for ${path} after ${totalTime}ms`);
       throw new ApiError(`Request timed out for ${path}.`, path);
     }
 
-    if (error instanceof ApiError) {
-      console.error(`[${requestId}] ?? API ERROR for ${path}:`, {
-        message: error.message,
-        path: error.path,
-        status: error.status,
-        totalTime: `${totalTime}ms`
-      });
-      throw error;
-    }
-
-    console.error(`[${requestId}] ?? NETWORK ERROR for ${path}:`, {
-      error: error.message,
-      stack: error.stack,
-      totalTime: `${totalTime}ms`,
-      url: buildApiUrl(path)
-    });
+    if (error instanceof ApiError) throw error;
     throw new ApiError(getErrorMessage(path), path);
   } finally {
     if (timeoutId !== undefined) {
@@ -260,19 +157,15 @@ export async function putJson<T>(path: string, data: any): Promise<T> {
 }
 
 export const fetchAdminUserPermissions = (id: string) => {
-  console.log(`?? Fetching admin permissions for user: ${id}`);
   return getJson<any>(`/admin/users/${encodeURIComponent(id)}/permissions`);
 };
 export const updateAdminUserPermissions = (id: string, perms: any) => {
-  console.log(`?? Updating admin permissions for user: ${id}`, perms);
   return putJson<any>(`/admin/users/${encodeURIComponent(id)}/permissions`, perms);
 };
 export const updateAdminUser = (id: string, payload: any) => {
-  console.log(`?? Updating admin user ${id}`, payload);
   return putJson<any>(`/admin/users/${encodeURIComponent(id)}`, payload);
 };
 export const updateUserRole = (id: string, role: string) => {
-  console.log(`?? Updating user role for user: ${id} to: ${role}`);
   return putJson<any>(`/admin/users/${encodeURIComponent(id)}/role`, { role });
 };
 

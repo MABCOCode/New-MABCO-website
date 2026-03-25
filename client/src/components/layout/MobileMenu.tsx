@@ -8,15 +8,14 @@ import {
   Tag,
   Phone,
   LogIn,
+  LogOut,
   User,
   ChevronUp,
   ChevronDown,
-  ShoppingCart,
   Edit3,
   Package2,
   Crown,
 } from 'lucide-react';
-import { loadSession } from '../../features/account/storage';
 
 interface MobileMenuProps {
   menuOpen: boolean;
@@ -30,6 +29,11 @@ interface MobileMenuProps {
   compareCount: number;
   openCompareModal: () => void;
   isLoggedIn: boolean;
+  canManageStore: boolean;
+  canManageBanners: boolean;
+  canManageOrders: boolean;
+  isSuperAdmin: boolean;
+  onLogout: () => void;
   categories: any[];
   expandedCategory: number | null;
   toggleCategory: (index: number) => void;
@@ -43,10 +47,14 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
   navigateTo,
   navigateToSection,
   t,
-  cartCount,
   compareCount,
   openCompareModal,
   isLoggedIn,
+  canManageStore,
+  canManageBanners,
+  canManageOrders,
+  isSuperAdmin,
+  onLogout,
   categories,
   expandedCategory,
   toggleCategory,
@@ -66,7 +74,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
     >
       <div className="bg-white border-t border-gray-100 shadow-lg">
         <div className="container mx-auto px-4 py-6">
-          {/* Language Toggle */}
           <div
             className={`mb-4 flex items-center justify-center transition-all duration-500 delay-75 ${
               menuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
@@ -83,27 +90,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
             </button>
           </div>
 
-          {/* Shopping Cart and Compare in Menu */}
           <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
-            {/* <div
-              className={`transition-all duration-500 delay-100 ${
-                menuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
-              }`}
-            >
-              <button
-                onClick={() => navigateTo('/cart')}
-                className="relative bg-gradient-to-br from-[#009FE3] to-[#007BC7] text-white px-5 py-2.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 text-sm"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                <span>{t('cart')}</span>
-                {cartCount > 0 && (
-                  <span className="absolute -top-2 -left-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-            </div> */}
-
             {compareCount > 0 && (
               <div
                 className={`transition-all duration-500 delay-200 ${
@@ -112,7 +99,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
               >
                 <button
                   onClick={() => {
-                    console.log('[MobileMenu] openCompare (mobile menu) click, count=', compareCount);
                     openCompareModal();
                     setMenuOpen(false);
                   }}
@@ -140,14 +126,11 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
             )}
           </div>
 
-          {/* Navigation Items */}
           <div className="space-y-2 mb-6">
-            {/* Login / My Account Button - Mobile */}
             {!isLoggedIn ? (
               <button
                 onClick={() => {
-                  const session = loadSession() as any;
-                  navigateTo(session?.user ? '/account/dashboard' : '/account/login');
+                  navigateTo('/account/login');
                   setMenuOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
@@ -178,97 +161,109 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
               </button>
             )}
 
-            {(() => {
-              const session = loadSession() as any;
-              const role = session?.user?.role;
-              const adminMeta = session?.user?.adminMeta || {};
-              const isAdmin = role === 'admin' || role === 'super_admin';
-              const isSuperAdmin = role === 'super_admin';
-              const canManageOrders = Boolean(adminMeta?.canManageOrders);
-              const canManageBanners = Boolean(adminMeta?.canManageBanners);
-              const canManageStore =
-                isAdmin &&
-                (Boolean(adminMeta?.allowAllCategories) ||
-                  Boolean(adminMeta?.allowAllBrands) ||
-                  (Array.isArray(adminMeta?.allowedCategoryIds) && adminMeta.allowedCategoryIds.length > 0) ||
-                  (Array.isArray(adminMeta?.allowedBrandIds) && adminMeta.allowedBrandIds.length > 0));
-              if (!isAdmin) return null;
-              return (
-                <div className="space-y-2 mt-2">
-                  {canManageStore && (
-                    <button
-                      onClick={() => {
-                        navigateTo('/account/admin/content');
-                        setMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 transition-all duration-200 group ${
-                        menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-                      }`}
-                      style={{ transitionDelay: '235ms' }}
-                    >
-                      <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Edit3 className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="text-gray-700 group-hover:text-orange-600 font-medium">{language === 'ar' ? 'إدارة المتجر' : 'Store Management'}</span>
-                    </button>
-                  )}
-
-                  {canManageBanners && (
-                    <button
-                      onClick={() => {
-                        navigateTo('/account/admin/banners');
-                        setMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-all duration-200 group ${
-                        menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-                      }`}
-                      style={{ transitionDelay: '245ms' }}
-                    >
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Package2 className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="text-gray-700 group-hover:text-purple-600 font-medium">{language === 'ar' ? 'سلايدر البانر' : 'Banner Slider'}</span>
-                    </button>
-                  )}
-
-                  {canManageOrders && (
-                    <button
-                      onClick={() => {
-                        navigateTo('/account/admin/orders');
-                        setMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
-                        menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-                      }`}
-                      style={{ transitionDelay: '246ms' }}
-                    >
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Package2 className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="text-gray-700 group-hover:text-blue-600 font-medium">{language === 'ar' ? 'إدارة الطلبات' : 'Order Management'}</span>
-                    </button>
-                  )}
-
-                  {isSuperAdmin && (
-                    <button
-                      onClick={() => {
-                        navigateTo('/account/superadmin');
-                        setMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-yellow-50 transition-all duration-200 group ${
-                        menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-                      }`}
-                      style={{ transitionDelay: '247ms' }}
-                    >
-                      <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Crown className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="text-gray-700 group-hover:text-yellow-600 font-medium">{language === 'ar' ? 'لوحة تحكم السوبر أدمن' : 'Super Admin Dashboard'}</span>
-                    </button>
-                  )}
+            {isLoggedIn && (
+              <button
+                onClick={() => {
+                  onLogout();
+                  setMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-red-50 transition-all duration-200 group ${
+                  menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                }`}
+                style={{ transitionDelay: '230ms' }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <LogOut className="w-5 h-5 text-white" />
                 </div>
-              );
-            })()}
+                <span className="text-gray-700 group-hover:text-red-600 font-medium">
+                  {t('account_navbar_logout') || t('account_dashboard_logout') || 'Logout'}
+                </span>
+              </button>
+            )}
+
+            {(canManageStore || canManageBanners || canManageOrders || isSuperAdmin) && (
+              <div className="space-y-2 mt-2">
+                {canManageStore && (
+                  <button
+                    onClick={() => {
+                      navigateTo('/account/admin/content');
+                      setMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 transition-all duration-200 group ${
+                      menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                    }`}
+                    style={{ transitionDelay: '235ms' }}
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Edit3 className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-gray-700 group-hover:text-orange-600 font-medium">
+                      {language === 'ar' ? 'إدارة المتجر' : 'Store Management'}
+                    </span>
+                  </button>
+                )}
+
+                {canManageBanners && (
+                  <button
+                    onClick={() => {
+                      navigateTo('/account/admin/banners');
+                      setMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-all duration-200 group ${
+                      menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                    }`}
+                    style={{ transitionDelay: '245ms' }}
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Package2 className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-gray-700 group-hover:text-purple-600 font-medium">
+                      {language === 'ar' ? 'إدارة البنر' : 'Banner Slider'}
+                    </span>
+                  </button>
+                )}
+
+                {canManageOrders && (
+                  <button
+                    onClick={() => {
+                      navigateTo('/account/admin/orders');
+                      setMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
+                      menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                    }`}
+                    style={{ transitionDelay: '246ms' }}
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Package2 className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-gray-700 group-hover:text-blue-600 font-medium">
+                      {language === 'ar' ? 'إدارة الطلبات' : 'Order Management'}
+                    </span>
+                  </button>
+                )}
+
+                {isSuperAdmin && (
+                  <button
+                    onClick={() => {
+                      navigateTo('/account/superadmin');
+                      setMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-yellow-50 transition-all duration-200 group ${
+                      menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                    }`}
+                    style={{ transitionDelay: '247ms' }}
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Crown className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-gray-700 group-hover:text-yellow-600 font-medium">
+                      {language === 'ar' ? 'لوحة تحكم السوبر أدمن' : 'Super Admin Dashboard'}
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
 
             <button
               onClick={() => {
@@ -367,7 +362,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                 navigateTo('/career');
                 setMenuOpen(false);
               }}
-              className={`flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
+              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
                 menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
               }`}
               style={{ transitionDelay: '300ms' }}
@@ -378,24 +373,11 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
               <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">{t('career')}</span>
             </button>
 
-            <button
-              onClick={() => {
-                navigateTo('/contact');
-                setMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group ${
-                menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-              }`}
-              style={{ transitionDelay: '310ms' }}
-            >
-              <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Phone className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">{t('contact')}</span>
-            </button>
           </div>
 
-          <h3 className="text-lg font-bold text-gray-900 mb-4 text-center pt-4 border-t border-gray-200">{t('categories')}</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4 text-center pt-4 border-t border-gray-200">
+            {t('categories')}
+          </h3>
           <div className="space-y-2">
             {categories.map((category: any, index: number) => {
               const IconComponent = category.icon;
@@ -403,7 +385,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                 <div
                   key={index}
                   className={`transition-all duration-300 ${
-                    menuOpen ? `opacity-100 translate-x-0` : 'opacity-0 translate-x-4'
+                    menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
                   }`}
                   style={{
                     transitionDelay: `${(index + 1) * 50}ms`,
@@ -432,7 +414,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                     )}
                   </button>
 
-                  {/* Brands Dropdown - Grid Layout */}
                   {category.brands && category.brands.length > 0 && (
                     <div
                       className={`overflow-hidden transition-all duration-500 ease-in-out ${
@@ -441,43 +422,68 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                     >
                       <div className="pr-4 grid grid-cols-2 gap-3">
                         {category.brands.map((brand: any, brandIndex: number) => (
-                          <div
-                            key={brandIndex}
-                            className="bg-white rounded-2xl p-5 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 group hover:border-[#009FE3]/30 cursor-pointer"
-                            onClick={() => {
-                              const brandCode =
-                                typeof brand === "string"
-                                  ? brand
-                                  : String(brand.brand_code || brand.name || "");
-                              const categoryCode = String(category.cat_code || category.nameEn || category.name || "");
-                              navigateTo(
-                                `/brand/${encodeURIComponent(categoryCode)}/${encodeURIComponent(brandCode)}`,
-                              );
-                              setMenuOpen(false);
-                            }}
-                          >
-                            <div className="flex flex-col items-center text-center">
-                              <div className="w-full aspect-square bg-gray-50 rounded-2xl flex items-center justify-center mb-4 p-6 group-hover:bg-gray-100 transition-colors">
-                                <img
-                                  src={
-                                 
-                                       brand.image 
-                                  }
-                                  alt={`${typeof brand === "string" ? brand : brand.name} Logo`}
-                                  className="w-full h-full object-contain"
-                                />
+                          (() => {
+                            const brandObj = typeof brand === 'string' ? { name: brand } : brand;
+                            const isBlueTint = brandObj.uiTint === 'blue';
+
+                            return (
+                              <div
+                                key={brandIndex}
+                                className="bg-white rounded-2xl p-5 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 group hover:border-[#009FE3]/30 cursor-pointer"
+                                onClick={() => {
+                                  const brandCode =
+                                    typeof brand === 'string'
+                                      ? brand
+                                      : String(brand.brand_code || brand.name || '');
+                                  const categoryCode = String(category.cat_code || category.nameEn || category.name || '');
+                                  navigateTo(
+                                    `/brand/${encodeURIComponent(categoryCode)}/${encodeURIComponent(brandCode)}`,
+                                  );
+                                  setMenuOpen(false);
+                                }}
+                              >
+                                <div className="flex flex-col items-center text-center">
+                                  <div
+                                    className={`w-full aspect-square rounded-2xl flex items-center justify-center mb-4 p-6 transition-colors ${
+                                      isBlueTint
+                                        ? ''
+                                        : 'bg-gray-50 group-hover:bg-gray-100'
+                                    }`}
+                                  >
+                                    <img
+                                      src={brandObj.image}
+                                      alt={`${brandObj.name} Logo`}
+                                      className="w-full h-full object-contain"
+                                      style={
+                                        isBlueTint
+                                          ? { display: 'none' }
+                                          : undefined
+                                      }
+                                    />
+                                    {isBlueTint && (
+                                      <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 bg-gradient-to-br from-[#009FE3] to-[#007BC7]">
+                                        <img
+                                          src={brandObj.image}
+                                          alt={`${brandObj.name} Logo`}
+                                          className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain object-center"
+                                          style={{ filter: 'brightness(0) saturate(100%) invert(100%)' }}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <h4 className="Text-gray-900 mb-1.5 text-lg">
+                                    {brandObj.name}
+                                  </h4>
+                                  {brandObj.englishName && (
+                                    <p className="text-sm text-gray-500 mb-2">{brandObj.englishName}</p>
+                                  )}
+                                  {brandObj.description && (
+                                    <p className="text-sm text-gray-600 leading-relaxed">{brandObj.description}</p>
+                                  )}
+                                </div>
                               </div>
-                              <h4 className="Text-gray-900 mb-1.5 text-lg">
-                                {typeof brand === "string" ? brand : brand.name}
-                              </h4>
-                              {typeof brand !== "string" && brand.englishName && (
-                                <p className="text-sm text-gray-500 mb-2">{brand.englishName}</p>
-                              )}
-                              {typeof brand !== "string" && brand.description && (
-                                <p className="text-sm text-gray-600 leading-relaxed">{brand.description}</p>
-                              )}
-                            </div>
-                          </div>
+                            );
+                          })()
                         ))}
                       </div>
                     </div>

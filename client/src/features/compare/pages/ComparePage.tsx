@@ -3,7 +3,7 @@ import { X, Check, ShoppingCart, Filter } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { Product } from "../../../types/product";
 import { ComparePageProps } from "../../../types/compare";
-import { getOfferBadgeText, getOfferPricing, getProductOffers, products, productsBySection } from "../../../data/products";
+import { getOfferBadgeText, getOfferPricing, getProductOffers } from "../../../data/products";
 import { CURRENCY_LABEL } from "../../../utils/currency";
 import translations from '../../../i18n/translations';
 import { getProductRef, toSafeCode } from "../../../utils/entityRefs";
@@ -22,14 +22,7 @@ export function ComparePage(props: ComparePageProps) {
     return { ...product, id: resolved, stk_code: toSafeCode(product?.stk_code) || resolved } as Product;
   };
 
-  const sectionProducts = Object.values(productsBySection || {}).flat() as Product[];
-  const mergedProducts = [...products, ...sectionProducts].map((p, index) =>
-    normalizeCompareProductId(p, index),
-  );
-  const uniqueProducts = Array.from(
-    new Map(mergedProducts.map((p) => [getProductRef(p), p])).values(),
-  );
-  const [allProducts, setAllProducts] = useState<Product[]>(uniqueProducts);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const normalizedCompareItems = useMemo(
     () => (Array.isArray(compareItems) ? compareItems.map((item) => String(item).trim()).filter(Boolean) : []),
     [compareItems],
@@ -72,9 +65,7 @@ export function ComparePage(props: ComparePageProps) {
           const merged = [...current, ...fetched.map((p: Product, idx: number) => normalizeCompareProductId(p, idx))];
           return Array.from(new Map(merged.map((p) => [getProductRef(p), p])).values());
         });
-      } catch {
-        // Keep static/local products only.
-      }
+      } catch {}
     })();
   }, [compareItems, allProducts]);
 
@@ -298,18 +289,109 @@ export function ComparePage(props: ComparePageProps) {
     return "";
   };
 
-  // Helper function to compare numeric values from specifications
+  const normalizeCompareText = (value: string) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const parseComparableSpecValue = (specKey: string, rawValue: string) => {
+    const normalizedKey = normalizeCompareText(specKey);
+    const normalizedValue = normalizeCompareText(rawValue);
+    const numberMatches = Array.from(normalizedValue.matchAll(/[\d.]+/g)).map((match) => Number(match[0]));
+    const firstNumber = numberMatches.find((num) => Number.isFinite(num));
+
+    if (!Number.isFinite(firstNumber as number)) {
+      return null;
+    }
+
+    const keyHints = {
+      battery: /battery|بطارية|capacity|السعة|mah|wh|amp hour|ah/,
+      power: /power|output|input|watt|وات|w\b|kw|wp|solar|panel|لوح|الواح|طاقة/,
+      voltage: /voltage|volt|فولت|v\b/,
+      current: /current|amp|amps|amper|تيار|a\b/,
+      efficiency: /efficiency|efficient|كفاءة|%/,
+      speed: /speed|سرعة|charge|charging|شحن|transfer|read|write|hz|refresh/,
+      duration: /time|duration|hours|hour|hrs|hr|minutes|min|runtime|backup|تشغيل|زمن|وقت/,
+      weight: /weight|kg|g\b|gram|grams|وزن/,
+      size: /size|inch|inches|\"|cm|mm|screen|display|panel size|مقاس|حجم|شاشة/,
+    };
+
+    const inferUnitMultiplier = () => {
+      if (keyHints.battery.test(normalizedKey) || /(mah|wh|ah)/.test(normalizedValue)) {
+        if (/\bwh\b/.test(normalizedValue)) return 1;
+        if (/\bah\b/.test(normalizedValue)) return firstNumber * 1000;
+        if (/\bmah\b/.test(normalizedValue)) return firstNumber;
+        return firstNumber;
+      }
+
+      if (keyHints.power.test(normalizedKey) || /(\bkw\b|\bwp\b|\bw\b|وات)/.test(normalizedValue)) {
+        if (/\bkw\b/.test(normalizedValue)) return firstNumber * 1000;
+        return firstNumber;
+      }
+
+      if (keyHints.voltage.test(normalizedKey) || /(\bmv\b|\bv\b|فولت)/.test(normalizedValue)) {
+        if (/\bmv\b/.test(normalizedValue)) return firstNumber / 1000;
+        return firstNumber;
+      }
+
+      if (keyHints.current.test(normalizedKey) || /(\bma\b|\ba\b|amp)/.test(normalizedValue)) {
+        if (/\bma\b/.test(normalizedValue)) return firstNumber / 1000;
+        return firstNumber;
+      }
+
+      if (keyHints.duration.test(normalizedKey)) {
+        if (/\bday/.test(normalizedValue)) return firstNumber * 24 * 60;
+        if (/\bhour|\bhr|\bhrs|ساعة/.test(normalizedValue)) return firstNumber * 60;
+        return firstNumber;
+      }
+
+      if (keyHints.weight.test(normalizedKey)) {
+        if (/\bkg\b/.test(normalizedValue)) return firstNumber * 1000;
+        return firstNumber;
+      }
+
+      if (keyHints.size.test(normalizedKey)) {
+        if (/\bcm\b/.test(normalizedValue)) return firstNumber * 10;
+        if (/\binch|inches|\"/.test(normalizedValue)) return firstNumber * 25.4;
+        return firstNumber;
+      }
+
+      return firstNumber;
+    };
+
+    const comparable = inferUnitMultiplier();
+    const preferLower =
+      /weight|وزن|time to full charge|charge time|مدة الشحن|زمن الشحن|latency|delay|price|السعر/.test(normalizedKey);
+
+    return {
+      value: comparable,
+      prefer: preferLower ? "min" : "max",
+    } as const;
+  };
+
   const getBestInSpec = (specKey: string) => {
-    const values = comparedProducts.map((p) => {
-      const value = String(getSpecValue(p, specKey) ?? "");
-      // Extract numeric value for comparison
-      const numMatch = value.match(/[\d.]+/);
-      return numMatch ? parseFloat(numMatch[0]) : 0;
+    const parsed = comparedProducts.map((product) => {
+      const rawValue = String(getSpecValue(product, specKey) ?? "");
+      return parseComparableSpecValue(specKey, rawValue);
     });
 
-    if (values.every((v) => v === 0)) return null;
-    const maxValue = Math.max(...values);
-    return values.map((v) => (v === maxValue && v > 0 ? true : false));
+    const comparableEntries = parsed.filter(
+      (entry): entry is { value: number; prefer: "min" | "max" } =>
+        !!entry && Number.isFinite(entry.value),
+    );
+
+    if (comparableEntries.length === 0) return null;
+
+    const prefer = comparableEntries[0].prefer;
+    const bestValue =
+      prefer === "min"
+        ? Math.min(...comparableEntries.map((entry) => entry.value))
+        : Math.max(...comparableEntries.map((entry) => entry.value));
+
+    return parsed.map((entry) =>
+      entry ? entry.value === bestValue : false,
+    );
   };
 
   // Helper function to get best price

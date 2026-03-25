@@ -82,29 +82,10 @@ router.get('/users/:id/permissions', asyncHandler(async (req, res) => {
 }));
 
 router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
-  const startTime = Date.now();
-  const requestId = Math.random().toString(36).substr(2, 9);
-
-  console.log(`[${requestId}] 🚀 START PUT /users/${req.params.id}/permissions`);
-  console.log(`[${requestId}] 📨 Request details:`, {
-    method: req.method,
-    url: req.originalUrl,
-    ip: req.ip,
-    userAgent: req.get('User-Agent'),
-    origin: req.get('Origin'),
-    contentType: req.get('Content-Type'),
-    contentLength: req.get('Content-Length'),
-    timestamp: new Date().toISOString()
-  });
-  console.log(`[${requestId}] 📦 Request body:`, JSON.stringify(req.body, null, 2));
-
   const db = getDb();
   const { id } = req.params;
 
   if (!ObjectId.isValid(id)) {
-    console.error(`[${requestId}] ❌ Invalid user id: ${id}`);
-    const responseTime = Date.now() - startTime;
-    console.log(`[${requestId}] ⏱️  Response time: ${responseTime}ms - Status: 400`);
     return res.status(400).json({ success: false, message: 'Invalid user id' });
   }
 
@@ -133,32 +114,12 @@ router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
     setDoc['adminMeta.canManageOrders'] = canManageOrders;
     setDoc['adminMeta.canManageBanners'] = canManageBanners;
 
-    console.log(`[${requestId}] 🔧 Processing permissions update for user ${id}:`, {
-      allowAllCategories,
-      allowAllBrands,
-      allowedCategoryIds,
-      allowedBrandIds,
-      isSuspended,
-      canManageOrders,
-      canManageBanners,
-    });
-    console.log(`[${requestId}] 📝 MongoDB update document:`, JSON.stringify(setDoc, null, 2));
-
     const result = await db.collection('users').updateOne(
       { _id: new ObjectId(id) },
       { $set: setDoc }
     );
 
-    console.log(`[${requestId}] 💾 MongoDB updateOne result:`, {
-      matchedCount: result.matchedCount,
-      modifiedCount: result.modifiedCount,
-      acknowledged: result.acknowledged,
-    });
-
     if (result.matchedCount === 0) {
-      console.warn(`[${requestId}] ⚠️  No matching user found for ${id}`);
-      const responseTime = Date.now() - startTime;
-      console.log(`[${requestId}] ⏱️  Response time: ${responseTime}ms - Status: 404`);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
@@ -167,21 +128,9 @@ router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
       { projection: { email: 1, role: 1, adminMeta: 1 } }
     );
 
-    console.log(`[${requestId}] ✅ Updated user document:`, JSON.stringify(updatedUser, null, 2));
-    const responseTime = Date.now() - startTime;
-    console.log(`[${requestId}] ⏱️  Response time: ${responseTime}ms - Status: 200`);
-    console.log(`[${requestId}] 🎉 END PUT /users/${id}/permissions - SUCCESS`);
-
     return res.json({ success: true, data: updatedUser });
-
   } catch (error) {
-    const responseTime = Date.now() - startTime;
-    console.error(`[${requestId}] 💥 ERROR in PUT /users/${id}/permissions:`, {
-      error: error.message,
-      stack: error.stack,
-      responseTime: `${responseTime}ms`
-    });
-    console.log(`[${requestId}] ⏱️  Response time: ${responseTime}ms - Status: 500`);
+    console.error('[admin.users.permissions] failed', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 }));
@@ -247,13 +196,11 @@ router.put('/users/:id', asyncHandler(async (req, res) => {
   return res.json({ success: true, data: updatedUser });
 }));
 
-
 // endpoint to change role for a user (promote/demote)
 router.put('/users/:id/role', asyncHandler(async (req, res) => {
   const db = getDb();
   const { id } = req.params;
   const { role } = req.body;
-  console.log('[admin.users.role] request', { id, role });
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ success: false, message: 'Invalid user id' });
   }
@@ -272,7 +219,6 @@ router.put('/users/:id/role', asyncHandler(async (req, res) => {
     { _id: new ObjectId(id) },
     { projection: { email:1, role:1, adminMeta:1 } }
   );
-  console.log('Changed role for', id, 'to', role);
   res.json({ success: true, data: updatedUser });
 }));
 
@@ -528,7 +474,6 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
   const db = getDb();
   const payload = normalizeBsonLike(req.body || {});
   const requestId = Math.random().toString(36).substr(2, 9);
-  console.log(`[${requestId}] [admin.products.json] payload:`, JSON.stringify(payload, null, 2));
 
   const identifier =
     payload.stk_code ||
@@ -538,7 +483,6 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
     null;
 
   if (!identifier) {
-    console.warn(`[${requestId}] [admin.products.json] missing identifier`);
     return res.status(400).json({ success: false, message: 'Missing product identifier' });
   }
 
@@ -588,7 +532,7 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
     }
     res.json({ success: true, data: hydrateDocument('products', updated) });
   } catch (err) {
-    console.error(`[${requestId}] [admin.products.json] failed`, err);
+    console.error('[admin.products.json] failed', err);
     return res.status(500).json({ success: false, message: err?.message || 'Failed to update product' });
   }
 }));
@@ -597,9 +541,8 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
   const db = getDb();
   const items = Array.isArray(req.body) ? req.body : req.body?.items;
   const requestId = Math.random().toString(36).substr(2, 9);
-  console.log(`[${requestId}] [admin.products.json.bulk] items:`, Array.isArray(items) ? items.length : 0);
+
   if (!Array.isArray(items) || items.length === 0) {
-    console.warn(`[${requestId}] [admin.products.json.bulk] no items`);
     return res.status(400).json({ success: false, message: 'No items provided' });
   }
 
@@ -663,7 +606,7 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
       }
       results.push({ success: true, identifier });
     } catch (err) {
-      console.error(`[${requestId}] [admin.products.json.bulk] failed item`, { identifier, err });
+      console.error('[admin.products.json.bulk] failed item', { identifier, err });
       results.push({ success: false, identifier, error: err?.message || 'Failed to update product' });
     }
   }
@@ -700,7 +643,10 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
   if (payload.image !== undefined) updates.image = payload.image;
   if (payload.images !== undefined) updates.images = payload.images;
   if (payload.category !== undefined) updates.category = payload.category;
+  if (payload.categoryAr !== undefined) updates.categoryAr = payload.categoryAr;
+  if (payload.cat_code !== undefined) updates.cat_code = payload.cat_code;
   if (payload.brand !== undefined) updates.brand = payload.brand;
+  if (payload.brand_code !== undefined) updates.brand_code = payload.brand_code;
   if (payload.inTheBox !== undefined) updates.inTheBox = payload.inTheBox;
   if (payload.specs !== undefined) {
     updates.specs = Array.isArray(payload.specs) ? payload.specs.map(spec => ({
@@ -716,26 +662,35 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
     const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
     const merged = existingVariants.map((variant) => {
       const match = payload.colorVariants.find((c) => {
-        const name = c?.name || c?.color_name;
-        const nameAr = c?.nameAr || c?.color_name_ar;
-        return (
-          (name && String(variant?.color_name || variant?.name || '').toLowerCase() === String(name).toLowerCase()) ||
-          (nameAr && String(variant?.color_name_ar || variant?.nameAr || '').toLowerCase() === String(nameAr).toLowerCase())
+        const variantStkCode = String(variant?.stk_code || variant?.stkCode || '').trim();
+        const colorStkCode = String(c?.stk_code || c?.stkCode || '').trim();
+        if (variantStkCode && colorStkCode) {
+          return variantStkCode === colorStkCode;
+        }
+        if (variantStkCode || colorStkCode) {
+          return false;
+        }
+        const name = String(c?.name || c?.color_name || '').trim().toLowerCase();
+        const nameAr = String(c?.nameAr || c?.color_name_ar || '').trim().toLowerCase();
+        const variantName = String(variant?.color_name || variant?.name || '').trim().toLowerCase();
+        const variantNameAr = String(variant?.color_name_ar || variant?.nameAr || '').trim().toLowerCase();
+        return Boolean(
+          (name && variantName && variantName === name) ||
+          (nameAr && variantNameAr && variantNameAr === nameAr)
         );
       });
       if (!match) return variant;
-      const images = Array.isArray(match.images)
+      const hasExplicitImages = Array.isArray(match.images);
+      const images = hasExplicitImages
         ? match.images
         : match.image
         ? [match.image]
         : [];
       return {
         ...variant,
-        color_name: match.color_name || match.name || variant.color_name,
-        color_name_ar: match.color_name_ar || match.nameAr || variant.color_name_ar,
-        color_hex: match.color_hex || match.hexCode || variant.color_hex,
-        images: images.length > 0 ? images : variant.images,
-        image: images.length > 0 ? images[0] : variant.image,
+        active: typeof match.active === 'boolean' ? match.active : variant.active,
+        images: hasExplicitImages ? images : variant.images,
+        image: hasExplicitImages ? (images[0] || '') : variant.image,
       };
     });
     updates.colorVariants = merged;

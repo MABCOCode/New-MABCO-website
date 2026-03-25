@@ -1,39 +1,39 @@
 import {
-  Edit3,
-  Save,
-  X,
-  Plus,
-  Trash2,
-  Check,
   AlertCircle,
-  Info,
-  Upload,
-  Search,
-  Smartphone,
-  Camera,
   Battery,
-  Laptop,
-  Watch,
-  Headphones,
-  Gamepad2,
-  Shield,
-  Zap,
-  Wifi,
-  HardDrive,
-  Monitor,
-  Speaker,
-  Cpu,
-  MemoryStick,
+  Camera,
+  Check,
   ChevronDown,
+  Cpu,
+  Edit3,
+  Gamepad2,
+  HardDrive,
+  Headphones,
+  Info,
+  Laptop,
+  MemoryStick,
+  Monitor,
+  Plus,
+  Save,
+  Search,
+  Shield,
+  Smartphone,
+  Speaker,
+  Trash2,
+  Upload,
+  Watch,
+  Wifi,
+  X,
+  Zap,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import savedSpecTitlesManager from "../../data/savedSpecTitlesData";
 
 // Content Guidelines & Limits
 const CONTENT_LIMITS = {
-  descriptionEn: { min: 50, max: 500, optimal: 200 },
-  descriptionAr: { min: 50, max: 500, optimal: 200 },
+  descriptionEn: { min: 10, max: 500, optimal: 200 },
+  descriptionAr: { min: 10, max: 500, optimal: 200 },
   specName: { max: 50 },
   specValue: { max: 100 },
   maxSpecs: 12,
@@ -176,7 +176,6 @@ export function InlineProductEditor({
   };
 
   const handleSaveDescription = () => {
-    console.log("[InlineProductEditor] handleSaveDescription called", { descriptionEn, descriptionAr });
     const descEnStatus = getCharCountStatus(descriptionEn, CONTENT_LIMITS.descriptionEn);
     const descArStatus = getCharCountStatus(descriptionAr, CONTENT_LIMITS.descriptionAr);
 
@@ -193,7 +192,6 @@ export function InlineProductEditor({
   };
 
   const handleSaveSpecs = () => {
-    console.log("[InlineProductEditor] handleSaveSpecs called", { specs });
     if (specs.length < CONTENT_LIMITS.minSpecs) {
       alert(`${t("editor.minSpecs")}: ${CONTENT_LIMITS.minSpecs}`);
       return;
@@ -253,7 +251,6 @@ export function InlineProductEditor({
   };
 
   const handleSaveBox = () => {
-    console.log("[InlineProductEditor] handleSaveBox called", { boxItems });
     // Normalize and validate: keep at least one item with some text
     const cleaned = boxItems
       .map((b) => ({ en: (b.en || "").trim(), ar: (b.ar || "").trim() }))

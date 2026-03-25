@@ -10,6 +10,7 @@ export interface ProductSpec {
 
 export interface ColorVariant {
   stk_code?: string;
+  isHidden?: boolean;
   price?: number;
   offers?: LegacyOffer[];
   color_name?: string;
