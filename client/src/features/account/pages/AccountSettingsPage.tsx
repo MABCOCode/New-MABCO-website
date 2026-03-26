@@ -46,6 +46,7 @@ export function AccountSettingsPage({
   const [otpSent, setOtpSent] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
 
   const t = translations[language];
   const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
@@ -135,10 +136,15 @@ export function AccountSettingsPage({
           });
           const json = await res.json().catch(() => ({}));
           if (!res.ok) {
-            throw new Error(json?.message || (language === "ar" ? "فشل تغيير كلمة المرور" : "Failed to change password"));
+            setApiError(json?.message || (language === "ar" ? "فشل تغيير كلمة المرور" : "Failed to change password"));
+            setRemainingAttempts(json?.remainingAttempts ?? null);
+            setOtpSending(false);
+            setIsLoading(false);
+            return;
           }
           setOtpSent(true);
           setOtpCode("");
+          setRemainingAttempts(json?.remainingAttempts ?? null);
           setIsLoading(false);
           setOtpSending(false);
           return;
@@ -531,6 +537,28 @@ export function AccountSettingsPage({
                     } ${language === "ar" ? "text-right" : "text-left"}`}
                     dir="ltr"
                   />
+                  {remainingAttempts !== null && remainingAttempts > 0 && (
+                    <p
+                      className={`text-sm mt-2 ${
+                        language === "ar" ? "text-right" : "text-left"
+                      } ${remainingAttempts <= 1 ? "text-red-600" : "text-gray-600"}`}
+                    >
+                      {language === "ar"
+                        ? `${remainingAttempts} محاولات متبقية اليوم`
+                        : `${remainingAttempts} attempts remaining today`}
+                    </p>
+                  )}
+                  {remainingAttempts === 0 && (
+                    <p
+                      className={`text-sm mt-2 text-red-600 ${
+                        language === "ar" ? "text-right" : "text-left"
+                      }`}
+                    >
+                      {language === "ar"
+                        ? "تم الوصول إلى الحد الأقصى للمحاولات اليوم"
+                        : "Maximum attempts reached for today"}
+                    </p>
+                  )}
                 </div>
               )}
 

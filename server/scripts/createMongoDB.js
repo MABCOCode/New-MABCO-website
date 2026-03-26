@@ -446,6 +446,8 @@ function getUserValidator() {
         nameAr: { bsonType: 'string' },
         passwordHash: { bsonType: 'string' },
         passwordSalt: { bsonType: 'string' },
+        createdAt: { bsonType: 'date' },
+        updatedAt: { bsonType: 'date' },
         adminMeta: {
           bsonType: 'object',
           properties: {

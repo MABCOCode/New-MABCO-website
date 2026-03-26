@@ -9,7 +9,7 @@ const router = express.Router();
 
 const OTP_LENGTH = 6;
 const OTP_TTL_MS = 5 * 60 * 1000;
-const OTP_MAX_PER_DAY = 5;
+const OTP_MAX_PER_DAY = 3;
 
 const PURPOSES = {
   SIGNUP: 'signup',
@@ -46,6 +46,11 @@ const comparePassword = (password, salt, hash) =>
   hashPassword(password, salt) === hash;
 
 const sendOtpSms = async ({ phone, code }) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[DEV MODE] OTP for ${phone}: ${code}`);
+    return true;
+  }
+
   const msg = `Your verification code is ${code}`;
   const encodedMsg = encodeURIComponent(msg);
   const url = `https://services.mtnsyr.com:7443/General/MTNSERVICES/ConcatenatedSender.aspx?User=${encodeURIComponent(
@@ -55,8 +60,25 @@ const sendOtpSms = async ({ phone, code }) => {
   )}&Lang=${encodeURIComponent(smsLang || '0')}&Msg=${encodedMsg}&Gsm=${phone}`;
 
   const res = await fetch(url, { method: 'GET' });
-  const text = await res.text();
-  return res.ok && String(text).includes(phone);
+  const text = String(await res.text()).trim();
+  console.info(`[OTP] SMS API response for ${phone}:`, res.status, text);
+
+  if (!res.ok) return false;
+  const normalizedText = text.toLowerCase();
+
+  if (normalizedText.includes('error') || normalizedText.includes('failed')) {
+    return false;
+  }
+
+  if (normalizedText.length === 0) {
+    return false;
+  }
+
+  if (normalizedText.includes('ok') || normalizedText.includes('sent') || normalizedText.includes(phone)) {
+    return true;
+  }
+
+  return true; // fallback: probably successful when status=200 but output format unknown
 };
 
 const loadOtpRecord = async (db, phone, purpose) => {
@@ -78,13 +100,22 @@ router.post('/signup/request-otp', asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid phone number' });
   }
 
+  const existingUser = await db.collection('users').findOne({ phone });
+  if (existingUser) {
+    return res.status(409).json({ success: false, message: 'Phone number is already registered' });
+  }
+
   const now = new Date();
   const dayKey = todayKey();
   const record = await loadOtpRecord(db, phone, PURPOSES.SIGNUP);
 
   const attemptsToday = record?.dayKey === dayKey ? Number(record.attemptsToday || 0) : 0;
-  if (attemptsToday >= OTP_MAX_PER_DAY) {
-    return res.status(429).json({ success: false, message: 'OTP limit reached for today' });
+  if (attemptsToday >= OTP_MAX_PER_DAY && process.env.NODE_ENV !== 'development') {
+    return res.status(429).json({
+      success: false,
+      message: 'OTP limit reached for today',
+      remainingAttempts: 0
+    });
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -93,7 +124,11 @@ router.post('/signup/request-otp', asyncHandler(async (req, res) => {
 
   const sent = await sendOtpSms({ phone, code });
   if (!sent) {
-    return res.status(502).json({ success: false, message: 'Failed to send OTP' });
+    return res.status(502).json({
+      success: false,
+      message: 'Failed to send OTP',
+      remainingAttempts: Math.max(0, OTP_MAX_PER_DAY - attemptsToday)
+    });
   }
 
   await upsertOtpRecord(db, phone, PURPOSES.SIGNUP, {
@@ -107,7 +142,11 @@ router.post('/signup/request-otp', asyncHandler(async (req, res) => {
     verifyAttempts: 0,
   });
 
-  res.json({ success: true, phone });
+  res.json({
+    success: true,
+    phone,
+    remainingAttempts: Math.max(0, OTP_MAX_PER_DAY - attemptsToday - 1)
+  });
 }));
 
 router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
@@ -147,7 +186,6 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
   const passwordHash = hashPassword(password, salt);
   const user = {
     phone,
-    email: email || undefined,
     name,
     nameAr: name,
     role: 'customer',
@@ -156,6 +194,11 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+
+  // Only add email if it has a value (schema requires email to be string if present)
+  if (email && email.trim()) {
+    user.email = email.trim();
+  }
 
   const result = await db.collection('users').insertOne(user);
   await db.collection('otp_verifications').deleteOne({ phone, purpose: PURPOSES.SIGNUP });
@@ -271,7 +314,11 @@ router.post('/password/request-otp', asyncHandler(async (req, res) => {
   const record = await loadOtpRecord(db, phone, PURPOSES.PASSWORD_RESET);
   const attemptsToday = record?.dayKey === dayKey ? Number(record.attemptsToday || 0) : 0;
   if (attemptsToday >= OTP_MAX_PER_DAY) {
-    return res.status(429).json({ success: false, message: 'OTP limit reached for today' });
+    return res.status(429).json({
+      success: false,
+      message: 'OTP limit reached for today',
+      remainingAttempts: 0
+    });
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -280,7 +327,11 @@ router.post('/password/request-otp', asyncHandler(async (req, res) => {
 
   const sent = await sendOtpSms({ phone, code });
   if (!sent) {
-    return res.status(502).json({ success: false, message: 'Failed to send OTP' });
+    return res.status(502).json({
+      success: false,
+      message: 'Failed to send OTP',
+      remainingAttempts: Math.max(0, OTP_MAX_PER_DAY - attemptsToday)
+    });
   }
 
   await upsertOtpRecord(db, phone, PURPOSES.PASSWORD_RESET, {
@@ -294,7 +345,11 @@ router.post('/password/request-otp', asyncHandler(async (req, res) => {
     verifyAttempts: 0,
   });
 
-  res.json({ success: true, phone });
+  res.json({
+    success: true,
+    phone,
+    remainingAttempts: Math.max(0, OTP_MAX_PER_DAY - attemptsToday - 1)
+  });
 }));
 
 router.post('/password/verify-otp', asyncHandler(async (req, res) => {

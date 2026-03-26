@@ -37,6 +37,7 @@ export function SignupFlow({
   const [errors, setErrors] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
 
   const t = translations[language];
   const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
@@ -50,7 +51,12 @@ export function SignupFlow({
     if (normalized.includes("otp not found")) return t.account_error_otp_not_found;
     if (normalized.includes("otp expired")) return t.account_error_otp_expired;
     if (normalized.includes("invalid otp")) return t.account_error_otp_invalid;
-    if (normalized.includes("phone already registered")) return t.account_error_phone_registered;
+    if (
+      normalized.includes("phone already registered") ||
+      normalized.includes("phone number is already registered") ||
+      normalized.includes("already registered")
+    )
+      return t.account_error_phone_registered;
     if (normalized.includes("invalid payload")) return t.account_error_invalid_payload;
     return t.account_error_generic;
   };
@@ -117,13 +123,23 @@ export function SignupFlow({
           body: JSON.stringify({ phone: phoneNumber }),
         });
         const json = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+          setApiError(mapAuthError(json?.message || "Phone number is already registered"));
+          setRemainingAttempts(json?.remainingAttempts ?? null);
+          // if phone already exists, offer login path
+          setTimeout(() => onSwitchToLogin(), 1800);
+          return;
+        }
         if (!res.ok) {
+          setApiError(mapAuthError(json?.message || ""));
+          setRemainingAttempts(json?.remainingAttempts ?? null);
           throw new Error(json?.message || "");
         }
         setDirection(1);
         setCurrentStep(2);
         setResendTimer(60);
         setCanResend(false);
+        setRemainingAttempts(json?.remainingAttempts ?? null);
         setTimeout(() => inputRefs.current[0]?.focus(), 100);
       } catch (err: any) {
         setApiError(mapAuthError(err?.message));
@@ -201,8 +217,11 @@ export function SignupFlow({
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
+          setApiError(mapAuthError(json?.message || ""));
+          setRemainingAttempts(json?.remainingAttempts ?? null);
           throw new Error(json?.message || "");
         }
+        setRemainingAttempts(json?.remainingAttempts ?? null);
         inputRefs.current[0]?.focus();
       } catch (err: any) {
         setApiError(mapAuthError(err?.message));
@@ -594,6 +613,20 @@ export function SignupFlow({
                   ) : (
                     <p className="text-sm text-gray-500">
                       {t.account_signup_resend_in} {resendTimer} {t.account_signup_seconds}
+                    </p>
+                  )}
+                  {remainingAttempts !== null && remainingAttempts > 0 && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {language === "ar"
+                        ? `${remainingAttempts} محاولات متبقية اليوم`
+                        : `${remainingAttempts} attempts remaining today`}
+                    </p>
+                  )}
+                  {remainingAttempts === 0 && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {language === "ar"
+                        ? "تم تجاوز الحد اليومي للرسائل"
+                        : "Daily message limit exceeded"}
                     </p>
                   )}
                 </div>

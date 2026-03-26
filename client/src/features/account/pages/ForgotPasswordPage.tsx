@@ -26,6 +26,7 @@ export function ForgotPasswordPage({ language, onClose, onBackToLogin }: ForgotP
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
 
   useEffect(() => {
     if (otpSent && resendTimer > 0) {
@@ -90,10 +91,13 @@ export function ForgotPasswordPage({ language, onClose, onBackToLogin }: ForgotP
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
+        setApiError(mapAuthError(json?.message || ""));
+        setRemainingAttempts(json?.remainingAttempts ?? null);
         throw new Error(json?.message || "");
       }
       setResendTimer(60);
       setCanResend(false);
+      setRemainingAttempts(json?.remainingAttempts ?? null);
     } catch (err: any) {
       setApiError(mapAuthError(err?.message));
     } finally {
@@ -116,11 +120,14 @@ export function ForgotPasswordPage({ language, onClose, onBackToLogin }: ForgotP
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
+          setApiError(mapAuthError(json?.message || ""));
+          setRemainingAttempts(json?.remainingAttempts ?? null);
           throw new Error(json?.message || "");
         }
         setOtpSent(true);
         setResendTimer(60);
         setCanResend(false);
+        setRemainingAttempts(json?.remainingAttempts ?? null);
       } catch (err: any) {
         setApiError(mapAuthError(err?.message));
       } finally {
@@ -290,21 +297,40 @@ export function ForgotPasswordPage({ language, onClose, onBackToLogin }: ForgotP
               )}
 
               {otpSent && (
-                <div className="flex items-center justify-between text-sm">
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={!canResend || isLoading}
-                    className="text-[#007BC7] font-semibold disabled:text-gray-400"
-                  >
-                    {t.account_signup_resend_code}
-                  </button>
-                  {!canResend && (
-                    <span className="text-gray-500">
-                      {t.account_signup_resend_in} {resendTimer} {t.account_signup_seconds}
-                    </span>
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={!canResend || isLoading}
+                      className="text-[#007BC7] font-semibold disabled:text-gray-400"
+                    >
+                      {t.account_signup_resend_code}
+                    </button>
+                    {!canResend && (
+                      <span className="text-gray-500">
+                        {t.account_signup_resend_in} {resendTimer} {t.account_signup_seconds}
+                      </span>
+                    )}
+                  </div>
+                  {remainingAttempts !== null && (
+                    <div className="text-xs text-center mt-2">
+                      {remainingAttempts > 0 ? (
+                        <span className="text-gray-400">
+                          {language === "ar"
+                            ? `${remainingAttempts} محاولات متبقية اليوم`
+                            : `${remainingAttempts} attempts remaining today`}
+                        </span>
+                      ) : (
+                        <span className="text-red-500">
+                          {language === "ar"
+                            ? "تم تجاوز الحد اليومي للرسائل"
+                            : "Daily message limit exceeded"}
+                        </span>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
 
               <button

@@ -18,10 +18,118 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://mabcoonline.com" />
     <title id="page-title">MABCO | Mobile Devices, Accessories, and Electronics Retail Company in Syria</title>
-    <script type="module" crossorigin src="/assets/index-BXOeiDWn.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyALOnHuVIdWZKeWhDy2A8MPL_WGWcSMY_8&libraries=places" async defer></script>
+    <script type="module" crossorigin src="/assets/index-CGTY8vG_.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-BenrqG6n.css">
   </head>
   <body>
     <div id="root"></div>
+    <script>
+        let map;
+        let marker;
+        function initMap() {
+            const defaultLocation = { lat: 33.5064521, lng: 36.2736822 };
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: defaultLocation,
+                zoom: 12,
+            });
+
+            marker = new google.maps.Marker({
+                position: defaultLocation,
+                map: map,
+                draggable: true
+            });
+
+            // Try HTML5 geolocation
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        updateMapLocation(userLocation);
+                    },
+                    function () {
+                        updateMapLocation(defaultLocation);
+                    }
+                );
+            } else {
+                updateMapLocation(defaultLocation);
+            }
+
+            // Update marker position on drag or click
+            google.maps.event.addListener(marker, "dragend", function (event) {
+                updateHiddenFields(event.latLng.lat(), event.latLng.lng());
+            });
+
+            google.maps.event.addListener(map, "click", function (event) {
+                marker.setPosition(event.latLng);
+                updateHiddenFields(event.latLng.lat(), event.latLng.lng());
+            });
+        }
+
+        function updateMapLocation(location) {
+            map.setCenter(location);
+            marker.setPosition(location);
+            updateHiddenFields(location.lat, location.lng);
+        }
+
+        function updateHiddenFields(lat, lng) {
+            // Update React state or form fields
+            const mapContainer = document.getElementById("map");
+            if (mapContainer) {
+                mapContainer.setAttribute("data-lat", lat);
+                mapContainer.setAttribute("data-lng", lng);
+                
+                // Dispatch custom event for React to listen
+                const event = new CustomEvent("mapLocationChange", { 
+                    detail: { lat, lng } 
+                });
+                mapContainer.dispatchEvent(event);
+            }
+        }
+
+        function showMap() {
+            if (!map) {
+                initMap();
+            } else {
+                google.maps.event.trigger(map, "resize");
+                map.setCenter(marker.getPosition());
+            }
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        updateMapLocation(userLocation); // recenters map + moves marker
+                    },
+                    function () {
+                        alert("تعذر الحصول على موقعك الحالي. يرجى التحقق من إعدادات الموقع.");
+                    }
+                );
+            } else {
+                alert("المتصفح لا يدعم خاصية تحديد الموقع الجغرافي.");
+            }
+        }
+        
+        function checkMap() {
+            if (map) {
+                google.maps.event.trigger(map, "resize");
+                map.setCenter(marker.getPosition());
+            }
+        }
+        
+        // Make functions globally available
+        window.initMap = initMap;
+        window.showMap = showMap;
+        window.getCurrentLocation = getCurrentLocation;
+        window.checkMap = checkMap;
+    </script>
   </body>
 </html>

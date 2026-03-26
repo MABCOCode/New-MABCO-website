@@ -1,4 +1,26 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  ArrowLeft,
+  Banknote,
+  CheckCircle,
+  Clock,
+  Gift,
+  Home,
+  Locate,
+  MapPin,
+  Navigation,
+  Package,
+  Phone,
+  Search,
+  Sparkles,
+  Store,
+  X
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
+import { getProductOffers, products } from "../../../data/products";
+import translations from "../../../i18n/translations";
+import type { BundleDiscountOffer, CouponOffer } from "../../../types/product";
+import { AppliedOffersSection } from "../../offer/components/AppliedOffersSection";
 // Allow using google maps JS types at runtime without requiring TS types
 declare const google: any;
 declare global {
@@ -6,32 +28,6 @@ declare global {
     google?: any;
   }
 }
-import {
-  X,
-  Home,
-  Store,
-  MapPin,
-  Phone,
-  Mail,
-  Calendar,
-  Clock,
-  ChevronDown,
-  Search,
-  CheckCircle,
-  ArrowLeft,
-  Package,
-  CreditCard,
-  Banknote,
-  Navigation,
-  Locate,
-  Gift,
-  Sparkles,
-} from "lucide-react";
-import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
-import translations from "../../../i18n/translations";
-import { AppliedOffersSection } from "../../offer/components/AppliedOffersSection";
-import { getProductOffers, products } from "../../../data/products";
-import type { BundleDiscountOffer, CouponOffer } from "../../../types/product";
 
 interface CartItem {
   id: number | string;
@@ -104,10 +100,10 @@ interface LocationData {
 // Default center for Syria (Damascus)
 const DEFAULT_CENTER = { lat: 33.5138, lng: 36.2765 };
 
-import { useNavigate } from "react-router-dom";
-import { useLanguage } from "../../../context/LanguageContext";
-import { useCart } from "../../../context/CartContext";
 import { CartOfferDisplay } from "@/features/offer/components/CartOfferDisplay";
+import { useNavigate } from "react-router-dom";
+import { useCart } from "../../../context/CartContext";
+import { useLanguage } from "../../../context/LanguageContext";
 
 export function CheckoutPage() {
   const { language } = useLanguage();
@@ -142,14 +138,10 @@ export function CheckoutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderSubmitError, setOrderSubmitError] = useState<string | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const [appliedCoupons, setAppliedCoupons] = useState<Map<string, CouponOffer>>(new Map());
   const [freeProductsAdded, setFreeProductsAdded] = useState<Map<string, number>>(new Map());
   const [bundleProductsAdded, setBundleProductsAdded] = useState<Map<string, number[]>>(new Map());
-  
-  const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<any | null>(null);
-  const markerRef = useRef<any | null>(null);
+
   const showroomSliderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -238,19 +230,34 @@ export function CheckoutPage() {
     };
   }, [language]);
 
-  // Load Google Maps
+  // Initialize map when component mounts for delivery
   useEffect(() => {
-    if (fulfillmentType === "delivery" && !window.google) {
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => setMapLoaded(true);
-      document.head.appendChild(script);
-    } else if (window.google) {
-      setMapLoaded(true);
+    if (fulfillmentType === "delivery") {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        if ((window as any).showMap) {
+          (window as any).showMap();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [fulfillmentType]);
+
+  // Listen for map location changes
+  useEffect(() => {
+    const handleMapLocationChange = (event: any) => {
+      const { lat, lng } = event.detail;
+      updateLocationFromLatLng(lat, lng);
+    };
+
+    const mapElement = document.getElementById("map");
+    if (mapElement) {
+      mapElement.addEventListener("mapLocationChange", handleMapLocationChange);
+      return () => {
+        mapElement.removeEventListener("mapLocationChange", handleMapLocationChange);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     const nextFree = new Map<string, number>();
@@ -279,41 +286,9 @@ export function CheckoutPage() {
     setBundleProductsAdded(nextBundle);
   }, [cartItems]);
 
-  // Initialize Map
-  useEffect(() => {
-    if (mapLoaded && mapRef.current && fulfillmentType === "delivery" && !googleMapRef.current) {
-      const map = new google.maps.Map(mapRef.current, {
-        center: DEFAULT_CENTER,
-        zoom: 13,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-      });
-
-      const marker = new google.maps.Marker({
-        position: DEFAULT_CENTER,
-        map: map,
-        draggable: true,
-        animation: google.maps.Animation.DROP,
-      });
-
-      // Update location when marker is dragged
-      marker.addListener("dragend", () => {
-        const position = marker.getPosition();
-        if (position) {
-          updateLocationFromLatLng(position.lat(), position.lng());
-        }
-      });
-
-      googleMapRef.current = map;
-      markerRef.current = marker;
-
-      // Set initial location
-      updateLocationFromLatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng);
-    }
-  }, [mapLoaded, fulfillmentType]);
-
   const updateLocationFromLatLng = (lat: number, lng: number) => {
+    if (!window.google) return;
+
     const geocoder = new google.maps.Geocoder();
     geocoder.geocode({ location: { lat, lng } }, (results, status) => {
       if (status === "OK" && results && results[0]) {
@@ -347,23 +322,8 @@ export function CheckoutPage() {
   };
 
   const handleUseCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          
-          if (googleMapRef.current && markerRef.current) {
-            const newPosition = { lat, lng };
-            googleMapRef.current.setCenter(newPosition);
-            markerRef.current.setPosition(newPosition);
-            updateLocationFromLatLng(lat, lng);
-          }
-        },
-        (error) => {
-          alert(isArabic ? "لا يمكن الوصول إلى موقعك الحالي" : "Cannot access your current location");
-        }
-      );
+    if ((window as any).getCurrentLocation) {
+      (window as any).getCurrentLocation();
     }
   };
 
@@ -1027,21 +987,12 @@ export function CheckoutPage() {
                   {/* Map Container */}
                   <div className="relative mb-4">
                     <div
-                      ref={mapRef}
+                      id="map"
                       className="w-full h-[400px] rounded-xl overflow-hidden border-2 border-gray-200"
-                    >
-                      {!mapLoaded && (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                          <div className="text-center">
-                            <div className="animate-spin w-12 h-12 border-4 border-[#009FE3] border-t-transparent rounded-full mx-auto mb-4"></div>
-                            <p className="text-gray-600">{t.loadingMap}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    ></div>
                     <div className="mt-2 text-sm text-gray-600 flex items-center gap-2">
                       <Navigation className="w-4 h-4" />
-                      {t.dragMarker}
+                      {isArabic ? "اسحب العلامة لتحديد موقعك" : "Drag the marker to set your location"}
                     </div>
                   </div>
 
