@@ -2,7 +2,7 @@ const express = require('express');
 const { ObjectId } = require('mongodb');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
-const { normalizePhone } = require('../utils/phone');
+const { normalizePhone, phoneVariants } = require('../utils/phone');
 
 const router = express.Router();
 
@@ -41,11 +41,25 @@ router.post('/device-token', asyncHandler(async (req, res) => {
     }
   }
 
-  const resolvedPhone = normalizePhone(payload.phone || '') || phone || null;
+  let resolvedPhone = normalizePhone(payload.phone || '') || phone || null;
+
+  if (!userId && resolvedPhone) {
+    const variants = phoneVariants(resolvedPhone);
+    const userByPhone = await db.collection('users').findOne(
+      { phone: { $in: variants } },
+      { projection: { _id: 1, role: 1, adminMeta: 1, phone: 1 } },
+    );
+    if (userByPhone) {
+      resolvedPhone = normalizePhone(userByPhone.phone || resolvedPhone) || resolvedPhone;
+      payload.userId = userByPhone._id;
+      if (!role) role = userByPhone.role || null;
+      canManageOrders = Boolean(userByPhone?.adminMeta?.canManageOrders);
+    }
+  }
 
   const update = {
     token,
-    userId,
+    userId: payload.userId ? new ObjectId(String(payload.userId)) : userId,
     phone: resolvedPhone,
     locale: payload.locale || null,
     platform: payload.platform || 'web',
@@ -63,6 +77,13 @@ router.post('/device-token', asyncHandler(async (req, res) => {
     { $set: update, $setOnInsert: { createdAt: now } },
     { upsert: true },
   );
+
+  if (payload.userId) {
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(String(payload.userId)) },
+      { $addToSet: { fcmTokens: token } },
+    );
+  }
 
   res.json({ success: true });
 }));

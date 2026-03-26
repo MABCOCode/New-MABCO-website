@@ -4,7 +4,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { hydrateCollection } = require('../models');
 const { sendToTokens } = require('../services/fcm');
-const { normalizePhone } = require('../utils/phone');
+const { normalizePhone, phoneVariants } = require('../utils/phone');
 
 const router = express.Router();
 
@@ -37,9 +37,30 @@ router.post('/', asyncHandler(async (req, res) => {
     ? Array.from(new Set([String(payload.notificationToken)]))
     : [];
 
+  const customerPhoneRaw =
+    payload?.customerSnapshot?.phone ||
+    payload?.customerSnapshot?.secondaryPhone ||
+    '';
+  const normalizedCustomerPhone = normalizePhone(customerPhoneRaw);
+
+  let resolvedUserId = payload.userId && ObjectId.isValid(String(payload.userId))
+    ? new ObjectId(String(payload.userId))
+    : null;
+
+  if (!resolvedUserId && normalizedCustomerPhone) {
+    const variants = phoneVariants(normalizedCustomerPhone);
+    const user = await db.collection('users').findOne(
+      { phone: { $in: variants } },
+      { projection: { _id: 1 } },
+    );
+    if (user?._id) {
+      resolvedUserId = user._id;
+    }
+  }
+
   const orderDoc = {
     orderNumber: payload.orderNumber || buildOrderNumber(),
-    userId: payload.userId && ObjectId.isValid(String(payload.userId)) ? new ObjectId(String(payload.userId)) : null,
+    userId: resolvedUserId,
     customerSnapshot: payload.customerSnapshot || payload.customer || {},
     items,
     pricing: payload.pricing || {},
@@ -56,6 +77,13 @@ router.post('/', asyncHandler(async (req, res) => {
     createdAt: now,
     updatedAt: now,
   };
+
+  if (resolvedUserId && notificationTokens.length > 0) {
+    await db.collection('users').updateOne(
+      { _id: resolvedUserId },
+      { $addToSet: { fcmTokens: { $each: notificationTokens } } },
+    );
+  }
 
   const result = await db.collection('orders').insertOne(orderDoc);
   const saved = await db.collection('orders').findOne({ _id: result.insertedId });

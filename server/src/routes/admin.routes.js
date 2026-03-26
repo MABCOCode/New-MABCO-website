@@ -360,6 +360,16 @@ router.put('/orders/:id', asyncHandler(async (req, res) => {
       tokensByUser.forEach((row) => {
         if (row?.token) tokenSet.add(String(row.token));
       });
+
+      const userDoc = await db.collection('users').findOne(
+        { _id: updated.userId },
+        { projection: { fcmTokens: 1 } },
+      );
+      if (Array.isArray(userDoc?.fcmTokens)) {
+        userDoc.fcmTokens.forEach((tok) => {
+          if (tok) tokenSet.add(String(tok));
+        });
+      }
     }
 
     const tokens = Array.from(tokenSet).filter(Boolean);
