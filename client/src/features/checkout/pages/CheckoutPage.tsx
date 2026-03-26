@@ -287,7 +287,20 @@ export function CheckoutPage() {
   }, [cartItems]);
 
   const updateLocationFromLatLng = (lat: number, lng: number) => {
-    if (!window.google) return;
+    if (!window.google) {
+      // Fallback: set basic location data even without geocoding
+      setLocationData({
+        lat,
+        lng,
+        formattedAddress: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        city: "",
+        area: "",
+        country: "",
+      });
+      // Clear any location error when location is successfully set
+      setErrors(prev => ({ ...prev, location: "" }));
+      return;
+    }
 
     const geocoder = new google.maps.Geocoder();
     geocoder.geocode({ location: { lat, lng } }, (results, status) => {
@@ -317,6 +330,20 @@ export function CheckoutPage() {
           area: area || "",
           country: country || "",
         });
+        // Clear any location error when location is successfully set
+        setErrors(prev => ({ ...prev, location: "" }));
+      } else {
+        // Geocoding failed, but still set basic location data
+        setLocationData({
+          lat,
+          lng,
+          formattedAddress: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          city: "",
+          area: "",
+          country: "",
+        });
+        // Clear any location error when location is successfully set
+        setErrors(prev => ({ ...prev, location: "" }));
       }
     });
   };
@@ -712,7 +739,7 @@ export function CheckoutPage() {
     if (fulfillmentType === "delivery") {
       if (!formData.fullName.trim()) newErrors.fullName = asText(t.required);
       if (!formData.phone.trim()) newErrors.phone = asText(t.required);
-      if (!locationData) newErrors.location = asText(t.required);
+      if (!locationData) newErrors.location = asText(t.selectLocation);
       if (!formData.area.trim()) newErrors.area = asText(t.required);
       if (!formData.street.trim()) newErrors.street = asText(t.required);
       if (!formData.building.trim()) newErrors.building = asText(t.required);
