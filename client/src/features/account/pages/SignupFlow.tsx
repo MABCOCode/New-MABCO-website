@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
-import { X, Eye, EyeOff, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { ArrowLeft, ArrowRight, CheckCircle, Eye, EyeOff, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import translations from "../../../i18n/translations";
 
 interface SignupFlowProps {

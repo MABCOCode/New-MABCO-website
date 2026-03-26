@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { X, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Eye, EyeOff, KeyRound, X } from "lucide-react";
 import { motion } from "motion/react";
+import { useEffect, useState } from "react";
 import translations from "../../../i18n/translations";
 
 interface ForgotPasswordPageProps {

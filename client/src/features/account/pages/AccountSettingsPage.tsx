@@ -1,16 +1,14 @@
-import { useState } from "react";
-import { motion } from "motion/react";
 import {
-  ArrowRight,
-  ArrowLeft,
-  User,
-  Phone,
-  Mail,
-  Lock,
-  Save,
-  Eye,
-  EyeOff,
+    ArrowLeft,
+    ArrowRight,
+    Eye,
+    EyeOff,
+    Lock,
+    Save,
+    User
 } from "lucide-react";
+import { motion } from "motion/react";
+import { useState } from "react";
 import translations from "../../../i18n/translations";
 
 interface AccountSettingsPageProps {
