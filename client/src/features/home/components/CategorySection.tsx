@@ -27,9 +27,6 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   const categoryCardRefs = useRef<Array<HTMLDivElement | null>>([]);
   const animationTimerRef = useRef<number | null>(null);
   const lastAppliedCategoryCodeRef = useRef<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [centerItems, setCenterItems] = useState(false);
@@ -171,7 +168,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
       // Smoothly scroll to the calculated position
       container.scrollTo({
         left: scrollLeft,
-        behavior: 'smooth'
+        behavior: 'auto'
       });
     }
 
@@ -182,9 +179,9 @@ const CategorySection: React.FC<CategorySectionProps> = ({
       const navHeight = nav?.getBoundingClientRect().height ?? 0;
       const top = Math.max(
         0,
-        target.getBoundingClientRect().top + window.scrollY - navHeight - 20,
+        target.getBoundingClientRect().top + window.scrollY - navHeight - 8,
       );
-      window.scrollTo({ top, behavior: 'smooth' });
+      window.scrollTo({ top, behavior: 'auto' });
     }, 180);
 
     return () => window.clearTimeout(timer);
@@ -192,48 +189,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   
   // `categories` state is loaded from public/static/categories.json
 
-  // Handle swipe/drag for categories carousel
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!categoriesScrollRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - categoriesScrollRef.current.offsetLeft);
-    setScrollLeft(categoriesScrollRef.current.scrollLeft);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!categoriesScrollRef.current) return;
-    setIsDragging(true);
-    setStartX(
-      e.touches[0].pageX -
-      categoriesScrollRef.current.offsetLeft,
-    );
-    setScrollLeft(categoriesScrollRef.current.scrollLeft);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDragging || !categoriesScrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - categoriesScrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2;
-    categoriesScrollRef.current.scrollLeft = scrollLeft - walk;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isDragging || !categoriesScrollRef.current) return;
-    const x =
-      e.touches[0].pageX -
-      categoriesScrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2;
-    categoriesScrollRef.current.scrollLeft = scrollLeft - walk;
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
+  // Native horizontal scrolling gives smoother sliding on touch devices.
 
   const scrollCategories = (direction: 'left' | 'right') => {
     if (categoriesScrollRef.current) {
@@ -270,21 +226,15 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         {/* Categories Container */}
         <div
           ref={categoriesScrollRef}
-            className={`flex overflow-x-auto gap-4 px-4 scroll-smooth scrollbar-hide select-none ${centerItems ? 'justify-center' : ''}`}
+          className={`flex overflow-x-auto gap-4 px-4 scroll-smooth scrollbar-hide select-none snap-x snap-mandatory ${centerItems ? 'justify-center' : ''}`}
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
-            cursor: isDragging ? "grabbing" : "grab",
             scrollbarGutter: "stable",
             overflowY: "hidden",
+            touchAction: "pan-x",
+            WebkitOverflowScrolling: "touch",
           }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleMouseUp}
         >
           {isLoading &&
             Array.from({ length: 6 }).map((_, idx) => (
@@ -309,7 +259,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                   categoryCardRefs.current[index] = node;
                 }}
                 onClick={() => selectCategory(index)}
-                className={`flex-shrink-0 w-32 sm:w-36 md:w-40 bg-white rounded-lg p-4 md:p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-2 group cursor-pointer ${
+                className={`flex-shrink-0 w-32 sm:w-36 md:w-40 bg-white rounded-lg p-4 md:p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-2 group cursor-pointer snap-start ${
                   isSelected
                     ? "border-[#009FE3] bg-blue-50"
                     : "border-gray-100 hover:border-[#009FE3]/30"
@@ -335,7 +285,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                     {language === 'ar' ? category.name : category.nameEn}
                   </h3>
                   {isSelected && (
-                    <ChevronUp className="w-5 h-5 text-[#009FE3] mt-2 animate-bounce" />
+                    <ChevronUp className="w-5 h-5 text-[#009FE3] mt-2" />
                   )}
                 </div>
               </div>

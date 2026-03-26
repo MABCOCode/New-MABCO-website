@@ -39,14 +39,13 @@ const HomePage: React.FC = () => {
   const [newBestProducts, setNewBestProducts] = useState<any[]>([]);
   const [mostSoldLoading, setMostSoldLoading] = useState(true);
   const [newBestLoading, setNewBestLoading] = useState(true);
+  const [productLayoutKey, setProductLayoutKey] = useState(0);
+  const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const navigateToOfferType = (
     offerType: "direct_discount" | "coupon" | "free_product" | "bundle_discount"
   ) => {
     navigate(`/offers/${offerType}`);
   };
-  // Add resize/zoom detection state
-  const [refreshKey, setRefreshKey] = useState(0);
-  const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Handle hash navigation when page loads
   useEffect(() => {
@@ -59,7 +58,7 @@ const HomePage: React.FC = () => {
           const navHeight = nav?.getBoundingClientRect().height ?? 0;
           const top = Math.max(
             0,
-            element.getBoundingClientRect().top + window.scrollY - navHeight - 20,
+            element.getBoundingClientRect().top + window.scrollY - navHeight - 8,
           );
           window.scrollTo({ top, behavior: "smooth" });
         }
@@ -93,7 +92,7 @@ const HomePage: React.FC = () => {
     }
   }, [location.state, location.pathname, navigate]);
 
-  // Effect to handle window resize and zoom for re-rendering
+  // Reflow product cards on resize/zoom without remounting hero/category sliders.
   useEffect(() => {
     let lastZoomLevel = window.devicePixelRatio;
     let lastWidth = window.innerWidth;
@@ -104,59 +103,46 @@ const HomePage: React.FC = () => {
       const currentWidth = window.innerWidth;
       const currentHeight = window.innerHeight;
 
-      // Check if zoom level changed significantly (more than 0.1)
       const zoomChanged = Math.abs(currentZoomLevel - lastZoomLevel) > 0.1;
-      
-      // Check if window size changed significantly (more than 50px)
-      const sizeChanged = 
-        Math.abs(currentWidth - lastWidth) > 50 || 
+      const sizeChanged =
+        Math.abs(currentWidth - lastWidth) > 50 ||
         Math.abs(currentHeight - lastHeight) > 50;
 
       if (zoomChanged || sizeChanged) {
-        // Update last values
         lastZoomLevel = currentZoomLevel;
         lastWidth = currentWidth;
         lastHeight = currentHeight;
 
-        // Force refresh of components
-        setRefreshKey(prev => prev + 1);
-        
-        // Clear existing timeout
+        setProductLayoutKey((prev) => prev + 1);
+
         if (resizeTimeoutRef.current) {
           clearTimeout(resizeTimeoutRef.current);
         }
-
-        // Set a new timeout to update after a short delay
         resizeTimeoutRef.current = setTimeout(() => {
-          // Force a state update to trigger re-render of child components
-          setRefreshKey(prev => prev + 0.0001); // Small change to trigger re-render
+          setProductLayoutKey((prev) => prev + 1);
         }, 150);
       }
     };
 
-    // Add window resize event listener
-    window.addEventListener('resize', handleResize);
-    
-    // Also listen for orientation changes on mobile devices
-    window.addEventListener('orientationchange', () => {
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", () => {
       setTimeout(handleResize, 200);
     });
 
-    // Initial check after a short delay to ensure all components are mounted
     const initialTimeout = setTimeout(() => {
       handleResize();
     }, 500);
 
-    // Cleanup
     return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
       }
       clearTimeout(initialTimeout);
     };
   }, []);
+
 
   useEffect(() => {
     let mounted = true;
@@ -263,7 +249,6 @@ const HomePage: React.FC = () => {
       <main 
         dir={language === "ar" ? "rtl" : "ltr"} 
         className="pb-12"
-        key={`homepage-${refreshKey}`}
       >
         {orderMessage && (
           <div className="container mx-auto px-4 pt-6">
@@ -290,13 +275,13 @@ const HomePage: React.FC = () => {
 
         {/* Hero Carousel */}
         <section id="home" className="relative">
-          <HeroCarousel language={language} key={`hero-${refreshKey}`} />
+          <HeroCarousel language={language} />
         </section>
 
         {/* Search Section */}
         <section id="search-section" className="container mx-auto px-4 py-16">
           <div className="max-w-4xl mx-auto">
-            <SearchSection language={language} key={`search-${refreshKey}`} />
+            <SearchSection language={language} />
           </div>
         </section>
         {/* Categories Section */}
@@ -310,7 +295,6 @@ const HomePage: React.FC = () => {
             selectedCategory={selectedCategory}
             selectedCategoryCode={openCategoryCode}
             onSelectCategory={setSelectedCategory}
-            key={`category-${refreshKey}`}
           />
         </section>
         {/* Special Offers Slider */}
@@ -339,7 +323,7 @@ const HomePage: React.FC = () => {
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}
           compareItems={compareItems}
-          key={`most-bought-${refreshKey}`}
+          key={`most-bought-${productLayoutKey}`}
         />
 
         {/* New Products Slider */}
@@ -353,14 +337,13 @@ const HomePage: React.FC = () => {
           onAddToCart={handleAddToCart}
           onToggleCompare={handleToggleCompare}
           compareItems={compareItems}
-          key={`new-products-${refreshKey}`}
+          key={`new-products-${productLayoutKey}`}
         />
 
         {/* Services Section */}
         <section id="services" className="container mx-auto px-4 py-16">
           <ServicesGrid
             language={language}
-            key={`services-${refreshKey}`}
             onServiceClick={(servicePath: string) => {
               if (servicePath === "gaming") {
                 navigate("/brand/07/2022");
@@ -397,13 +380,13 @@ const HomePage: React.FC = () => {
         )}
 
         {/* Company Strength Section */}
-        <CompanyStrength language={language} key={`strength-${refreshKey}`} />
+        <CompanyStrength language={language} />
 
         {/* Warranty & Policy Section */}
-        <WarrantySection language={language} key={`warranty-${refreshKey}`} />
+        <WarrantySection language={language} />
 
         {/* SEO Structured Data */}
-        <SEOSection language={language} key={`seo-${refreshKey}`} />
+        <SEOSection language={language} />
 
         {/* Geometric Background Pattern */}
         <div className="fixed inset-0 opacity-5 pointer-events-none z-0">

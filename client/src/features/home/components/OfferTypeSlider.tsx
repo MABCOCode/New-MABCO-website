@@ -1,6 +1,5 @@
-import Autoplay from "embla-carousel-autoplay";
 import { ArrowRight, BadgePercent, Gift, Package, Sparkles, Tag, Ticket } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -80,66 +79,6 @@ const offerTypes: OfferType[] = [
 
 export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const animationTimerRef = useRef<number | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isInView, setIsInView] = useState(false);
-  const [animateCards, setAnimateCards] = useState(false);
-
-  const triggerAnimation = () => {
-    if (animationTimerRef.current) {
-      window.clearTimeout(animationTimerRef.current);
-    }
-    setAnimateCards(false);
-    animationTimerRef.current = window.setTimeout(() => {
-      requestAnimationFrame(() => setAnimateCards(true));
-    }, 160);
-  };
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoaded(true), 40);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const node = sectionRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsInView(entry.isIntersecting);
-      },
-      { threshold: 0.2, rootMargin: "0px 0px -10% 0px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (isLoaded && isInView) {
-      triggerAnimation();
-    }
-  }, [isLoaded, isInView]);
-
-  useEffect(() => {
-    const onNavigateSection = (event: Event) => {
-      const customEvent = event as CustomEvent<{ sectionId?: string }>;
-      if (customEvent.detail?.sectionId === "special-offers-carousel") {
-        triggerAnimation();
-      }
-    };
-
-    window.addEventListener("mabco:navigate-section", onNavigateSection as EventListener);
-    return () => {
-      window.removeEventListener("mabco:navigate-section", onNavigateSection as EventListener);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (animationTimerRef.current) {
-        window.clearTimeout(animationTimerRef.current);
-      }
-    };
-  }, []);
 
   const getOfferIcon = (type: string) => {
     switch (type) {
@@ -161,7 +100,7 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
       case "discount":
         return (
           <>
-            <div className="absolute top-10 right-10 w-24 h-24 border-4 border-white/20 rounded-full animate-spin-slow"></div>
+            <div className="absolute top-10 right-10 w-24 h-24 border-4 border-white/20 rounded-full"></div>
             <div className="absolute bottom-20 left-20 w-16 h-16 border-4 border-white/20 rounded-full"></div>
             <BadgePercent className="absolute top-1/4 left-1/4 w-32 h-32 text-white/40 rotate-12" />
           </>
@@ -196,8 +135,6 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
     }
   };
 
-  const shouldAnimate = isLoaded && isInView && animateCards;
-
   return (
     <div ref={sectionRef} className="relative">
       <Carousel
@@ -206,11 +143,6 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
           loop: true,
           direction: language === "ar" ? "rtl" : "ltr",
         }}
-        plugins={[
-          Autoplay({
-            delay: 5000,
-          }),
-        ]}
         className="w-full"
       >
         <CarouselContent className="-ml-2 md:-ml-4">
@@ -221,21 +153,13 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
               <CarouselItem key={offer.id} className="pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
                 <div
                   onClick={() => onOfferTypeClick?.(offer.type)}
-                  className="relative h-[450px] sm:h-[500px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-[1.02]"
-                  style={{
-                    transform: shouldAnimate
-                      ? "translate3d(0, 0, 0)"
-                      : "translate3d(0, 28px, 0)",
-                    transition:
-                      "transform 560ms cubic-bezier(0.22, 1, 0.36, 1)",
-                    transitionDelay: `${Math.min(index, 7) * 85}ms`,
-                  }}
+                  className="relative h-[450px] sm:h-[500px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl"
                 >
                   {/* Gradient Background */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${offer.gradient}`}></div>
 
                   {/* Animated Pattern Elements */}
-                  <div className="absolute inset-0 overflow-hidden opacity-60 group-hover:opacity-80 transition-opacity duration-500">
+                  <div className="absolute inset-0 overflow-hidden opacity-60">
                     {getPatternElements(offer.pattern)}
                   </div>
 
@@ -247,7 +171,7 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
                     {/* Top Section - Icon & Type */}
                     <div className="space-y-4">
                       {/* Icon Badge */}
-                      <div className="inline-flex items-center gap-2 bg-white/25 backdrop-blur-md border-2 border-white/40 rounded-xl px-4 py-2 group-hover:scale-110 group-hover:bg-white/35 transition-all duration-300">
+                      <div className="inline-flex items-center gap-2 bg-white/25 backdrop-blur-md border-2 border-white/40 rounded-xl px-4 py-2">
                         <Icon className="w-6 h-6 text-white" />
                         <span className="text-white font-bold text-sm">
                           {language === "ar" ? "عرض خاص" : "Special Offer"}
@@ -287,11 +211,11 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
                       </div> */}
 
                       {/* CTA Button */}
-                      <button className="w-full group/btn bg-white/20 hover:bg-white/30 backdrop-blur-sm border-2 border-white/40 hover:border-white/60 text-white px-6 py-4 rounded-xl font-bold text-base transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center gap-3">
+                      <button className="w-full group/btn bg-white/20 backdrop-blur-sm border-2 border-white/40 text-white px-6 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-3">
                         <span>{language === "ar" ? "استكشف العروض" : "Explore Offers"}</span>
                         <div className="relative">
                           <ArrowRight
-                            className={`w-5 h-5 group-hover/btn:translate-x-1 transition-transform animate-pulse ${
+                            className={`w-5 h-5 ${
                               language === "ar" ? "rotate-180" : ""
                             }`}
                           />
@@ -302,8 +226,8 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
                   </div>
 
                   {/* Decorative Gradient Orbs */}
-                  <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-700"></div>
-                  <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-white/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-700"></div>
+                  <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+                  <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-white/10 rounded-full blur-3xl"></div>
                 </div>
               </CarouselItem>
             );

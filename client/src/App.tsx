@@ -31,7 +31,11 @@ import './styles/globals.css';
 // Create a wrapper component that can use the LanguageContext
 const AppContent: React.FC = () => {
   const handleBrandClick = (brandName: string, categoryName: string, categoryNameEn: string) => {
-    const categoryForRoute = categoryNameEn || categoryName || '';
+    const categoryCode =
+      (/^\d+$/.test(String(categoryName)) && String(categoryName)) ||
+      (/^\d+$/.test(String(categoryNameEn)) && String(categoryNameEn)) ||
+      '';
+    const categoryForRoute = categoryCode || categoryNameEn || categoryName || '';
     const encodedCategory = encodeURIComponent(categoryForRoute);
     const encodedBrand = encodeURIComponent(brandName);
     navigate(`/brand/${encodedCategory}/${encodedBrand}`);

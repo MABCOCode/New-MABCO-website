@@ -21,7 +21,7 @@ const scrollToSectionWithOffset = (sectionId: string, behavior: ScrollBehavior =
 
   const nav = document.querySelector('nav');
   const navHeight = nav?.getBoundingClientRect().height ?? 0;
-  const offset = navHeight + 20;
+  const offset = navHeight + 8;
   const top = Math.max(0, element.getBoundingClientRect().top + window.scrollY - offset);
 
   window.scrollTo({ top, behavior });

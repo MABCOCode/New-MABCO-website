@@ -10,8 +10,6 @@ import {
   LogIn,
   LogOut,
   User,
-  ChevronUp,
-  ChevronDown,
   Edit3,
   Package2,
   Crown,
@@ -375,123 +373,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
 
           </div>
 
-          <h3 className="text-lg font-bold text-gray-900 mb-4 text-center pt-4 border-t border-gray-200">
-            {t('categories')}
-          </h3>
-          <div className="space-y-2">
-            {categories.map((category: any, index: number) => {
-              const IconComponent = category.icon;
-              return (
-                <div
-                  key={index}
-                  className={`transition-all duration-300 ${
-                    menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-                  }`}
-                  style={{
-                    transitionDelay: `${(index + 1) * 50}ms`,
-                  }}
-                >
-                  <button
-                    onClick={() => toggleCategory(index)}
-                    className="w-full flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-blue-50 transition-all duration-200 group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <IconComponent className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">
-                        {language === 'ar' ? category.name : category.nameEn}
-                      </span>
-                    </div>
-                    {category.brands && category.brands.length > 0 && (
-                      <div className="transition-transform duration-300">
-                        {expandedCategory === index ? (
-                          <ChevronUp className="w-5 h-5 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5 text-gray-400" />
-                        )}
-                      </div>
-                    )}
-                  </button>
-
-                  {category.brands && category.brands.length > 0 && (
-                    <div
-                      className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                        expandedCategory === index ? 'max-h-[600px] opacity-100 mt-2' : 'max-h-0 opacity-0'
-                      }`}
-                    >
-                      <div className="pr-4 grid grid-cols-2 gap-3">
-                        {category.brands.map((brand: any, brandIndex: number) => (
-                          (() => {
-                            const brandObj = typeof brand === 'string' ? { name: brand } : brand;
-                            const isBlueTint = brandObj.uiTint === 'blue';
-
-                            return (
-                              <div
-                                key={brandIndex}
-                                className="bg-white rounded-2xl p-5 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 group hover:border-[#009FE3]/30 cursor-pointer"
-                                onClick={() => {
-                                  const brandCode =
-                                    typeof brand === 'string'
-                                      ? brand
-                                      : String(brand.brand_code || brand.name || '');
-                                  const categoryCode = String(category.cat_code || category.nameEn || category.name || '');
-                                  navigateTo(
-                                    `/brand/${encodeURIComponent(categoryCode)}/${encodeURIComponent(brandCode)}`,
-                                  );
-                                  setMenuOpen(false);
-                                }}
-                              >
-                                <div className="flex flex-col items-center text-center">
-                                  <div
-                                    className={`w-full aspect-square rounded-2xl flex items-center justify-center mb-4 p-6 transition-colors ${
-                                      isBlueTint
-                                        ? ''
-                                        : 'bg-gray-50 group-hover:bg-gray-100'
-                                    }`}
-                                  >
-                                    <img
-                                      src={brandObj.image}
-                                      alt={`${brandObj.name} Logo`}
-                                      className="w-full h-full object-contain"
-                                      style={
-                                        isBlueTint
-                                          ? { display: 'none' }
-                                          : undefined
-                                      }
-                                    />
-                                    {isBlueTint && (
-                                      <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 bg-gradient-to-br from-[#009FE3] to-[#007BC7]">
-                                        <img
-                                          src={brandObj.image}
-                                          alt={`${brandObj.name} Logo`}
-                                          className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain object-center"
-                                          style={{ filter: 'brightness(0) saturate(100%) invert(100%)' }}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <h4 className="Text-gray-900 mb-1.5 text-lg">
-                                    {brandObj.name}
-                                  </h4>
-                                  {brandObj.englishName && (
-                                    <p className="text-sm text-gray-500 mb-2">{brandObj.englishName}</p>
-                                  )}
-                                  {brandObj.description && (
-                                    <p className="text-sm text-gray-600 leading-relaxed">{brandObj.description}</p>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })()
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {/* Categories list removed from mobile menu */}
         </div>
       </div>
     </div>

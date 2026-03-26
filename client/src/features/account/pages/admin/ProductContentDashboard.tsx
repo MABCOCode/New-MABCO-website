@@ -117,7 +117,6 @@ const pickLocalizedStaticName = (value: any, fallback = "") => {
 export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDashboardProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [productScopeFilter, setProductScopeFilter] = useState<"missing" | "all">("missing");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
   const [selectedBrandFilter, setSelectedBrandFilter] = useState("");
   const [hiddenProducts, setHiddenProducts] = useState<Set<string>>(new Set());
@@ -492,7 +491,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
 
     if (!permissionPass) return false;
 
-    const matchesScope = productScopeFilter === "all" || product.requiredMissing;
+    const matchesScope = product.requiredMissing;
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch =
       !q ||
@@ -546,19 +545,6 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] transition-all"
               />
-            </div>
-
-            {/* Product Scope Filter */}
-            <div className="relative">
-              <select
-                value={productScopeFilter}
-                onChange={(e) => setProductScopeFilter(e.target.value as "missing" | "all")}
-                className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] bg-white cursor-pointer"
-              >
-                <option value="missing">{t("admin.content.missingDataOnly")}</option>
-                <option value="all">{t("admin.content.allProducts")}</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             </div>
 
             {/* Category Filter */}
