@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Package, Search, Eye, EyeOff, Lock, Unlock, Calendar, User, Edit3, AlertCircle } from "lucide-react";
 import { ProductEditHistory } from "./ProductEditHistory";
+import { fetchAdminActions, fetchAdminUsers } from "../../api/adminDataApi";
 
 interface ProductTrackingProps {
   language: "ar" | "en";

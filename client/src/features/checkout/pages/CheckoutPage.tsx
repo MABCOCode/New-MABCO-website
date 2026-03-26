@@ -238,6 +238,13 @@ export function CheckoutPage() {
         if ((window as any).showMap) {
           (window as any).showMap();
         }
+        // Also try to attach event listener after map is shown
+        setTimeout(() => {
+          const mapElement = document.getElementById("map");
+          if (mapElement) {
+            // Map element found, event listener should be attached
+          }
+        }, 200);
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -245,18 +252,47 @@ export function CheckoutPage() {
 
   // Listen for map location changes
   useEffect(() => {
+    let cleanup: (() => void) | null = null;
+
     const handleMapLocationChange = (event: any) => {
       const { lat, lng } = event.detail;
       updateLocationFromLatLng(lat, lng);
     };
 
-    const mapElement = document.getElementById("map");
-    if (mapElement) {
-      mapElement.addEventListener("mapLocationChange", handleMapLocationChange);
-      return () => {
-        mapElement.removeEventListener("mapLocationChange", handleMapLocationChange);
-      };
-    }
+    // Function to attach event listener
+    const attachEventListener = () => {
+      const mapElement = document.getElementById("map");
+      if (mapElement && !cleanup) {
+        mapElement.addEventListener("mapLocationChange", handleMapLocationChange);
+        cleanup = () => {
+          mapElement.removeEventListener("mapLocationChange", handleMapLocationChange);
+        };
+      }
+    };
+
+    // Attach immediately if map exists
+    attachEventListener();
+
+    // Set up a mutation observer to watch for the map element
+    const observer = new MutationObserver(() => {
+      attachEventListener();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Also attach when map is shown (with a delay to ensure DOM is ready)
+    const timer = setTimeout(() => {
+      attachEventListener();
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      if (cleanup) cleanup();
+    };
   }, []);
 
   useEffect(() => {
@@ -322,26 +358,28 @@ export function CheckoutPage() {
           }
         });
 
-        setLocationData({
+        const locationData = {
           lat,
           lng,
           formattedAddress: results[0].formatted_address,
           city: city || "",
           area: area || "",
           country: country || "",
-        });
+        };
+        setLocationData(locationData);
         // Clear any location error when location is successfully set
         setErrors(prev => ({ ...prev, location: "" }));
       } else {
         // Geocoding failed, but still set basic location data
-        setLocationData({
+        const locationData = {
           lat,
           lng,
           formattedAddress: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
           city: "",
           area: "",
           country: "",
-        });
+        };
+        setLocationData(locationData);
         // Clear any location error when location is successfully set
         setErrors(prev => ({ ...prev, location: "" }));
       }
@@ -425,10 +463,11 @@ export function CheckoutPage() {
   const totalSavings = calculateTotalSavings() + couponDiscount;
   
   let deliveryFee = 0;
-  if (fulfillmentType === "delivery" && locationData) {
-    // Calculate delivery fee based on distance (mock calculation)
-    deliveryFee = 50000; // Base fee in IQD
-  }
+  // Free shipping - delivery fee is always 0
+  // if (fulfillmentType === "delivery" && locationData) {
+  //   // Calculate delivery fee based on distance (mock calculation)
+  //   deliveryFee = 50000; // Base fee in IQD
+  // }
   
   const total = Math.max(0, subtotal + deliveryFee - couponDiscount);
   const formatPrice = (price: number) => price.toLocaleString();
@@ -1602,8 +1641,8 @@ export function CheckoutPage() {
                 <div className="flex justify-between text-gray-700">
                   <span>{t.deliveryFee}</span>
                   <span className="font-semibold">
-                    {fulfillmentType === "delivery" && deliveryFee > 0
-                      ? `${formatPrice(deliveryFee)} ${t.currency}`
+                    {fulfillmentType === "delivery"
+                      ? t.free
                       : fulfillmentType === "pickup"
                       ? t.free
                       : t.tbd}

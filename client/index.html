@@ -83,7 +83,7 @@
                 
                 // Dispatch custom event for React to listen
                 const event = new CustomEvent("mapLocationChange", { 
-                    detail: { lat, lng } 
+                    detail: { lat: lat, lng: lng } 
                 });
                 mapContainer.dispatchEvent(event);
             }
