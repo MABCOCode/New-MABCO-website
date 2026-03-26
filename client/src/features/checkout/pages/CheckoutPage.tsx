@@ -812,6 +812,9 @@ export function CheckoutPage() {
   };
 
   const buildOrderPayload = () => {
+    const sessionRaw = localStorage.getItem("session");
+    const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+    const user = session?.user;
     const items = cartItems.map((item) => {
       const appliedOffers = ((item as any).appliedOffers ?? [])
         .map((offer: any) => normalizeOfferForOrder(offer))
@@ -850,6 +853,7 @@ export function CheckoutPage() {
     const notificationToken = localStorage.getItem("fcmToken");
 
     return {
+      userId: user?.id || user?._id || user?.userId || null,
       customerSnapshot: {
         fullName: formData.fullName,
         phone: formData.phone,
@@ -965,14 +969,24 @@ export function CheckoutPage() {
 
       const token = localStorage.getItem("fcmToken");
       if (token) {
+        const normalizePhone = (rawPhone: string) => {
+          let digits = String(rawPhone || "").replace(/[^0-9]/g, "");
+          if (digits.startsWith("00963")) digits = `0${digits.slice(4)}`;
+          else if (digits.startsWith("963")) digits = `0${digits.slice(3)}`;
+          else if (digits.startsWith("9") && digits.length === 9) digits = `0${digits}`;
+          return digits;
+        };
         fetch("/api/notifications/device-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             token,
-            phone: formData.phone,
+            phone: normalizePhone(formData.phone),
             locale: language,
             platform: "web",
+            preferences: {
+              allowOrderUpdates: true,
+            },
           }),
         }).catch(() => null);
       }

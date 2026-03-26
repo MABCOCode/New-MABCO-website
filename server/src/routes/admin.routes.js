@@ -5,6 +5,7 @@ const { getDb } = require('../config/db');
 const { hydrateCollection, hydrateDocument } = require('../models');
 const { requireAdminToken } = require('../middleware/adminTokenAuth');
 const { sendToTokens } = require('../services/fcm');
+const { normalizePhone } = require('../utils/phone');
 
 const router = express.Router();
 
@@ -319,38 +320,67 @@ router.put('/orders/:id', asyncHandler(async (req, res) => {
       updated?.customerSnapshot?.phone ||
       updated?.customerSnapshot?.secondaryPhone ||
       '';
-    const phone = String(phoneRaw || '').replace(/[^0-9]/g, '');
+    const phone = normalizePhone(phoneRaw);
     const tokenSet = new Set(
       Array.isArray(updated?.notificationTokens) ? updated.notificationTokens : [],
     );
 
+    if (tokenSet.size > 0) {
+      const tokenRows = await db
+        .collection('device_tokens')
+        .find({
+          token: { $in: Array.from(tokenSet) },
+          'preferences.allowOrderUpdates': { $ne: false },
+        })
+        .toArray();
+      tokenSet.clear();
+      tokenRows.forEach((row) => {
+        if (row?.token) tokenSet.add(String(row.token));
+      });
+    }
+
     if (phone) {
-      const normalizedPhone = phone.startsWith('963') ? `0${phone.slice(3)}` : phone;
       const tokensByPhone = await db
         .collection('device_tokens')
-        .find({ phone: normalizedPhone })
+        .find({ phone, 'preferences.allowOrderUpdates': { $ne: false } })
         .toArray();
       tokensByPhone.forEach((row) => {
         if (row?.token) tokenSet.add(String(row.token));
       });
     }
 
+    if (updated?.userId) {
+      const tokensByUser = await db
+        .collection('device_tokens')
+        .find({
+          userId: updated.userId,
+          'preferences.allowOrderUpdates': { $ne: false },
+        })
+        .toArray();
+      tokensByUser.forEach((row) => {
+        if (row?.token) tokenSet.add(String(row.token));
+      });
+    }
+
     const tokens = Array.from(tokenSet).filter(Boolean);
+     console.log(`[ORDER_STATUS_CHANGE] Order ${updated?.orderNumber || id} status changed to ${payload.status}`);
+    console.log(`[ORDER_STATUS_CHANGE] Found ${tokens.length} device tokens for phone ${phone}`);
+    
     if (tokens.length > 0) {
       const locale = updated?.locale || 'en';
       const status = String(payload.status);
       const orderNumber = updated?.orderNumber || '';
       const title =
-        locale === 'ar'
-          ? 'تحديث حالة الطلب'
-          : 'Order Status Update';
+        locale === "ar" ? "تحديث حالة الطلب" : "Order Status Update";
       const body =
         locale === 'ar'
           ? `تم تحديث حالة الطلب ${orderNumber} إلى ${status}`
           : `Your order ${orderNumber} is now ${status}`;
+   console.log(`[ORDER_STATUS_CHANGE] Sending notification: "${title}" - "${body}"`);
+      console.log(`[ORDER_STATUS_CHANGE] Notification tokens:`, tokens);
 
       try {
-        await sendToTokens(tokens, {
+        const notificationResult = await sendToTokens(tokens, {
           notification: { title, body },
           data: {
             title,
@@ -360,9 +390,28 @@ router.put('/orders/:id', asyncHandler(async (req, res) => {
             click_action_url: 'https://new.mabcoonline.com/account/orders',
           },
         });
+        
+        console.log(`[ORDER_STATUS_CHANGE] Notification send result:`, {
+          successCount: notificationResult.successCount || 0,
+          failureCount: notificationResult.failureCount || 0,
+          totalTokens: tokens.length,
+          responses: notificationResult.responses?.map((resp, idx) => ({
+            tokenIndex: idx,
+            success: resp.success,
+            error: resp.error?.message || null
+          })) || []
+        });
+        
+        if (notificationResult.failureCount > 0) {
+          console.warn(`[ORDER_STATUS_CHANGE] Some notifications failed:`, 
+            notificationResult.responses?.filter(r => !r.success).map(r => r.error));
+        }
+        
       } catch (err) {
-        console.warn('[admin.orders] FCM send failed', err);
+        console.error('[ORDER_STATUS_CHANGE] FCM send failed with exception:', err);
       }
+    } else {
+      console.log(`[ORDER_STATUS_CHANGE] No device tokens found - notification not sent`);
     }
   }
 

@@ -3,6 +3,8 @@ const { ObjectId } = require('mongodb');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { hydrateCollection } = require('../models');
+const { sendToTokens } = require('../services/fcm');
+const { normalizePhone } = require('../utils/phone');
 
 const router = express.Router();
 
@@ -31,6 +33,10 @@ router.post('/', asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Order items are required.' });
   }
 
+  const notificationTokens = payload.notificationToken
+    ? Array.from(new Set([String(payload.notificationToken)]))
+    : [];
+
   const orderDoc = {
     orderNumber: payload.orderNumber || buildOrderNumber(),
     userId: payload.userId && ObjectId.isValid(String(payload.userId)) ? new ObjectId(String(payload.userId)) : null,
@@ -45,7 +51,7 @@ router.post('/', asyncHandler(async (req, res) => {
     fulfillment: payload.fulfillment || payload.fulfillmentType || null,
     addresses: payload.addresses || null,
     appliedOffersSnapshot: payload.appliedOffersSnapshot || payload.appliedOffers || [],
-    notificationTokens: payload.notificationToken ? [String(payload.notificationToken)] : [],
+    notificationTokens,
     locale: payload.locale || 'ar',
     createdAt: now,
     updatedAt: now,
@@ -53,6 +59,49 @@ router.post('/', asyncHandler(async (req, res) => {
 
   const result = await db.collection('orders').insertOne(orderDoc);
   const saved = await db.collection('orders').findOne({ _id: result.insertedId });
+
+  // Notify admins with order-management permission
+  try {
+    const admins = await db
+      .collection('users')
+      .find(
+        {
+          role: { $in: ['admin', 'super_admin'] },
+          'adminMeta.canManageOrders': true,
+        },
+        { projection: { _id: 1 } },
+      )
+      .toArray();
+    const adminIds = admins.map((a) => a._id);
+
+    const adminTokens = await db
+      .collection('device_tokens')
+      .find({
+        userId: { $in: adminIds },
+        canManageOrders: true,
+        'preferences.allowAdminNewOrders': { $ne: false },
+      })
+      .toArray();
+
+    const tokens = adminTokens.map((row) => row.token).filter(Boolean);
+    if (tokens.length > 0) {
+      const title = payload.locale === 'ar' ? 'طلب جديد' : 'New Order';
+      const body = payload.locale === 'ar'
+        ? `تم إنشاء طلب جديد ${orderDoc.orderNumber}`
+        : `A new order ${orderDoc.orderNumber} was created`;
+      await sendToTokens(tokens, {
+        notification: { title, body },
+        data: {
+          title,
+          body,
+          orderNumber: orderDoc.orderNumber,
+          click_action_url: 'https://new.mabcoonline.com/account/admin/orders',
+        },
+      });
+    }
+  } catch (err) {
+    console.warn('[orders] admin notification failed', err);
+  }
 
   res.status(201).json({ success: true, data: hydrateCollection('orders', [saved])[0] });
 }));

@@ -98,12 +98,21 @@ const AppContent: React.FC = () => {
         const raw = localStorage.getItem("session");
         const session = raw ? JSON.parse(raw) : null;
         const user = session?.user;
+        const normalizePhone = (rawPhone: any) => {
+          if (!rawPhone) return null;
+          let digits = String(rawPhone).replace(/[^0-9]/g, "");
+          if (digits.startsWith("00963")) digits = `0${digits.slice(4)}`;
+          else if (digits.startsWith("963")) digits = `0${digits.slice(3)}`;
+          else if (digits.startsWith("9") && digits.length === 9) digits = `0${digits}`;
+          return digits;
+        };
         const payload = {
           token,
           userId: user?.id || user?._id || user?.userId || null,
-          phone: user?.phone || null,
+          phone: normalizePhone(user?.phone || null),
           locale: language,
           platform: "web",
+          role: user?.role || null,
         };
         fetch("/api/notifications/device-token", {
           method: "POST",
