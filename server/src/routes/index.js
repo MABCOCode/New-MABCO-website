@@ -10,6 +10,7 @@ const bannerSlidesRoutes = require('./bannerSlides.routes');
 const showroomRoutes = require('./showrooms.routes');
 const orderRoutes = require('./orders.routes');
 const authRoutes = require('./auth.routes');
+const notificationRoutes = require('./notifications.routes');
 const adminRoutes = require('./admin.routes');
 const { requireAdminKey } = require('../middleware/adminAuth');
 
@@ -25,6 +26,7 @@ router.use('/banner-slides', bannerSlidesRoutes);
 router.use('/showrooms', showroomRoutes);
 router.use('/orders', orderRoutes);
 router.use('/auth', authRoutes);
+router.use('/notifications', notificationRoutes);
 router.use('/admin', requireAdminKey, adminRoutes);
 
 module.exports = router;

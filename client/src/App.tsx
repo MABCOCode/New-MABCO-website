@@ -5,6 +5,7 @@ import ModernFooter from './components/layout/Footer'; // Make sure this is the 
 import Navbar from './components/layout/Navbar';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { setSeo } from './services/seo';
+import { requestFcmToken } from './services/fcm';
 
 const FloatingCompare = lazy(() => import('./components/layout/FloatingCompare'));
 const FloatingSocialLinks = lazy(() => import('./components/layout/FloatingSocialLinks'));
@@ -86,6 +87,44 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isAccountRoute = location.pathname.startsWith("/account");
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const token = await requestFcmToken();
+        if (cancelled || !token) return;
+        localStorage.setItem("fcmToken", token);
+        const raw = localStorage.getItem("session");
+        const session = raw ? JSON.parse(raw) : null;
+        const user = session?.user;
+        const payload = {
+          token,
+          userId: user?.id || user?._id || user?.userId || null,
+          phone: user?.phone || null,
+          locale: language,
+          platform: "web",
+        };
+        fetch("/api/notifications/device-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }).catch(() => null);
+      } catch {
+        // ignore
+      }
+    };
+
+    if (typeof (window as any).requestIdleCallback === "function") {
+      (window as any).requestIdleCallback(run, { timeout: 2000 });
+    } else {
+      setTimeout(run, 1200);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [language]);
 
   const handleProceedToCheckout = () => {
     closeCart();

@@ -4,6 +4,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { hydrateCollection, hydrateDocument } = require('../models');
 const { requireAdminToken } = require('../middleware/adminTokenAuth');
+const { sendToTokens } = require('../services/fcm');
 
 const router = express.Router();
 
@@ -254,6 +255,7 @@ router.put('/orders/:id', asyncHandler(async (req, res) => {
   const updates = {};
   const now = new Date();
 
+  const statusChanged = Boolean(payload.status && payload.status !== existing.status);
   if (payload.status) {
     updates.status = payload.status;
   }
@@ -311,6 +313,59 @@ router.put('/orders/:id', asyncHandler(async (req, res) => {
 
   await db.collection('orders').updateOne(query, { $set: updates });
   const updated = await db.collection('orders').findOne(query);
+
+  if (statusChanged && updated) {
+    const phoneRaw =
+      updated?.customerSnapshot?.phone ||
+      updated?.customerSnapshot?.secondaryPhone ||
+      '';
+    const phone = String(phoneRaw || '').replace(/[^0-9]/g, '');
+    const tokenSet = new Set(
+      Array.isArray(updated?.notificationTokens) ? updated.notificationTokens : [],
+    );
+
+    if (phone) {
+      const normalizedPhone = phone.startsWith('963') ? `0${phone.slice(3)}` : phone;
+      const tokensByPhone = await db
+        .collection('device_tokens')
+        .find({ phone: normalizedPhone })
+        .toArray();
+      tokensByPhone.forEach((row) => {
+        if (row?.token) tokenSet.add(String(row.token));
+      });
+    }
+
+    const tokens = Array.from(tokenSet).filter(Boolean);
+    if (tokens.length > 0) {
+      const locale = updated?.locale || 'en';
+      const status = String(payload.status);
+      const orderNumber = updated?.orderNumber || '';
+      const title =
+        locale === 'ar'
+          ? 'تحديث حالة الطلب'
+          : 'Order Status Update';
+      const body =
+        locale === 'ar'
+          ? `تم تحديث حالة الطلب ${orderNumber} إلى ${status}`
+          : `Your order ${orderNumber} is now ${status}`;
+
+      try {
+        await sendToTokens(tokens, {
+          notification: { title, body },
+          data: {
+            title,
+            body,
+            orderNumber: orderNumber || '',
+            status,
+            click_action_url: 'https://new.mabcoonline.com/account/orders',
+          },
+        });
+      } catch (err) {
+        console.warn('[admin.orders] FCM send failed', err);
+      }
+    }
+  }
+
   res.json({ success: true, data: hydrateDocument('orders', updated) });
 }));
 

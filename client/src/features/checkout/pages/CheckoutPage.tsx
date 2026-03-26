@@ -847,6 +847,8 @@ export function CheckoutPage() {
 
     const appliedOffersSnapshot = buildAppliedOffersSnapshot();
 
+    const notificationToken = localStorage.getItem("fcmToken");
+
     return {
       customerSnapshot: {
         fullName: formData.fullName,
@@ -897,6 +899,7 @@ export function CheckoutPage() {
       },
       status: "pending",
       locale: language,
+      notificationToken: notificationToken || null,
     };
   };
 
@@ -959,6 +962,20 @@ export function CheckoutPage() {
 
       const json = await res.json().catch(() => null);
       const savedOrder = json?.data ?? orderPayload;
+
+      const token = localStorage.getItem("fcmToken");
+      if (token) {
+        fetch("/api/notifications/device-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            phone: formData.phone,
+            locale: language,
+            platform: "web",
+          }),
+        }).catch(() => null);
+      }
 
       clearCart();
       const orderMessage =

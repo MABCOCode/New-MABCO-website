@@ -45,6 +45,7 @@ router.post('/', asyncHandler(async (req, res) => {
     fulfillment: payload.fulfillment || payload.fulfillmentType || null,
     addresses: payload.addresses || null,
     appliedOffersSnapshot: payload.appliedOffersSnapshot || payload.appliedOffers || [],
+    notificationTokens: payload.notificationToken ? [String(payload.notificationToken)] : [],
     locale: payload.locale || 'ar',
     createdAt: now,
     updatedAt: now,
