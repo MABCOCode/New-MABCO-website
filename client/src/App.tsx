@@ -1,30 +1,38 @@
 // App.tsx
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import ModernFooter from './components/layout/Footer'; // Make sure this is the correct import
 import Navbar from './components/layout/Navbar';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { setSeo } from './services/seo';
 
-import FloatingCompare from './components/layout/FloatingCompare';
-import FloatingSocialLinks from './components/layout/FloatingSocialLinks';
+const FloatingCompare = lazy(() => import('./components/layout/FloatingCompare'));
+const FloatingSocialLinks = lazy(() => import('./components/layout/FloatingSocialLinks'));
 import ScrollToTop from './components/ui/ScrollToTop';
 import { CartProvider, useCart } from './context/CartContext';
-import AboutPage from './features/about/pages/AboutPage';
-import AccountRoutes from './features/account/AccountRoutes';
-import CareerPage from './features/career/pages/CareerPage';
-import { ShoppingCart } from './features/cart/components/ShoppingCart';
-import { CheckoutPage } from './features/checkout/pages/CheckoutPage';
-import { ComparePage } from "./features/compare/pages/ComparePage";
+const AboutPage = lazy(() => import('./features/about/pages/AboutPage'));
+const AccountRoutes = lazy(() => import('./features/account/AccountRoutes'));
+const CareerPage = lazy(() => import('./features/career/pages/CareerPage'));
+const ShoppingCart = lazy(() =>
+  import('./features/cart/components/ShoppingCart').then((m) => ({ default: m.ShoppingCart })),
+);
+const CheckoutPage = lazy(() =>
+  import('./features/checkout/pages/CheckoutPage').then((m) => ({ default: m.CheckoutPage })),
+);
+const ComparePage = lazy(() =>
+  import('./features/compare/pages/ComparePage').then((m) => ({ default: m.ComparePage })),
+);
 import { useCompareStore } from "./features/compare/state";
-import HomePage from './features/home/pages/HomePage';
-import { OfferTypeRoute } from './features/offer/pages/OfferTypePage';
-import BrandPage from './features/products/pages/BrandPage';
-import CategoryPage from './features/products/pages/CategoryPage';
-import ProductDetailPage from './features/products/pages/ProductDetailPage';
-import SearchResultsPage from './features/products/pages/SearchResultsPage';
-import SearchPage from './features/search/pages/SearchPage';
-import ShowroomsPage from './features/showrooms/pages/ShowroomsPage';
+const HomePage = lazy(() => import('./features/home/pages/HomePage'));
+const OfferTypeRoute = lazy(() =>
+  import('./features/offer/pages/OfferTypePage').then((m) => ({ default: m.OfferTypeRoute })),
+);
+const BrandPage = lazy(() => import('./features/products/pages/BrandPage'));
+const CategoryPage = lazy(() => import('./features/products/pages/CategoryPage'));
+const ProductDetailPage = lazy(() => import('./features/products/pages/ProductDetailPage'));
+const SearchResultsPage = lazy(() => import('./features/products/pages/SearchResultsPage'));
+const SearchPage = lazy(() => import('./features/search/pages/SearchPage'));
+const ShowroomsPage = lazy(() => import('./features/showrooms/pages/ShowroomsPage'));
 import './styles/enhanced-ux.css';
 import './styles/globals.css';
 
@@ -167,58 +175,74 @@ const AppContent: React.FC = () => {
       <ScrollToTop />
       <div className="min-h-screen flex flex-col bg-white">
         {!isAccountRoute && <Navbar />}
-        {!isAccountRoute && <FloatingCompare />}
-        {!isAccountRoute && <FloatingSocialLinks />}
-        {!isAccountRoute && compareMode && (
-          <ComparePage
-            compareItems={compareItems}
-            allProducts={[]}
-            onClose={() => closeCompare()}
-            onRemoveItem={(id) => removeCompareItem(id)}
-            onAddItem={(id) => addCompareItem(id)}
-            language={language}
-          />
+        {!isAccountRoute && (
+          <Suspense fallback={null}>
+            <FloatingCompare />
+          </Suspense>
         )}
         {!isAccountRoute && (
-          <ShoppingCart
-            isOpen={cartOpen}
-            onClose={() => closeCart()}
-            cartItems={cartItems}
-            onUpdateQuantity={(id: number | string, qty: number) => updateQuantity(id, qty)}
-            onRemoveItem={(id: number | string) => removeFromCart(id)}
-            onProceedToCheckout={handleProceedToCheckout}
-            language={language}
-          />
+          <Suspense fallback={null}>
+            <FloatingSocialLinks />
+          </Suspense>
+        )}
+        {!isAccountRoute && compareMode && (
+          <Suspense fallback={null}>
+            <ComparePage
+              compareItems={compareItems}
+              allProducts={[]}
+              onClose={() => closeCompare()}
+              onRemoveItem={(id) => removeCompareItem(id)}
+              onAddItem={(id) => addCompareItem(id)}
+              language={language}
+            />
+          </Suspense>
+        )}
+        {!isAccountRoute && (
+          <Suspense fallback={null}>
+            <ShoppingCart
+              isOpen={cartOpen}
+              onClose={() => closeCart()}
+              cartItems={cartItems}
+              onUpdateQuantity={(id: number | string, qty: number) => updateQuantity(id, qty)}
+              onRemoveItem={(id: number | string) => removeFromCart(id)}
+              onProceedToCheckout={handleProceedToCheckout}
+              language={language}
+            />
+          </Suspense>
         )}
         {/* Checkout is now a route at /checkout */}
         <main className={`flex-grow ${isAccountRoute ? "" : "pt-20"}`}>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/products" element={<SearchResultsPage />} />
-            <Route path="/product/:id" element={<ProductDetailPage />} />
-            <Route path="/brand/:category/:id" element={<BrandPage />} />
-            <Route path="/brand/:id" element={<BrandPage />} />
-            <Route path="/category/:id" element={<CategoryPage />} />
-            <Route path="/offers/:offerType" element={<OfferTypeRoute />} />
-            <Route path="/showrooms" element={<ShowroomsPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/career" element={<CareerPage />} />
-            <Route path="/account/*" element={<AccountRoutes />} />
-            <Route path="/login" element={<Navigate to="/account/login" replace />} />
-            <Route path="/dashboard" element={<Navigate to="/account/dashboard" replace />} />
-            
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="*" element={
-              <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="text-center">
-                  <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
-                  <p className="text-gray-600 text-lg">Page not found</p>
-                </div>
-              </div>
-            } />
-          </Routes>
-          
+          <Suspense fallback={<div className="min-h-[40vh] bg-white" />}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/products" element={<SearchResultsPage />} />
+              <Route path="/product/:id" element={<ProductDetailPage />} />
+              <Route path="/brand/:category/:id" element={<BrandPage />} />
+              <Route path="/brand/:id" element={<BrandPage />} />
+              <Route path="/category/:id" element={<CategoryPage />} />
+              <Route path="/offers/:offerType" element={<OfferTypeRoute />} />
+              <Route path="/showrooms" element={<ShowroomsPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/career" element={<CareerPage />} />
+              <Route path="/account/*" element={<AccountRoutes />} />
+              <Route path="/login" element={<Navigate to="/account/login" replace />} />
+              <Route path="/dashboard" element={<Navigate to="/account/dashboard" replace />} />
+
+              <Route path="/search" element={<SearchPage />} />
+              <Route
+                path="*"
+                element={
+                  <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="text-center">
+                      <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
+                      <p className="text-gray-600 text-lg">Page not found</p>
+                    </div>
+                  </div>
+                }
+              />
+            </Routes>
+          </Suspense>
         </main>
         {!isAccountRoute && (
           <ModernFooter 

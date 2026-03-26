@@ -7,18 +7,28 @@ import { useLanguage } from "../../../context/LanguageContext";
 import { useCompareStore } from "../../../features/compare/state";
 import { setSeo } from "../../../services/seo";
 import CategorySection from "../components/CategorySection";
-import CompanyStrength from "../components/CompanyStrength";
-import { EPaymentService } from "../components/EPaymentService";
 import HeroCarousel from "../components/HeroCarousel";
-import { MaintenanceStatusService } from "../components/MaintenanceStatusService";
-import { OfferTypeSlider } from "../components/OfferTypeSlider";
-import { PrintingService } from "../components/PrintingService";
 import ProductsSlider from "../components/ProductsSlider";
 import SearchSection from "../components/SearchSection";
-import SEOSection from "../components/SEOSection";
+import { OfferTypeSlider } from "../components/OfferTypeSlider";
 import { ServicesGrid } from "../components/ServicesGrid";
-import { WarrantyCheckService } from "../components/WarrantyCheckService";
-import WarrantySection from "../components/WarrantySection";
+import { Suspense, lazy } from "react";
+
+const CompanyStrength = lazy(() => import("../components/CompanyStrength"));
+const WarrantySection = lazy(() => import("../components/WarrantySection"));
+const SEOSection = lazy(() => import("../components/SEOSection"));
+const PrintingService = lazy(() =>
+  import("../components/PrintingService").then((m) => ({ default: m.PrintingService })),
+);
+const EPaymentService = lazy(() =>
+  import("../components/EPaymentService").then((m) => ({ default: m.EPaymentService })),
+);
+const WarrantyCheckService = lazy(() =>
+  import("../components/WarrantyCheckService").then((m) => ({ default: m.WarrantyCheckService })),
+);
+const MaintenanceStatusService = lazy(() =>
+  import("../components/MaintenanceStatusService").then((m) => ({ default: m.MaintenanceStatusService })),
+);
 
 const HomePage: React.FC = () => {
   const { t, language, navigateToSection } = useLanguage();
@@ -360,33 +370,47 @@ const HomePage: React.FC = () => {
 
         {/* Service Modals */}
         {selectedService === "printing" && (
-          <PrintingService
-            language={language}
-            onClose={() => setSelectedService(null)}
-            onAddToCart={(item: any) => {
-              handleAddToCart(item);
-              setSelectedService(null);
-            }}
-          />
+          <Suspense fallback={null}>
+            <PrintingService
+              language={language}
+              onClose={() => setSelectedService(null)}
+              onAddToCart={(item: any) => {
+                handleAddToCart(item);
+                setSelectedService(null);
+              }}
+            />
+          </Suspense>
         )}
         {selectedService === "epayment" && (
-          <EPaymentService language={language} onClose={() => setSelectedService(null)} />
+          <Suspense fallback={null}>
+            <EPaymentService language={language} onClose={() => setSelectedService(null)} />
+          </Suspense>
         )}
         {selectedService === "warranty" && (
-          <WarrantyCheckService language={language} onClose={() => setSelectedService(null)} />
+          <Suspense fallback={null}>
+            <WarrantyCheckService language={language} onClose={() => setSelectedService(null)} />
+          </Suspense>
         )}
         {selectedService === "maintenance-status" && (
-          <MaintenanceStatusService language={language} onClose={() => setSelectedService(null)} />
+          <Suspense fallback={null}>
+            <MaintenanceStatusService language={language} onClose={() => setSelectedService(null)} />
+          </Suspense>
         )}
 
         {/* Company Strength Section */}
-        <CompanyStrength language={language} />
+        <Suspense fallback={null}>
+          <CompanyStrength language={language} />
+        </Suspense>
 
         {/* Warranty & Policy Section */}
-        <WarrantySection language={language} />
+        <Suspense fallback={null}>
+          <WarrantySection language={language} />
+        </Suspense>
 
         {/* SEO Structured Data */}
-        <SEOSection language={language} />
+        <Suspense fallback={null}>
+          <SEOSection language={language} />
+        </Suspense>
 
         {/* Geometric Background Pattern */}
         <div className="fixed inset-0 opacity-5 pointer-events-none z-0">

@@ -29,6 +29,9 @@ declare global {
   }
 }
 
+const GOOGLE_MAPS_SRC =
+  "https://maps.googleapis.com/maps/api/js?key=AIzaSyALOnHuVIdWZKeWhDy2A8MPL_WGWcSMY_8&libraries=places";
+
 interface CartItem {
   id: number | string;
   productId?: number;
@@ -143,6 +146,9 @@ export function CheckoutPage() {
   const [bundleProductsAdded, setBundleProductsAdded] = useState<Map<string, number[]>>(new Map());
 
   const showroomSliderRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const mapsLoaderRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -233,12 +239,8 @@ export function CheckoutPage() {
   // Initialize map when component mounts for delivery
   useEffect(() => {
     if (fulfillmentType === "delivery") {
-      // Small delay to ensure DOM is ready
       const timer = setTimeout(() => {
-        if ((window as any).showMap) {
-          (window as any).showMap();
-        }
-        // Also try to attach event listener after map is shown
+        showMap();
         setTimeout(() => {
           const mapElement = document.getElementById("map");
           if (mapElement) {
@@ -322,6 +324,141 @@ export function CheckoutPage() {
     setBundleProductsAdded(nextBundle);
   }, [cartItems]);
 
+  const loadGoogleMaps = () => {
+    if (window.google?.maps) {
+      return Promise.resolve();
+    }
+    if (mapsLoaderRef.current) {
+      return mapsLoaderRef.current;
+    }
+    mapsLoaderRef.current = new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector<HTMLScriptElement>(
+        'script[data-google-maps="true"]',
+      );
+      if (existing) {
+        existing.addEventListener("load", () => resolve());
+        existing.addEventListener("error", () => reject(new Error("Failed to load Google Maps")));
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = GOOGLE_MAPS_SRC;
+      script.async = true;
+      script.defer = true;
+      script.setAttribute("data-google-maps", "true");
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Failed to load Google Maps"));
+      document.head.appendChild(script);
+    });
+    return mapsLoaderRef.current;
+  };
+
+  const emitMapLocationChange = (lat: number, lng: number) => {
+    const mapContainer = document.getElementById("map");
+    if (!mapContainer) return;
+    mapContainer.setAttribute("data-lat", String(lat));
+    mapContainer.setAttribute("data-lng", String(lng));
+    const event = new CustomEvent("mapLocationChange", {
+      detail: { lat, lng },
+    });
+    mapContainer.dispatchEvent(event);
+  };
+
+  const updateMapLocation = (location: { lat: number; lng: number }) => {
+    if (!mapRef.current || !markerRef.current) return;
+    mapRef.current.setCenter(location);
+    markerRef.current.setPosition(location);
+    emitMapLocationChange(location.lat, location.lng);
+  };
+
+  const initMap = () => {
+    if (!window.google?.maps) return;
+    const mapElement = document.getElementById("map");
+    if (!mapElement) return;
+    if (mapRef.current && markerRef.current) return;
+
+    const defaultLocation = DEFAULT_CENTER;
+    mapRef.current = new google.maps.Map(mapElement, {
+      center: defaultLocation,
+      zoom: 12,
+    });
+
+    markerRef.current = new google.maps.Marker({
+      position: defaultLocation,
+      map: mapRef.current,
+      draggable: true,
+    });
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          updateMapLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        () => {
+          updateMapLocation(defaultLocation);
+        },
+      );
+    } else {
+      updateMapLocation(defaultLocation);
+    }
+
+    google.maps.event.addListener(markerRef.current, "dragend", (event: any) => {
+      emitMapLocationChange(event.latLng.lat(), event.latLng.lng());
+    });
+
+    google.maps.event.addListener(mapRef.current, "click", (event: any) => {
+      markerRef.current.setPosition(event.latLng);
+      emitMapLocationChange(event.latLng.lat(), event.latLng.lng());
+    });
+  };
+
+  const showMap = async () => {
+    try {
+      await loadGoogleMaps();
+      if (!mapRef.current) {
+        initMap();
+      } else {
+        google.maps.event.trigger(mapRef.current, "resize");
+        mapRef.current.setCenter(markerRef.current?.getPosition?.());
+      }
+    } catch (err) {
+      console.warn("Failed to initialize Google Maps", err);
+    }
+  };
+
+  const getCurrentLocation = async () => {
+    try {
+      await loadGoogleMaps();
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            updateMapLocation({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            });
+          },
+          () => {
+            alert(
+              language === "ar"
+                ? "تعذر الحصول على موقعك الحالي. يرجى التحقق من إعدادات الموقع."
+                : "Unable to get your current location. Please check location settings.",
+            );
+          },
+        );
+      } else {
+        alert(
+          language === "ar"
+            ? "المتصفح لا يدعم خاصية تحديد الموقع الجغرافي."
+            : "Your browser does not support geolocation.",
+        );
+      }
+    } catch (err) {
+      console.warn("Failed to load Google Maps for location", err);
+    }
+  };
+
   const updateLocationFromLatLng = (lat: number, lng: number) => {
     if (!window.google) {
       // Fallback: set basic location data even without geocoding
@@ -387,9 +524,7 @@ export function CheckoutPage() {
   };
 
   const handleUseCurrentLocation = () => {
-    if ((window as any).getCurrentLocation) {
-      (window as any).getCurrentLocation();
-    }
+    getCurrentLocation();
   };
 
   // Calculate prices

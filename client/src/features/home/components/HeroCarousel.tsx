@@ -123,6 +123,9 @@ const HeroCarousel: React.FC<Props> = ({ language = 'ar' }) => {
                     src={slide.image}
                     alt={language === 'ar' ? slide.titleAr || slide.title : slide.titleEn || slide.title}
                     className="w-full h-full object-cover"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    fetchpriority={index === 0 ? "high" : "auto"}
+                    decoding="async"
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30" />
                   <div className="absolute inset-0 flex items-center justify-center text-center">
