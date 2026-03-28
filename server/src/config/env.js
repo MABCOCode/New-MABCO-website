@@ -15,4 +15,6 @@ module.exports = {
   smsLang: process.env.SMS_LANG || '0',
   otpSecret: process.env.OTP_SECRET || 'otp-secret',
   adminTokenSecret: process.env.ADMIN_TOKEN_SECRET || process.env.OTP_SECRET || 'admin-token-secret',
+  posSyncToken: process.env.POS_SYNC_TOKEN || '',
+  posSyncConnString: process.env.POS_SYNC_CONN_STRING || '',
 };

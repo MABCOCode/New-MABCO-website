@@ -144,6 +144,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [resolvedAdminMeta, setResolvedAdminMeta] = useState<any | null>(null);
+  const [staticCategories, setStaticCategories] = useState<any[]>([]);
+  const [staticBrands, setStaticBrands] = useState<any[]>([]);
 
   const [localProduct, setLocalProduct] = useState<any | null>(
     product ?? (location.state && (location.state as any).product) ?? null,
@@ -258,6 +260,65 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const prod = localProduct ?? product;
 
   useEffect(() => {
+    let mounted = true;
+    const loadStatics = async () => {
+      try {
+        const [categoriesRes, brandsRes] = await Promise.all([
+          fetch("/static/categories.json"),
+          fetch("/static/brands.json"),
+        ]);
+        const categoriesJson = categoriesRes.ok ? await categoriesRes.json() : [];
+        const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
+        if (!mounted) return;
+        setStaticCategories(Array.isArray(categoriesJson) ? categoriesJson : []);
+        setStaticBrands(Array.isArray(brandsJson) ? brandsJson : []);
+      } catch {
+        if (!mounted) return;
+        setStaticCategories([]);
+        setStaticBrands([]);
+      }
+    };
+
+    if (!staticCategories.length || !staticBrands.length) {
+      loadStatics();
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [staticBrands.length, staticCategories.length]);
+
+  const resolvedCategoryName = useMemo(() => {
+    const catCode = String(
+      prod?.cat_code || prod?.category_code || prod?.catCode || ""
+    );
+    const category = staticCategories.find(
+      (item) => String(item?.cat_code) === catCode
+    );
+    if (category) {
+      return language === "ar"
+        ? category?.name || category?.nameAr || categoryName
+        : category?.nameEn || category?.englishName || categoryName;
+    }
+    return categoryName;
+  }, [categoryName, language, prod, staticCategories]);
+
+  const resolvedBrandName = useMemo(() => {
+    const brandCode = String(
+      prod?.brand_code || prod?.brandCode || ""
+    );
+    const brand = staticBrands.find(
+      (item) => String(item?.brand_code) === brandCode
+    );
+    if (brand) {
+      return language === "ar"
+        ? brand?.name || brand?.nameAr || brandName
+        : brand?.englishName || brand?.nameEn || brandName;
+    }
+    return brandName;
+  }, [brandName, language, prod, staticBrands]);
+
+  useEffect(() => {
     if (!prod) return;
 
     const productName =
@@ -280,9 +341,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       description: descriptionText,
       url: window.location.href,
       image: prod.image || 'https://mabcoonline.com/images/giphy.gif',
-      keywords: `${productName}, ${prod.brand || prod.brandName || ''}`,
+      keywords: `${productName}, ${resolvedBrandName || ''}`,
     });
-  }, [prod, language]);
+  }, [prod, language, resolvedBrandName]);
 
   const breadcrumbs = useMemo(() => {
     if (Array.isArray(locationState?.breadcrumbs) && locationState.breadcrumbs.length) {
@@ -290,10 +351,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     }
 
     const fallback: Array<{ label: string; href?: string }> = [];
-    if (categoryName) fallback.push({ label: categoryName });
-    if (brandName) fallback.push({ label: brandName });
+    if (resolvedCategoryName) fallback.push({ label: resolvedCategoryName });
+    if (resolvedBrandName) fallback.push({ label: resolvedBrandName });
     return fallback;
-  }, [locationState, categoryName, brandName]);
+  }, [locationState, resolvedBrandName, resolvedCategoryName]);
 
   const resolveBrandHref = (crumbIndex: number, crumb: any): string | null => {
     if (crumbIndex !== breadcrumbs.length - 1) return null;
@@ -1434,6 +1495,21 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   language === "ar" ? "اسم المنتج..." : "Product name..."
                 }
               />
+              {(resolvedBrandName || resolvedCategoryName) && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                  {resolvedCategoryName && (
+                    <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200">
+                      {resolvedCategoryName}
+                    </span>
+                  )}
+                  {resolvedBrandName && (
+                    <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200">
+                      {resolvedBrandName}
+                    </span>
+                  )}
+                </div>
+              )}
+
             </div>
 
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50/50 rounded-2xl p-6 mb-6 border-2 border-[#009FE3]/20">

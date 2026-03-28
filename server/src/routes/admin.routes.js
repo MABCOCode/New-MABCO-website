@@ -4,10 +4,31 @@ const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { hydrateCollection, hydrateDocument } = require('../models');
 const { requireAdminToken } = require('../middleware/adminTokenAuth');
+const { posSyncToken, posSyncConnString } = require('../config/env');
+const { syncPosProducts } = require('../services/posProductsSync.service');
 const { sendToTokens } = require('../services/fcm');
 const { normalizePhone } = require('../utils/phone');
 
 const router = express.Router();
+
+function requirePosSyncToken(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const headerToken = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+  const token = req.headers['x-pos-sync-token'] || headerToken;
+
+  if (!posSyncToken) {
+    return res.status(500).json({ success: false, message: 'POS sync token not configured' });
+  }
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'POS sync token required' });
+  }
+  if (String(token) !== String(posSyncToken)) {
+    return res.status(403).json({ success: false, message: 'Invalid POS sync token' });
+  }
+  return next();
+}
 
 function toObjectIdArray(values = []) {
   if (!Array.isArray(values)) return [];
@@ -474,6 +495,18 @@ router.get('/actions', asyncHandler(async (req, res) => {
     data: hydrateCollection('admin_actions', items),
     pagination: { page, limit, total },
   });
+}));
+
+router.post('/pos/sync-products', requirePosSyncToken, asyncHandler(async (req, res) => {
+  const db = getDb();
+  const connString = posSyncConnString || req.body?.connString;
+
+  if (!connString) {
+    return res.status(400).json({ success: false, message: 'POS connection string required' });
+  }
+
+  const result = await syncPosProducts({ connString, db, logger: console });
+  res.json({ success: true, data: result });
 }));
 
 const computeContentMissing = (product) => {

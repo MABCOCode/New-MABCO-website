@@ -15,6 +15,7 @@ const BrandPage: React.FC = () => {
   const categoryParam = category ? decodeURIComponent(category) : '';
   const isServiceBrand = ["2020", "2022"].includes(String(term));
   const [staticCategories, setStaticCategories] = useState<any[]>([]);
+  const [staticBrands, setStaticBrands] = useState<any[]>([]);
   const [apiProducts, setApiProducts] = useState<any[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
@@ -22,12 +23,15 @@ const BrandPage: React.FC = () => {
     let mounted = true;
     (async () => {
       try {
-        const res = await fetch('/static/categories.json');
-        if (!res.ok) return;
-        const json = await res.json();
-        if (mounted && Array.isArray(json)) {
-          setStaticCategories(json);
-        }
+        const [categoriesRes, brandsRes] = await Promise.all([
+          fetch('/static/categories.json'),
+          fetch('/static/brands.json'),
+        ]);
+        const categoriesJson = categoriesRes.ok ? await categoriesRes.json() : [];
+        const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
+        if (!mounted) return;
+        setStaticCategories(Array.isArray(categoriesJson) ? categoriesJson : []);
+        setStaticBrands(Array.isArray(brandsJson) ? brandsJson : []);
       } catch {}
     })();
     return () => {
@@ -86,6 +90,10 @@ const BrandPage: React.FC = () => {
 
   const products = apiProducts;
 
+  const primaryProduct = products[0];
+  const productBrandCode = primaryProduct?.brand_code || primaryProduct?.brandCode || '';
+  const productCategoryCode = primaryProduct?.cat_code || primaryProduct?.categoryCode || '';
+
   const matchedBrandMeta = (() => {
     for (const c of categorySource) {
       const brand = (c.brands || []).find((b: any) => {
@@ -142,21 +150,10 @@ const BrandPage: React.FC = () => {
       );
     }
     if (matchedCategoryByBrand) return matchedCategoryByBrand;
-    if (products.length === 0) return null;
-    const first = products[0];
-    const categoryByCodeMatch = categoryByCode.get(String(first?.cat_code || '').toLowerCase());
+    if (!productCategoryCode) return null;
+    const categoryByCodeMatch = categoryByCode.get(String(productCategoryCode).toLowerCase());
     if (categoryByCodeMatch) return categoryByCodeMatch;
-    const raw = String(
-      language === 'ar'
-        ? first.categoryAr || first.category || ''
-        : first.category || first.categoryAr || '',
-    );
-    if (!raw) return null;
-    return categorySource.find((c) => {
-      const nameEn = String(c.nameEn || '');
-      const nameAr = String(c.name || '');
-      return slug(nameEn) === slug(raw) || slug(nameAr) === slug(raw);
-    }) || { name: raw, nameEn: raw };
+    return null;
   })();
 
   const displayCategoryName = inferredCategory
@@ -173,36 +170,46 @@ const BrandPage: React.FC = () => {
   const servicesHref = "/#services";
 
   const displayBrandName = (() => {
+    const code = String(term || productBrandCode || '').toLowerCase();
+    const brandFromGlobal = staticBrands.find(
+      (b: any) => String(b?.brand_code || '').toLowerCase() === code
+    );
+    if (brandFromGlobal) {
+      return language === 'ar'
+        ? String(brandFromGlobal.name || brandFromGlobal.englishName || term)
+        : String(brandFromGlobal.englishName || brandFromGlobal.name || term);
+    }
+    const fromCode = brandByCode.get(code);
+    if (fromCode) {
+      return language === 'ar'
+        ? String(fromCode.name || fromCode.englishName || term)
+        : String(fromCode.englishName || fromCode.name || term);
+    }
     if (matchedBrandMeta?.brand) {
       const b: any = matchedBrandMeta.brand;
       return language === 'ar' ? (b.name || b.englishName || term) : (b.englishName || b.name || term);
-    }
-    if (products.length > 0) {
-      const fromProduct = products[0];
-      const fromCode = brandByCode.get(String(fromProduct?.brand_code || '').toLowerCase());
-      if (fromCode) {
-        return language === 'ar'
-          ? String(fromCode.name || fromCode.englishName || term)
-          : String(fromCode.englishName || fromCode.name || term);
-      }
-      return language === 'ar'
-        ? String(fromProduct.brandAr || fromProduct.brand || term)
-        : String(fromProduct.brand || fromProduct.brandAr || term);
     }
     return term;
   })();
 
   useEffect(() => {
     if (!displayBrandName) return;
-
     const title =
       language === 'ar'
-        ? `${displayBrandName} - مابكو`
-        : `${displayBrandName} | MABCO`;
+        ? displayCategoryName
+          ? `مابكو | ${displayCategoryName} | ${displayBrandName}`
+          : `مابكو | ${displayBrandName}`
+        : displayCategoryName
+          ? `${displayBrandName} | ${displayCategoryName} | MABCO`
+          : `${displayBrandName} | MABCO`;
     const description =
       language === 'ar'
-        ? `استكشف منتجات ${displayBrandName} على مابكو. تجد جميع موديلات ${displayBrandName} بسعر تنافسي وضمان.`
-        : `Explore ${displayBrandName} products on MABCO. Find all the latest ${displayBrandName} models at competitive prices.`;
+        ? displayCategoryName
+          ? `تصفح أحدث منتجات ${displayBrandName} ضمن فئة ${displayCategoryName} على مابكو.`
+          : `تصفح أحدث منتجات ${displayBrandName} على مابكو.`
+        : displayCategoryName
+          ? `Browse the latest ${displayBrandName} products in ${displayCategoryName} on MABCO.`
+          : `Browse the latest ${displayBrandName} products on MABCO.`;
 
     setSeo({
       title,
@@ -210,7 +217,7 @@ const BrandPage: React.FC = () => {
       url: window.location.href,
       image: 'https://mabcoonline.com/images/giphy.gif',
     });
-  }, [displayBrandName, language]);
+  }, [displayBrandName, displayCategoryName, language]);
 
   const compareItems = useCompareStore((s: any) => s.items) as string[];
   const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;

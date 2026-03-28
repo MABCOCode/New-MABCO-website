@@ -365,7 +365,7 @@ export function ShoppingCart({
 
                     {/* Offers for this item */}
                     {item.appliedOffers && item.appliedOffers.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="border-b-2 border-gray-100 mt-3 pb-3">
                         <CartOfferDisplay
                           productId={Number(item.productId)}
                           quantity={item.quantity}

@@ -39,6 +39,37 @@ import './styles/globals.css';
 
 // Create a wrapper component that can use the LanguageContext
 const AppContent: React.FC = () => {
+  const MainSkeleton = ({ language }: { language: string }) => (
+    <div className="min-h-screen bg-white">
+      <div className="pt-20">
+        <div className="relative h-[350px] md:h-[450px] w-full overflow-hidden bg-gray-100">
+          <div className="absolute inset-0 shimmer-surface" />
+        </div>
+        <div className="container mx-auto px-4 py-16">
+          <div className="h-8 w-2/3 mx-auto shimmer-surface rounded mb-8" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, idx) => (
+              <div key={`skeleton-card-${idx}`} className="bg-white rounded-2xl p-4 border border-gray-200">
+                <div className="aspect-square rounded-xl shimmer-surface mb-3" />
+                <div className="h-4 w-3/4 shimmer-surface rounded mb-2" />
+                <div className="h-4 w-1/2 shimmer-surface rounded" />
+              </div>
+            ))}
+          </div>
+          <div className="h-8 w-1/2 mx-auto shimmer-surface rounded mt-12 mb-6" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, idx) => (
+              <div key={`skeleton-row-${idx}`} className="bg-white rounded-2xl p-4 border border-gray-200">
+                <div className="aspect-square rounded-xl shimmer-surface mb-3" />
+                <div className="h-4 w-3/4 shimmer-surface rounded mb-2" />
+                <div className="h-4 w-1/2 shimmer-surface rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   const handleBrandClick = (brandName: string, categoryName: string, categoryNameEn: string) => {
     const categoryCode =
       (/^\d+$/.test(String(categoryName)) && String(categoryName)) ||
@@ -259,8 +290,8 @@ const AppContent: React.FC = () => {
           </Suspense>
         )}
         {/* Checkout is now a route at /checkout */}
-        <main className={`flex-grow ${isAccountRoute ? "" : "pt-20"}`}>
-          <Suspense fallback={<div className="min-h-[40vh] bg-white" />}>
+        <Suspense fallback={<MainSkeleton language={language} />}>
+          <main className={`flex-grow ${isAccountRoute ? "" : "pt-20"}`}>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
@@ -290,20 +321,20 @@ const AppContent: React.FC = () => {
                 }
               />
             </Routes>
-          </Suspense>
-        </main>
-        {!isAccountRoute && (
-          <ModernFooter 
-            language={language}
-            onBrandClick={handleBrandClick}
-            onCategoryClick={handleCategoryClick}
-            onAboutClick={handleAboutClick}
-            onShowroomsClick={handleShowroomsClick}
-            onWarrantyClick={handleWarrantyClick}
-            onMaintenanceClick={handleMaintenanceClick}
-            onCareerClick={handleCareerClick}
-          />
-        )}
+          </main>
+          {!isAccountRoute && (
+            <ModernFooter 
+              language={language}
+              onBrandClick={handleBrandClick}
+              onCategoryClick={handleCategoryClick}
+              onAboutClick={handleAboutClick}
+              onShowroomsClick={handleShowroomsClick}
+              onWarrantyClick={handleWarrantyClick}
+              onMaintenanceClick={handleMaintenanceClick}
+              onCareerClick={handleCareerClick}
+            />
+          )}
+        </Suspense>
       </div>
     </>
   );
