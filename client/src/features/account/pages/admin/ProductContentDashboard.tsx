@@ -199,7 +199,17 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
     const hasImage = Boolean(String(product?.image || colors?.[0]?.image || "").trim());
     const hasPrice = Number(product?.price || 0) > 0;
     const colorHasImages = colors.length === 0 || colors.some((c) => Boolean(String(c.image || "").trim()));
-    const requiredMissing = !(hasName && hasDetails && hasImage && hasPrice && colorHasImages);
+    const hasCategoryCode = Boolean(String(product?.cat_code || product?.category_code || product?.catCode || "").trim());
+    const hasBrandCode = Boolean(String(product?.brand_code || product?.brandCode || "").trim());
+    const requiredMissing = !(
+      hasName &&
+      hasDetails &&
+      hasImage &&
+      hasPrice &&
+      colorHasImages &&
+      hasCategoryCode &&
+      hasBrandCode
+    );
 
     return {
       id: String(product?._id || product?.id || product?.stk_code || ""),
@@ -207,7 +217,9 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       nameEn,
       nameAr,
       brand: product?.brand || "",
+      brandAr: product?.brandAr || "",
       category: product?.category || "",
+      categoryAr: product?.categoryAr || "",
       brandCode: String(product?.brand_code || product?.brandCode || ""),
       categoryCode: String(product?.cat_code || product?.category_code || product?.catCode || ""),
       price: product?.price || "",
@@ -464,6 +476,30 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
     });
   }, [allowAllBrands, allowedBrandIds, filterBrands, selectedCategoryFilter, hasBrandRules, allowAllCategories, allowedCategoryIds]);
 
+  const normalizeKey = (value: any) =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const categoryIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    filterCategories.forEach((category) => {
+      if (category.nameEn) map.set(normalizeKey(category.nameEn), category.id);
+      if (category.nameAr) map.set(normalizeKey(category.nameAr), category.id);
+    });
+    return map;
+  }, [filterCategories]);
+
+  const brandIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    filterBrands.forEach((brand) => {
+      if (brand.nameEn) map.set(normalizeKey(brand.nameEn), brand.id);
+      if (brand.nameAr) map.set(normalizeKey(brand.nameAr), brand.id);
+    });
+    return map;
+  }, [filterBrands]);
+
   useEffect(() => {
     if (selectedCategoryFilter && !availableCategoryFilters.some((category) => category.id === selectedCategoryFilter)) {
       setSelectedCategoryFilter("");
@@ -477,12 +513,21 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   }, [availableBrandFilters, selectedBrandFilter]);
 
   const filteredProducts = contentProducts.filter((product) => {
+    const inferredCategoryCode =
+      product.categoryCode ||
+      categoryIdByName.get(normalizeKey(product.category)) ||
+      categoryIdByName.get(normalizeKey(product.categoryAr));
+    const inferredBrandCode =
+      product.brandCode ||
+      brandIdByName.get(normalizeKey(product.brand)) ||
+      brandIdByName.get(normalizeKey(product.brandAr));
+
     const categoryAllowed =
       allowAllCategories ||
-      (allowedCategoryIds.length > 0 && allowedCategoryIds.includes(product.categoryCode));
+      (allowedCategoryIds.length > 0 && inferredCategoryCode && allowedCategoryIds.includes(inferredCategoryCode));
     const brandAllowed =
       allowAllBrands ||
-      (allowedBrandIds.length > 0 && allowedBrandIds.includes(product.brandCode));
+      (allowedBrandIds.length > 0 && inferredBrandCode && allowedBrandIds.includes(inferredBrandCode));
 
     const hasCategoryRules = allowedCategoryIds.length > 0 || allowAllCategories;
     const hasBrandRules = allowedBrandIds.length > 0 || allowAllBrands;
@@ -505,8 +550,8 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       product.sku.toLowerCase().includes(q) ||
       product.nameEn.toLowerCase().includes(q) ||
       product.nameAr.toLowerCase().includes(q);
-    const matchesCategory = !selectedCategoryFilter || product.categoryCode === selectedCategoryFilter;
-    const matchesBrand = !selectedBrandFilter || product.brandCode === selectedBrandFilter;
+    const matchesCategory = !selectedCategoryFilter || inferredCategoryCode === selectedCategoryFilter;
+    const matchesBrand = !selectedBrandFilter || inferredBrandCode === selectedBrandFilter;
     return matchesScope && matchesSearch && matchesCategory && matchesBrand;
   });
 
@@ -1633,124 +1678,6 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                   <p className="text-sm text-purple-700">
                     {t('admin.content.minRequired')}: {CONTENT_REQUIREMENTS.minSpecs} | {t('admin.content.maxAllowed')}: {CONTENT_REQUIREMENTS.maxSpecs}
                   </p>
-                </div>
-              </div>
-
-              {/* Autocomplete Search for Saved Specs */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Search className="w-5 h-5 text-blue-600" />
-                  <h4 className="font-bold text-blue-900">{t('admin.content.savedSpecs')}</h4>
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={specSearchQuery}
-                    onChange={(e) => {
-                      setSpecSearchQuery(e.target.value);
-                      setShowSpecSuggestions(true);
-                    }}
-                    onFocus={() => setShowSpecSuggestions(true)}
-                    placeholder={t('admin.content.searchSpecs')}
-                    className="w-full px-4 py-3 pr-10 border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3]"
-                  />
-                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-
-                  {/* Suggestions Dropdown */}
-                  {showSpecSuggestions && (
-                    <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-xl shadow-2xl border-2 border-gray-200 max-h-64 overflow-y-auto z-30">
-                      {specSearchQuery === "" ? (
-                        /* Show most used when no search */
-                        <div className="p-3">
-                          <p className="text-xs font-bold text-gray-500 mb-2 px-2">{t('admin.content.mostUsedSpecs')}</p>
-                          {savedSpecTitlesManager.getMostUsed(10).map((savedSpec) => (
-                            <button
-                              key={savedSpec.id}
-                              onClick={() => addSpecFromSaved(savedSpec)}
-                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg transition-all text-left"
-                            >
-                              {(() => {
-                                if (savedSpec.iconImage) {
-                                  return (
-                                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center overflow-hidden border-2 border-gray-200 flex-shrink-0">
-                                      <img src={savedSpec.iconImage} alt="Icon" className="w-full h-full object-contain" />
-                                    </div>
-                                  );
-                                } else {
-                                  const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
-                                  return (
-                                    <div className="w-8 h-8 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center flex-shrink-0">
-                                      <Icon className="w-5 h-5 text-white" />
-                                    </div>
-                                  );
-                                }
-                              })()}
-                              <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-gray-900 truncate">
-                                  {language === "ar" ? savedSpec.nameAr : savedSpec.nameEn}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {language === "ar" ? `استخدم ${savedSpec.usageCount} مرة` : `Used ${savedSpec.usageCount} times`}
-                                </p>
-                              </div>
-                              <Plus className="w-4 h-4 text-[#009FE3] flex-shrink-0" />
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        /* Show search results */
-                        <div className="p-3">
-                          {savedSpecTitlesManager.searchTitles(specSearchQuery, language).map((savedSpec) => (
-                            <button
-                              key={savedSpec.id}
-                              onClick={() => addSpecFromSaved(savedSpec)}
-                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg transition-all text-left"
-                            >
-                              {(() => {
-                                if (savedSpec.iconImage) {
-                                  return (
-                                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center overflow-hidden border-2 border-gray-200 flex-shrink-0">
-                                      <img src={savedSpec.iconImage} alt="Icon" className="w-full h-full object-contain" />
-                                    </div>
-                                  );
-                                } else {
-                                  const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
-                                  return (
-                                    <div className="w-8 h-8 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center flex-shrink-0">
-                                      <Icon className="w-5 h-5 text-white" />
-                                    </div>
-                                  );
-                                }
-                              })()}
-                              <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-gray-900 truncate">
-                                  {language === "ar" ? savedSpec.nameAr : savedSpec.nameEn}
-                                </p>
-                              </div>
-                              <Plus className="w-4 h-4 text-[#009FE3] flex-shrink-0" />
-                            </button>
-                          ))}
-                          {savedSpecTitlesManager.searchTitles(specSearchQuery, language).length === 0 && (
-                            <div className="px-3 py-6 text-center text-gray-400">
-                              <p className="text-sm">{t("admin.content.noResultsFound")}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div className="border-t border-gray-200 p-2">
-                        <button
-                          onClick={() => {
-                            addNewSpec();
-                            setShowSpecSuggestions(false);
-                          }}
-                          className="w-full py-2 px-3 bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 font-bold"
-                        >
-                          <Plus className="w-4 h-4" />
-                          {t('admin.content.createNewSpec')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 

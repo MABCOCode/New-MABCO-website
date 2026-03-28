@@ -6,6 +6,69 @@ const { hydrateCollection, hydrateDocument } = require('../models');
 
 const router = express.Router();
 
+const computeContentMissing = (product) => {
+  const name = typeof product?.name === 'object' ? product?.name?.en : product?.name;
+  const nameAr = product?.nameAr || (typeof product?.name === 'object' ? product?.name?.ar : '');
+  const description = product?.description || '';
+  const descriptionAr = product?.descriptionAr || '';
+  const image = product?.image || '';
+  const specs = Array.isArray(product?.specs) ? product.specs : [];
+  const inTheBox = Array.isArray(product?.inTheBox) ? product.inTheBox : [];
+  const galleryImages = Array.isArray(product?.images) ? product.images : [];
+  const colors = Array.isArray(product?.colorVariants) ? product.colorVariants : [];
+
+  const colorImagesMissing = colors.filter((color) => {
+    const nameVal = color?.name || color?.color_name || '';
+    const nameArVal = color?.nameAr || color?.color_name_ar || nameVal || '';
+    const images = Array.isArray(color?.images)
+      ? color.images.map((img) => (typeof img === 'string' ? img : img?.image_link || img?.url || '')).filter(Boolean)
+      : [];
+    const imageVal = color?.image || images[0] || '';
+    return !String(nameVal || nameArVal).trim() || !String(imageVal).trim();
+  }).length;
+
+  const hasSpecs = specs.length > 0;
+  const hasDescription = String(description).trim().length > 0 || String(descriptionAr).trim().length > 0;
+  const hasName = String(name).trim().length > 0 && String(nameAr).trim().length > 0;
+  const hasColorImages = colors.some((color) => {
+    const images = Array.isArray(color?.images)
+      ? color.images.map((img) => (typeof img === 'string' ? img : img?.image_link || img?.url || '')).filter(Boolean)
+      : [];
+    const imageVal = color?.image || images[0] || '';
+    return String(imageVal).trim().length > 0;
+  });
+  const hasImage = String(image).trim().length > 0 || hasColorImages;
+  const hasGallery = galleryImages.length > 0;
+  const hasBox = inTheBox.length > 0;
+  const hasCategory = String(product?.category || '').trim().length > 0;
+  const hasBrand = String(product?.brand || '').trim().length > 0;
+
+  const missing = {
+    name: !hasName,
+    description: !hasDescription,
+    specs: !hasSpecs,
+    image: !hasImage,
+    colorImages: colorImagesMissing,
+    galleryImages: !hasGallery,
+    inTheBox: !hasBox,
+    category: !hasCategory,
+    brand: !hasBrand,
+  };
+
+  const hasMissing =
+    missing.name ||
+    missing.description ||
+    missing.specs ||
+    missing.image ||
+    missing.colorImages > 0 ||
+    missing.galleryImages ||
+    missing.inTheBox ||
+    missing.category ||
+    missing.brand;
+
+  return { missing, hasMissing };
+};
+
 router.get('/', asyncHandler(async (req, res) => {
   const db = getDb();
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
@@ -195,9 +258,24 @@ router.get('/', asyncHandler(async (req, res) => {
       : Promise.resolve(null),
   ]);
 
+  const includeMissing = req.query.include_missing === '1' || req.query.include_missing === 'true';
+  const shouldExcludeMissing =
+    !includeMissing &&
+    (req.query.brand_code ||
+      req.query.cat_code ||
+      req.query.brand ||
+      req.query.category ||
+      req.query.categoryId ||
+      req.query.brandId);
+
+  const hydrated = hydrateCollection('products', items);
+  const filtered = shouldExcludeMissing
+    ? hydrated.filter((item) => !computeContentMissing(item).hasMissing)
+    : hydrated;
+
   const response = {
     success: true,
-    data: hydrateCollection('products', items),
+    data: filtered,
     pagination: { page, limit },
   };
   if (doCount) response.pagination.total = total;
