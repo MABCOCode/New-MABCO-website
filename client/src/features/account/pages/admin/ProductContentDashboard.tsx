@@ -119,6 +119,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
   const [selectedBrandFilter, setSelectedBrandFilter] = useState("");
+  const [missingFilter, setMissingFilter] = useState<"missing" | "complete" | "all">("missing");
   const [hiddenProducts, setHiddenProducts] = useState<Set<string>>(new Set());
   const [contentProducts, setContentProducts] = useState<any[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
@@ -244,8 +245,9 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       const headers: Record<string, string> = {};
       if (ADMIN_API_KEY) headers["x-admin-key"] = ADMIN_API_KEY;
       const params = new URLSearchParams();
-      params.set("limit", "200");
+      params.set("limit", "1000");
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
+      if (missingFilter === "missing") params.set("missing", "1");
       const res = await fetch(`${API_BASE}/admin/products?${params.toString()}`, { headers });
       if (!res.ok) throw new Error("Failed to load products");
       const json = await res.json();
@@ -267,7 +269,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [searchQuery]);
+  }, [searchQuery, missingFilter]);
 
   useEffect(() => {
     if (adminMeta || resolvedAdminMeta) return;
@@ -491,7 +493,12 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
 
     if (!permissionPass) return false;
 
-    const matchesScope = product.requiredMissing;
+    const matchesScope =
+      missingFilter === "all"
+        ? true
+        : missingFilter === "complete"
+          ? !product.requiredMissing
+          : product.requiredMissing;
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch =
       !q ||
@@ -581,6 +588,20 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                       : brand.nameEn || brand.nameAr || brand.id}
                   </option>
                 ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* Missing Filter */}
+            <div className="relative">
+              <select
+                value={missingFilter}
+                onChange={(e) => setMissingFilter(e.target.value as "missing" | "complete" | "all")}
+                className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] bg-white cursor-pointer"
+              >
+                <option value="missing">{language === "ar" ? "بيانات ناقصة" : "Missing Data"}</option>
+                <option value="complete">{language === "ar" ? "بيانات مكتملة" : "Complete Data"}</option>
+                <option value="all">{language === "ar" ? "الكل" : "All Products"}</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             </div>

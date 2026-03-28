@@ -622,6 +622,15 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
   const payload = normalizeBsonLike(req.body || {});
   const requestId = Math.random().toString(36).substr(2, 9);
 
+  const stripUndefined = (obj) => {
+    const cleaned = {};
+    Object.entries(obj || {}).forEach(([key, val]) => {
+      if (val === undefined) return;
+      cleaned[key] = val;
+    });
+    return cleaned;
+  };
+
   const identifier =
     payload.stk_code ||
     payload.id ||
@@ -643,7 +652,7 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
         ],
       };
 
-  const updates = { ...payload };
+  const updates = stripUndefined({ ...payload });
   delete updates._id;
 
   const now = new Date();
@@ -659,6 +668,50 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
       if (typeof updates.audit === 'undefined') {
         updates['audit.createdAt'] = now;
       }
+    }
+
+    if (Array.isArray(updates.colorVariants) && existing) {
+      const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
+      const byCode = new Map(
+        updates.colorVariants
+          .filter((v) => v && (v.stk_code || v.stkCode))
+          .map((v) => [String(v.stk_code || v.stkCode), v]),
+      );
+      updates.colorVariants = existingVariants.map((variant) => {
+        const code = String(variant?.stk_code || variant?.stkCode || '');
+        if (!code || !byCode.has(code)) return variant;
+        const incoming = byCode.get(code);
+        const next = { ...variant };
+        if (incoming.active !== undefined) next.active = incoming.active;
+        if (incoming.images !== undefined) next.images = incoming.images;
+        if (incoming.image !== undefined) next.image = incoming.image;
+        if (incoming.price !== undefined) next.price = incoming.price;
+        if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
+        if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
+        if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
+        return next;
+      });
+    }
+
+    if (Array.isArray(updates.chargeOptions) && existing) {
+      const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
+      const byCode = new Map(
+        updates.chargeOptions
+          .filter((o) => o && (o.stk_code || o.stkCode))
+          .map((o) => [String(o.stk_code || o.stkCode), o]),
+      );
+      updates.chargeOptions = existingOptions.map((opt) => {
+        const code = String(opt?.stk_code || opt?.stkCode || '');
+        if (!code || !byCode.has(code)) return opt;
+        const incoming = byCode.get(code);
+        const next = { ...opt };
+        if (incoming.active !== undefined) next.active = incoming.active;
+        if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
+        if (incoming.price !== undefined) next.price = incoming.price;
+        if (incoming.name !== undefined) next.name = incoming.name;
+        if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
+        return next;
+      });
     }
 
     await db.collection('products').updateOne(query, { $set: updates }, { upsert: true });
@@ -689,6 +742,15 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
   const items = Array.isArray(req.body) ? req.body : req.body?.items;
   const requestId = Math.random().toString(36).substr(2, 9);
 
+  const stripUndefined = (obj) => {
+    const cleaned = {};
+    Object.entries(obj || {}).forEach(([key, val]) => {
+      if (val === undefined) return;
+      cleaned[key] = val;
+    });
+    return cleaned;
+  };
+
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ success: false, message: 'No items provided' });
   }
@@ -718,7 +780,7 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
           ],
         };
 
-    const updates = { ...payload };
+    const updates = stripUndefined({ ...payload });
     delete updates._id;
     updates.updatedAt = now;
     if (typeof updates.audit === 'undefined') {
@@ -731,6 +793,50 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
       if (typeof updates.audit === 'undefined') {
         updates['audit.createdAt'] = now;
       }
+    }
+
+    if (Array.isArray(updates.colorVariants) && existing) {
+      const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
+      const byCode = new Map(
+        updates.colorVariants
+          .filter((v) => v && (v.stk_code || v.stkCode))
+          .map((v) => [String(v.stk_code || v.stkCode), v]),
+      );
+      updates.colorVariants = existingVariants.map((variant) => {
+        const code = String(variant?.stk_code || variant?.stkCode || '');
+        if (!code || !byCode.has(code)) return variant;
+        const incoming = byCode.get(code);
+        const next = { ...variant };
+        if (incoming.active !== undefined) next.active = incoming.active;
+        if (incoming.images !== undefined) next.images = incoming.images;
+        if (incoming.image !== undefined) next.image = incoming.image;
+        if (incoming.price !== undefined) next.price = incoming.price;
+        if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
+        if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
+        if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
+        return next;
+      });
+    }
+
+    if (Array.isArray(updates.chargeOptions) && existing) {
+      const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
+      const byCode = new Map(
+        updates.chargeOptions
+          .filter((o) => o && (o.stk_code || o.stkCode))
+          .map((o) => [String(o.stk_code || o.stkCode), o]),
+      );
+      updates.chargeOptions = existingOptions.map((opt) => {
+        const code = String(opt?.stk_code || opt?.stkCode || '');
+        if (!code || !byCode.has(code)) return opt;
+        const incoming = byCode.get(code);
+        const next = { ...opt };
+        if (incoming.active !== undefined) next.active = incoming.active;
+        if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
+        if (incoming.price !== undefined) next.price = incoming.price;
+        if (incoming.name !== undefined) next.name = incoming.name;
+        if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
+        return next;
+      });
     }
 
     try {
@@ -781,20 +887,23 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
 
   const payload = req.body || {};
   const updates = {};
+  const setIfDefined = (key, value) => {
+    if (value !== undefined) updates[key] = value;
+  };
 
-  if (payload.name !== undefined) updates.name = payload.name;
-  if (payload.nameAr !== undefined) updates.nameAr = payload.nameAr;
-  if (payload.description !== undefined) updates.description = payload.description;
-  if (payload.descriptionEn !== undefined) updates.description = payload.descriptionEn;
-  if (payload.descriptionAr !== undefined) updates.descriptionAr = payload.descriptionAr;
-  if (payload.image !== undefined) updates.image = payload.image;
-  if (payload.images !== undefined) updates.images = payload.images;
-  if (payload.category !== undefined) updates.category = payload.category;
-  if (payload.categoryAr !== undefined) updates.categoryAr = payload.categoryAr;
-  if (payload.cat_code !== undefined) updates.cat_code = payload.cat_code;
-  if (payload.brand !== undefined) updates.brand = payload.brand;
-  if (payload.brand_code !== undefined) updates.brand_code = payload.brand_code;
-  if (payload.inTheBox !== undefined) updates.inTheBox = payload.inTheBox;
+  setIfDefined('name', payload.name);
+  setIfDefined('nameAr', payload.nameAr);
+  if (payload.descriptionEn !== undefined) setIfDefined('description', payload.descriptionEn);
+  else setIfDefined('description', payload.description);
+  setIfDefined('descriptionAr', payload.descriptionAr);
+  setIfDefined('image', payload.image);
+  setIfDefined('images', payload.images);
+  setIfDefined('category', payload.category);
+  setIfDefined('categoryAr', payload.categoryAr);
+  setIfDefined('cat_code', payload.cat_code);
+  setIfDefined('brand', payload.brand);
+  setIfDefined('brand_code', payload.brand_code);
+  setIfDefined('inTheBox', payload.inTheBox);
   if (payload.specs !== undefined) {
     updates.specs = Array.isArray(payload.specs) ? payload.specs.map(spec => ({
       icon: spec.iconImage ? { type: 'url', url: spec.iconImage } : { type: 'react_icon', key: spec.icon || 'Smartphone' },
@@ -807,26 +916,15 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
 
   if (Array.isArray(payload.colorVariants)) {
     const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
+    const byCode = new Map(
+      payload.colorVariants
+        .filter((v) => v && (v.stk_code || v.stkCode))
+        .map((v) => [String(v.stk_code || v.stkCode), v]),
+    );
     const merged = existingVariants.map((variant) => {
-      const match = payload.colorVariants.find((c) => {
-        const variantStkCode = String(variant?.stk_code || variant?.stkCode || '').trim();
-        const colorStkCode = String(c?.stk_code || c?.stkCode || '').trim();
-        if (variantStkCode && colorStkCode) {
-          return variantStkCode === colorStkCode;
-        }
-        if (variantStkCode || colorStkCode) {
-          return false;
-        }
-        const name = String(c?.name || c?.color_name || '').trim().toLowerCase();
-        const nameAr = String(c?.nameAr || c?.color_name_ar || '').trim().toLowerCase();
-        const variantName = String(variant?.color_name || variant?.name || '').trim().toLowerCase();
-        const variantNameAr = String(variant?.color_name_ar || variant?.nameAr || '').trim().toLowerCase();
-        return Boolean(
-          (name && variantName && variantName === name) ||
-          (nameAr && variantNameAr && variantNameAr === nameAr)
-        );
-      });
-      if (!match) return variant;
+      const variantStkCode = String(variant?.stk_code || variant?.stkCode || '').trim();
+      if (!variantStkCode || !byCode.has(variantStkCode)) return variant;
+      const match = byCode.get(variantStkCode);
       const hasExplicitImages = Array.isArray(match.images);
       const images = hasExplicitImages
         ? match.images
@@ -838,9 +936,36 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
         active: typeof match.active === 'boolean' ? match.active : variant.active,
         images: hasExplicitImages ? images : variant.images,
         image: hasExplicitImages ? (images[0] || '') : variant.image,
+        price: match.price !== undefined ? match.price : variant.price,
+        color_name: match.color_name !== undefined ? match.color_name : variant.color_name,
+        color_name_ar: match.color_name_ar !== undefined ? match.color_name_ar : variant.color_name_ar,
+        color_hex: match.color_hex !== undefined ? match.color_hex : variant.color_hex,
       };
     });
     updates.colorVariants = merged;
+  }
+
+  if (Array.isArray(payload.chargeOptions)) {
+    const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
+    const byCode = new Map(
+      payload.chargeOptions
+        .filter((o) => o && (o.stk_code || o.stkCode))
+        .map((o) => [String(o.stk_code || o.stkCode), o]),
+    );
+    const merged = existingOptions.map((opt) => {
+      const optCode = String(opt?.stk_code || opt?.stkCode || '').trim();
+      if (!optCode || !byCode.has(optCode)) return opt;
+      const match = byCode.get(optCode);
+      return {
+        ...opt,
+        active: typeof match.active === 'boolean' ? match.active : opt.active,
+        in_stock: match.in_stock !== undefined ? match.in_stock : opt.in_stock,
+        price: match.price !== undefined ? match.price : opt.price,
+        name: match.name !== undefined ? match.name : opt.name,
+        name_ar: match.name_ar !== undefined ? match.name_ar : opt.name_ar,
+      };
+    });
+    updates.chargeOptions = merged;
   }
 
   updates.updatedAt = new Date();

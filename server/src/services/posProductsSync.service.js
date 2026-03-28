@@ -142,64 +142,78 @@ function normalizeChargeOptions(options = []) {
 function normalizeProductDoc(doc, stkCode, now) {
   if (!doc || typeof doc !== 'object') return null;
 
-  const normalized = { ...doc };
-  normalized.stk_code = stkCode;
-  normalized.id = normalized.id || stkCode;
-  normalized.slug = normalized.slug || String(normalized.id || stkCode).toLowerCase();
-  normalized.name =
-    normalized.name ||
-    normalized.nameEn ||
-    normalized.title ||
-    normalized.nameAr ||
-    `Product ${stkCode}`;
-  normalized.nameAr =
-    normalized.nameAr ||
-    (normalized.name && String(normalized.name).trim() ? normalized.name : '') ||
-    `منتج ${stkCode}`;
-  normalized.description = normalized.description || normalized.descriptionEn || '';
-  normalized.descriptionAr = normalized.descriptionAr || normalized.descriptionEn || normalized.description || '';
-  normalized.category = normalized.category || normalized.categoryEn || normalized.categoryAr || '';
-  normalized.categoryAr = normalized.categoryAr || normalized.category || '';
-  normalized.cat_code = normalized.cat_code || normalized.category_code || normalized.catCode || '';
-  normalized.brand = normalized.brand || normalized.brandEn || normalized.brandAr || '';
-  normalized.brandAr = normalized.brandAr || normalized.brand || '';
-  normalized.brand_code = normalized.brand_code || normalized.brandCode || '';
-  normalized.price = Number(normalized.price ?? 0);
-  normalized.images = Array.isArray(normalized.images) ? normalized.images : [];
-  normalized.specs = Array.isArray(normalized.specs) ? normalized.specs : [];
-  normalized.inTheBox = Array.isArray(normalized.inTheBox) ? normalized.inTheBox : [];
-  normalized.variants = Array.isArray(normalized.variants) ? normalized.variants : [];
-  normalized.colorVariants = normalizeColorVariants(normalized.colorVariants || []);
-  normalized.chargeOptions = normalizeChargeOptions(normalized.chargeOptions || []);
+  const updates = { stk_code: stkCode, updatedAt: now };
+  const hasOwn = (key) => Object.prototype.hasOwnProperty.call(doc, key);
 
-  if (Array.isArray(normalized.offers)) {
-    normalized.offers = normalized.offers.map(normalizeOffer).filter(Boolean);
+  if (hasOwn('id') && doc.id) updates.id = doc.id;
+  if (!hasOwn('id') && doc.stk_code) updates.id = doc.stk_code;
+  if (hasOwn('slug') && doc.slug) updates.slug = doc.slug;
+
+  const pick = (...keys) => {
+    for (const key of keys) {
+      if (hasOwn(key) && doc[key] !== undefined) return doc[key];
+    }
+    return undefined;
+  };
+
+  const name = pick('name', 'nameEn', 'title', 'nameAr');
+  if (name !== undefined) updates.name = name;
+  const nameAr = pick('nameAr', 'name');
+  if (nameAr !== undefined) updates.nameAr = nameAr;
+
+  const description = pick('description', 'descriptionEn');
+  if (description !== undefined) updates.description = description;
+  const descriptionAr = pick('descriptionAr', 'descriptionEn', 'description');
+  if (descriptionAr !== undefined) updates.descriptionAr = descriptionAr;
+
+  const category = pick('category', 'categoryEn', 'categoryAr');
+  if (category !== undefined) updates.category = category;
+  const categoryAr = pick('categoryAr', 'category');
+  if (categoryAr !== undefined) updates.categoryAr = categoryAr;
+  const catCode = pick('cat_code', 'category_code', 'catCode');
+  if (catCode !== undefined) updates.cat_code = catCode;
+
+  const brand = pick('brand', 'brandEn', 'brandAr');
+  if (brand !== undefined) updates.brand = brand;
+  const brandAr = pick('brandAr', 'brand');
+  if (brandAr !== undefined) updates.brandAr = brandAr;
+  const brandCode = pick('brand_code', 'brandCode');
+  if (brandCode !== undefined) updates.brand_code = brandCode;
+
+  if (hasOwn('price')) updates.price = Number(doc.price ?? 0);
+  if (hasOwn('images')) updates.images = Array.isArray(doc.images) ? doc.images : [];
+  if (hasOwn('specs')) updates.specs = Array.isArray(doc.specs) ? doc.specs : [];
+  if (hasOwn('inTheBox')) updates.inTheBox = Array.isArray(doc.inTheBox) ? doc.inTheBox : [];
+  if (hasOwn('variants')) updates.variants = Array.isArray(doc.variants) ? doc.variants : [];
+  if (hasOwn('colorVariants')) updates.colorVariants = normalizeColorVariants(doc.colorVariants || []);
+  if (hasOwn('chargeOptions')) updates.chargeOptions = normalizeChargeOptions(doc.chargeOptions || []);
+  if (hasOwn('offers')) {
+    updates.offers = Array.isArray(doc.offers) ? doc.offers.map(normalizeOffer).filter(Boolean) : [];
   }
 
-  if (normalized.audit) {
-    const createdAt = toDate(normalized.audit.createdAt);
-    const updatedAt = toDate(normalized.audit.updatedAt);
-    if (createdAt) normalized.audit.createdAt = createdAt;
-    if (updatedAt) normalized.audit.updatedAt = updatedAt;
+  if (doc.audit) {
+    const createdAt = toDate(doc.audit.createdAt);
+    const updatedAt = toDate(doc.audit.updatedAt);
+    updates.audit = {
+      ...(doc.audit || {}),
+      ...(createdAt ? { createdAt } : {}),
+      ...(updatedAt ? { updatedAt } : {}),
+    };
   }
 
-  if (normalized.availability?.lastSyncedAt) {
-    const lastSyncedAt = toDate(normalized.availability.lastSyncedAt);
-    if (lastSyncedAt) normalized.availability.lastSyncedAt = lastSyncedAt;
-  } else if (!normalized.availability) {
-    normalized.availability = { isAvailable: true, hiddenReason: '', lastSyncedAt: now };
+  if (doc.availability) {
+    const lastSyncedAt = toDate(doc.availability.lastSyncedAt);
+    updates.availability = {
+      ...(doc.availability || {}),
+      ...(lastSyncedAt ? { lastSyncedAt } : {}),
+    };
   }
 
-  if (!normalized.status) {
-    normalized.status = { isActive: true, isHidden: false };
+  if (doc.status) {
+    updates.status = { ...(doc.status || {}) };
   }
 
-  if (!normalized.audit) {
-    normalized.audit = { createdAt: now, updatedAt: now };
-  }
-
-  normalized.updatedAt = now;
-  return normalized;
+  return updates;
 }
 
 function pickJsonField(row) {
@@ -289,16 +303,76 @@ async function syncPosProducts({ connString, db, logger = console }) {
         skipped += 1;
         continue;
       }
-      const normalized = normalizeProductDoc(parsed, stkCode, now);
-      if (!normalized) {
+      const updates = normalizeProductDoc(parsed, stkCode, now);
+      if (!updates) {
         skipped += 1;
         continue;
+      }
+
+      const existing = await db.collection('products').findOne({ stk_code: stkCode });
+      if (!existing) {
+        const requiredMissing = !updates.name || !updates.nameAr || !updates.price;
+        if (requiredMissing) {
+          errors.push({
+            stk_code: stkCode,
+            error: 'Missing required fields for insert',
+          });
+          logger.error('[POS Sync] error', {
+            stk_code: stkCode,
+            error: 'Missing required fields for insert',
+          });
+          continue;
+        }
+      }
+
+      if (existing && Array.isArray(updates.colorVariants)) {
+        const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
+        const byCode = new Map(
+          updates.colorVariants
+            .filter((v) => v && (v.stk_code || v.stkCode))
+            .map((v) => [String(v.stk_code || v.stkCode), v]),
+        );
+        updates.colorVariants = existingVariants.map((variant) => {
+          const code = String(variant?.stk_code || variant?.stkCode || '');
+          if (!code || !byCode.has(code)) return variant;
+          const incoming = byCode.get(code);
+          const next = { ...variant };
+          if (incoming.active !== undefined) next.active = incoming.active;
+          if (incoming.images !== undefined) next.images = incoming.images;
+          if (incoming.image !== undefined) next.image = incoming.image;
+          if (incoming.price !== undefined) next.price = incoming.price;
+          if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
+          if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
+          if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
+          return next;
+        });
+      }
+
+      if (existing && Array.isArray(updates.chargeOptions)) {
+        const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
+        const byCode = new Map(
+          updates.chargeOptions
+            .filter((o) => o && (o.stk_code || o.stkCode))
+            .map((o) => [String(o.stk_code || o.stkCode), o]),
+        );
+        updates.chargeOptions = existingOptions.map((opt) => {
+          const code = String(opt?.stk_code || opt?.stkCode || '');
+          if (!code || !byCode.has(code)) return opt;
+          const incoming = byCode.get(code);
+          const next = { ...opt };
+          if (incoming.active !== undefined) next.active = incoming.active;
+          if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
+          if (incoming.price !== undefined) next.price = incoming.price;
+          if (incoming.name !== undefined) next.name = incoming.name;
+          if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
+          return next;
+        });
       }
 
       const result = await db.collection('products').updateOne(
         { stk_code: stkCode },
         {
-          $set: normalized,
+          $set: updates,
           $setOnInsert: { createdAt: now },
         },
         { upsert: true },
