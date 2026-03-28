@@ -120,6 +120,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
   const [selectedBrandFilter, setSelectedBrandFilter] = useState("");
   const [missingFilter, setMissingFilter] = useState<"missing" | "complete" | "all">("missing");
+  const [hasUserFilter, setHasUserFilter] = useState(false);
   const [hiddenProducts, setHiddenProducts] = useState<Set<string>>(new Set());
   const [contentProducts, setContentProducts] = useState<any[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
@@ -254,12 +255,26 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
     setIsLoadingProducts(true);
     setLoadError(null);
     try {
+      const hasAnyFilter =
+        Boolean(searchQuery.trim()) ||
+        Boolean(selectedCategoryFilter) ||
+        Boolean(selectedBrandFilter) ||
+        missingFilter !== "all";
+      if (!hasUserFilter || !hasAnyFilter) {
+        setContentProducts([]);
+        setIsLoadingProducts(false);
+        setLoadError(language === "ar" ? "اختر فلترًا أولاً" : "Select a filter first");
+        return;
+      }
       const headers: Record<string, string> = {};
       if (ADMIN_API_KEY) headers["x-admin-key"] = ADMIN_API_KEY;
       const params = new URLSearchParams();
-      params.set("limit", "1000");
+      params.set("limit", "200");
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
       if (missingFilter === "missing") params.set("missing", "1");
+      if (missingFilter === "complete") params.set("missing", "0");
+      if (selectedCategoryFilter) params.set("cat_code", selectedCategoryFilter);
+      if (selectedBrandFilter) params.set("brand_code", selectedBrandFilter);
       const res = await fetch(`${API_BASE}/admin/products?${params.toString()}`, { headers });
       if (!res.ok) throw new Error("Failed to load products");
       const json = await res.json();
@@ -281,7 +296,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [searchQuery, missingFilter]);
+  }, [searchQuery, missingFilter, selectedCategoryFilter, selectedBrandFilter, hasUserFilter, language]);
 
   useEffect(() => {
     if (adminMeta || resolvedAdminMeta) return;
@@ -550,9 +565,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       product.sku.toLowerCase().includes(q) ||
       product.nameEn.toLowerCase().includes(q) ||
       product.nameAr.toLowerCase().includes(q);
-    const matchesCategory = !selectedCategoryFilter || inferredCategoryCode === selectedCategoryFilter;
-    const matchesBrand = !selectedBrandFilter || inferredBrandCode === selectedBrandFilter;
-    return matchesScope && matchesSearch && matchesCategory && matchesBrand;
+    return matchesScope && matchesSearch;
   });
 
   return (
@@ -594,7 +607,10 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                 type="text"
                 placeholder={t('admin.content.search')}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setHasUserFilter(true);
+                  setSearchQuery(e.target.value);
+                }}
                 className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] transition-all"
               />
             </div>
@@ -603,7 +619,10 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
             <div className="relative">
               <select
                 value={selectedCategoryFilter}
-                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                onChange={(e) => {
+                  setHasUserFilter(true);
+                  setSelectedCategoryFilter(e.target.value);
+                }}
                 className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] bg-white cursor-pointer"
               >
                 <option value="">{language === "ar" ? "كل الفئات" : "All Categories"}</option>
@@ -622,7 +641,10 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
             <div className="relative">
               <select
                 value={selectedBrandFilter}
-                onChange={(e) => setSelectedBrandFilter(e.target.value)}
+                onChange={(e) => {
+                  setHasUserFilter(true);
+                  setSelectedBrandFilter(e.target.value);
+                }}
                 className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] bg-white cursor-pointer"
               >
                 <option value="">{language === "ar" ? "كل العلامات التجارية" : "All Brands"}</option>
@@ -641,7 +663,10 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
             <div className="relative">
               <select
                 value={missingFilter}
-                onChange={(e) => setMissingFilter(e.target.value as "missing" | "complete" | "all")}
+                onChange={(e) => {
+                  setHasUserFilter(true);
+                  setMissingFilter(e.target.value as "missing" | "complete" | "all");
+                }}
                 className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] bg-white cursor-pointer"
               >
                 <option value="missing">{language === "ar" ? "بيانات ناقصة" : "Missing Data"}</option>
