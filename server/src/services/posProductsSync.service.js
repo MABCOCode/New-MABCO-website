@@ -144,6 +144,31 @@ function normalizeProductDoc(doc, stkCode, now) {
 
   const normalized = { ...doc };
   normalized.stk_code = stkCode;
+  normalized.id = normalized.id || stkCode;
+  normalized.slug = normalized.slug || String(normalized.id || stkCode).toLowerCase();
+  normalized.name =
+    normalized.name ||
+    normalized.nameEn ||
+    normalized.title ||
+    normalized.nameAr ||
+    `Product ${stkCode}`;
+  normalized.nameAr =
+    normalized.nameAr ||
+    (normalized.name && String(normalized.name).trim() ? normalized.name : '') ||
+    `منتج ${stkCode}`;
+  normalized.description = normalized.description || normalized.descriptionEn || '';
+  normalized.descriptionAr = normalized.descriptionAr || normalized.descriptionEn || normalized.description || '';
+  normalized.category = normalized.category || normalized.categoryEn || normalized.categoryAr || '';
+  normalized.categoryAr = normalized.categoryAr || normalized.category || '';
+  normalized.cat_code = normalized.cat_code || normalized.category_code || normalized.catCode || '';
+  normalized.brand = normalized.brand || normalized.brandEn || normalized.brandAr || '';
+  normalized.brandAr = normalized.brandAr || normalized.brand || '';
+  normalized.brand_code = normalized.brand_code || normalized.brandCode || '';
+  normalized.price = Number(normalized.price ?? 0);
+  normalized.images = Array.isArray(normalized.images) ? normalized.images : [];
+  normalized.specs = Array.isArray(normalized.specs) ? normalized.specs : [];
+  normalized.inTheBox = Array.isArray(normalized.inTheBox) ? normalized.inTheBox : [];
+  normalized.variants = Array.isArray(normalized.variants) ? normalized.variants : [];
   normalized.colorVariants = normalizeColorVariants(normalized.colorVariants || []);
   normalized.chargeOptions = normalizeChargeOptions(normalized.chargeOptions || []);
 
@@ -161,6 +186,16 @@ function normalizeProductDoc(doc, stkCode, now) {
   if (normalized.availability?.lastSyncedAt) {
     const lastSyncedAt = toDate(normalized.availability.lastSyncedAt);
     if (lastSyncedAt) normalized.availability.lastSyncedAt = lastSyncedAt;
+  } else if (!normalized.availability) {
+    normalized.availability = { isAvailable: true, hiddenReason: '', lastSyncedAt: now };
+  }
+
+  if (!normalized.status) {
+    normalized.status = { isActive: true, isHidden: false };
+  }
+
+  if (!normalized.audit) {
+    normalized.audit = { createdAt: now, updatedAt: now };
   }
 
   normalized.updatedAt = now;
@@ -184,6 +219,27 @@ function pickJsonField(row) {
     Object.values(row).find((value) => typeof value === 'string' && value.trim().startsWith('{')) ||
     ''
   );
+}
+
+function parseJsonPayload(raw) {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const first = trimmed.indexOf('{');
+    const last = trimmed.lastIndexOf('}');
+    if (first !== -1 && last !== -1 && last > first) {
+      const slice = trimmed.slice(first, last + 1);
+      try {
+        return JSON.parse(slice);
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
 }
 
 async function fetchPosRows(connString) {
@@ -228,7 +284,11 @@ async function syncPosProducts({ connString, db, logger = console }) {
     }
 
     try {
-      const parsed = JSON.parse(jsonString);
+      const parsed = parseJsonPayload(jsonString);
+      if (!parsed) {
+        skipped += 1;
+        continue;
+      }
       const normalized = normalizeProductDoc(parsed, stkCode, now);
       if (!normalized) {
         skipped += 1;
