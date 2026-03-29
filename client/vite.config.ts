@@ -50,9 +50,32 @@
         '@': path.resolve(__dirname, './src'),
       },
     },
-    build: {
+  build: {
       target: 'esnext',
       outDir: 'build',
+      modulePreload: {
+        resolveDependencies: (filename, deps, context) => {
+          if (context.hostType !== 'html') return deps;
+
+          return deps.filter((dep) => {
+            if (dep.includes('superadmin-')) return false;
+            if (dep.includes('admin-')) return false;
+            if (dep.includes('account-')) return false;
+            if (dep.includes('checkout-')) return false;
+            if (dep.includes('compare-')) return false;
+            if (dep.includes('offers-')) return false;
+            if (dep.includes('products-')) return false;
+            if (dep.includes('product-detail-')) return false;
+            if (dep.includes('home-hero-')) return false;
+            if (dep.includes('home-search-')) return false;
+            if (dep.includes('home-categories-')) return false;
+            if (dep.includes('home-offers-ui-')) return false;
+            if (dep.includes('home-services-')) return false;
+            if (dep.includes('home-secondary-')) return false;
+            return true;
+          });
+        },
+      },
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -70,6 +93,21 @@
             if (id.includes('/src/features/account/pages/superadmin/')) return 'superadmin';
             if (id.includes('/src/features/account/pages/admin/')) return 'admin';
             if (id.includes('/src/features/account/')) return 'account';
+            if (id.includes('/src/features/home/pages/HomePage')) return 'home';
+            if (id.includes('/src/features/home/components/HeroCarousel')) return 'home-hero';
+            if (id.includes('/src/features/home/components/CategorySection')) return 'home-categories';
+            if (id.includes('/src/features/home/components/SearchSection')) return 'home-search';
+            if (id.includes('/src/features/home/components/OfferTypeSlider')) return 'home-offers-ui';
+            if (id.includes('/src/features/home/components/ServicesGrid')) return 'home-services';
+            if (
+              id.includes('/src/features/home/components/CompanyStrength') ||
+              id.includes('/src/features/home/components/WarrantySection') ||
+              id.includes('/src/features/home/components/SEOSection') ||
+              id.includes('/src/features/home/components/PrintingService') ||
+              id.includes('/src/features/home/components/EPaymentService') ||
+              id.includes('/src/features/home/components/WarrantyCheckService') ||
+              id.includes('/src/features/home/components/MaintenanceStatusService')
+            ) return 'home-secondary';
             if (id.includes('/src/features/products/pages/ProductDetailPage')) return 'product-detail';
             if (id.includes('/src/features/products/')) return 'products';
             if (id.includes('/src/features/offer/')) return 'offers';

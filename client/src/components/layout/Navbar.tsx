@@ -20,9 +20,8 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useCart } from "../../context/CartContext";
 import { iconsMap } from "../../utils/iconMap";
 import { useCompareStore } from "../../features/compare/state";
+import { getAccountAccess, loadSession } from "../../utils/accountSession";
 import MobileMenu from "./MobileMenu";
-import { loadSession } from "../../features/account/storage";
-import { getAccountAccess } from "../../features/account/access";
 
 const Navbar: React.FC = () => {
   const location = useLocation();

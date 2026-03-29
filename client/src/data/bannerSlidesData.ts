@@ -14,45 +14,7 @@
 
 // Default banner slides data
 let bannerSlides: BannerSlide[] = [
-  {
-    id: 1,
-    image: "https://images.unsplash.com/photo-1582018960590-f3bc3ea25c04?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVjdHJvbmljcyUyMHN0b3JlJTIwYmFubmVyfGVufDF8fHx8MTc2MDI2NjMyMXww&ixlib=rb-4.1.0&q=80&w=1080",
-    url: "/",
-    titleEn: "Latest Electronics",
-    titleAr: "أحدث الإلكترونيات",
-    subtitleEn: "Discover the world of technology with MABCO",
-    subtitleAr: "اكتشف عالم التكنولوجيا مع MABCO",
-    buttonTextEn: "Shop Now",
-    buttonTextAr: "تسوق الآن",
-    order: 1,
-    isActive: true,
-  },
-  {
-    id: 2,
-    image: "https://images.unsplash.com/photo-1673284497771-c0b1add1e91a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWNobm9sb2d5JTIwZ2FkZ2V0c3xlbnwxfHx8fDE3NjAyNjM2MTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    url: "/",
-    titleEn: "Special Offers",
-    titleAr: "عروض خاصة",
-    subtitleEn: "Discounts up to 30% on all products",
-    subtitleAr: "خصومات تصل إلى 30% على جميع المنتجات",
-    buttonTextEn: "Shop Now",
-    buttonTextAr: "تسوق الآن",
-    order: 2,
-    isActive: true,
-  },
-  {
-    id: 3,
-    image: "https://images.unsplash.com/photo-1758186355698-bd0183fc75ed?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBzbWFydHBob25lJTIwcHJvZHVjdHxlbnwxfHx8fDE3NjAxNjgyMTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    url: "/",
-    titleEn: "Smartphones",
-    titleAr: "هواتف ذكية",
-    subtitleEn: "Latest models from the best brands",
-    subtitleAr: "أحدث الموديلات من أفضل العلامات التجارية",
-    buttonTextEn: "Shop Now",
-    buttonTextAr: "تسوق الآن",
-    order: 3,
-    isActive: true,
-  },
+  
 ];
 
 // Manager functions
@@ -173,3 +135,4 @@ export default bannerSlidesManager;
 
 // Export the data array for backward compatibility
 export { bannerSlides };
+

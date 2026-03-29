@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { loadSession, saveSession } from "./storage";
@@ -12,14 +12,31 @@ import { OrderDetailsPage } from "./pages/OrderDetailsPage";
 import { MyDevicesPage } from "./pages/MyDevicesPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { AccountSettingsPage } from "./pages/AccountSettingsPage";
-import { ProductContentDashboard } from "./pages/admin/ProductContentDashboard";
-import { AdminOrderManagement } from "./pages/admin/AdminOrderManagement";
-import { BannerSliderManagement } from "./pages/admin/BannerSliderManagement";
-import { SuperAdminDashboard } from "./pages/superadmin/SuperAdminDashboard";
-import { AdminManagement } from "./pages/superadmin/AdminManagement";
-import { ProductTracking } from "./pages/superadmin/ProductTracking";
-import { AnalyticsReports } from "./pages/superadmin/AnalyticsReports";
-import { NotificationManager } from "./pages/superadmin/NotificationManager";
+
+const ProductContentDashboard = lazy(() =>
+  import("./pages/admin/ProductContentDashboard").then((m) => ({ default: m.ProductContentDashboard })),
+);
+const AdminOrderManagement = lazy(() =>
+  import("./pages/admin/AdminOrderManagement").then((m) => ({ default: m.AdminOrderManagement })),
+);
+const BannerSliderManagement = lazy(() =>
+  import("./pages/admin/BannerSliderManagement").then((m) => ({ default: m.BannerSliderManagement })),
+);
+const SuperAdminDashboard = lazy(() =>
+  import("./pages/superadmin/SuperAdminDashboard").then((m) => ({ default: m.SuperAdminDashboard })),
+);
+const AdminManagement = lazy(() =>
+  import("./pages/superadmin/AdminManagement").then((m) => ({ default: m.AdminManagement })),
+);
+const ProductTracking = lazy(() =>
+  import("./pages/superadmin/ProductTracking").then((m) => ({ default: m.ProductTracking })),
+);
+const AnalyticsReports = lazy(() =>
+  import("./pages/superadmin/AnalyticsReports").then((m) => ({ default: m.AnalyticsReports })),
+);
+const NotificationManager = lazy(() =>
+  import("./pages/superadmin/NotificationManager").then((m) => ({ default: m.NotificationManager })),
+);
 
 type Session = {
   user?: any;
@@ -145,6 +162,8 @@ export const AccountRoutes = () => {
     return null;
   }
 
+  const accountRouteFallback = <div className="min-h-[40vh] bg-white" />;
+
   return (
     <>
       {isAdminRoute && !permissionsPending && hasAnyAdminAccess && (
@@ -190,6 +209,7 @@ export const AccountRoutes = () => {
       )}
 
       <div className={isAdminRoute ? 'pt-20' : ''}>
+        <Suspense fallback={accountRouteFallback}>
         <Routes>
       <Route path="/" element={<Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />} />
       <Route
@@ -402,6 +422,7 @@ export const AccountRoutes = () => {
       />
       <Route path="*" element={<Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />} />
     </Routes>
+        </Suspense>
         </div>
     </>
   );

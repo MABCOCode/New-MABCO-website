@@ -4,16 +4,16 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from
 import ModernFooter from './components/layout/Footer'; // Make sure this is the correct import
 import Navbar from './components/layout/Navbar';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import AboutPage from './features/about/pages/AboutPage';
+import CareerPage from './features/career/pages/CareerPage';
+import ShowroomsPage from './features/showrooms/pages/ShowroomsPage';
 import { setSeo } from './services/seo';
-import { requestFcmToken } from './services/fcm';
 
 const FloatingCompare = lazy(() => import('./components/layout/FloatingCompare'));
 const FloatingSocialLinks = lazy(() => import('./components/layout/FloatingSocialLinks'));
 import ScrollToTop from './components/ui/ScrollToTop';
 import { CartProvider, useCart } from './context/CartContext';
-const AboutPage = lazy(() => import('./features/about/pages/AboutPage'));
 const AccountRoutes = lazy(() => import('./features/account/AccountRoutes'));
-const CareerPage = lazy(() => import('./features/career/pages/CareerPage'));
 const ShoppingCart = lazy(() =>
   import('./features/cart/components/ShoppingCart').then((m) => ({ default: m.ShoppingCart })),
 );
@@ -33,39 +33,36 @@ const CategoryPage = lazy(() => import('./features/products/pages/CategoryPage')
 const ProductDetailPage = lazy(() => import('./features/products/pages/ProductDetailPage'));
 const SearchResultsPage = lazy(() => import('./features/products/pages/SearchResultsPage'));
 const SearchPage = lazy(() => import('./features/search/pages/SearchPage'));
-const ShowroomsPage = lazy(() => import('./features/showrooms/pages/ShowroomsPage'));
 import './styles/enhanced-ux.css';
 import './styles/globals.css';
 
 // Create a wrapper component that can use the LanguageContext
 const AppContent: React.FC = () => {
-  const MainSkeleton = ({ language }: { language: string }) => (
+  const MainSkeleton = () => (
     <div className="min-h-screen bg-white">
-      <div className="pt-20">
-        <div className="relative h-[350px] md:h-[450px] w-full overflow-hidden bg-gray-100">
-          <div className="absolute inset-0 shimmer-surface" />
+      <div className="relative h-[320px] md:h-[420px] bg-gray-100 overflow-hidden">
+        <div className="absolute inset-0 shimmer-surface" />
+        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 max-w-4xl mx-auto">
+          <div className="h-10 md:h-14 w-2/3 max-w-xl rounded-2xl shimmer-surface mb-4 mx-auto" />
+          <div className="h-5 md:h-6 w-1/2 max-w-sm rounded-xl shimmer-surface mb-6 mx-auto" />
+          <div className="h-12 w-56 rounded-full shimmer-surface mx-auto" />
         </div>
-        <div className="container mx-auto px-4 py-16">
-          <div className="h-8 w-2/3 mx-auto shimmer-surface rounded mb-8" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, idx) => (
-              <div key={`skeleton-card-${idx}`} className="bg-white rounded-2xl p-4 border border-gray-200">
-                <div className="aspect-square rounded-xl shimmer-surface mb-3" />
-                <div className="h-4 w-3/4 shimmer-surface rounded mb-2" />
-                <div className="h-4 w-1/2 shimmer-surface rounded" />
-              </div>
-            ))}
+      </div>
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-4xl mx-auto mb-10">
+          <div className="flex gap-3">
+            <div className="flex-1 h-14 rounded-full shimmer-surface" />
+            <div className="w-20 h-14 rounded-full shimmer-surface" />
           </div>
-          <div className="h-8 w-1/2 mx-auto shimmer-surface rounded mt-12 mb-6" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, idx) => (
-              <div key={`skeleton-row-${idx}`} className="bg-white rounded-2xl p-4 border border-gray-200">
-                <div className="aspect-square rounded-xl shimmer-surface mb-3" />
-                <div className="h-4 w-3/4 shimmer-surface rounded mb-2" />
-                <div className="h-4 w-1/2 shimmer-surface rounded" />
-              </div>
-            ))}
-          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, idx) => (
+            <div key={`app-shell-${idx}`} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="w-14 h-14 rounded-2xl shimmer-surface mb-4" />
+              <div className="h-4 w-3/4 shimmer-surface rounded mb-2" />
+              <div className="h-4 w-1/2 shimmer-surface rounded" />
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -123,6 +120,7 @@ const AppContent: React.FC = () => {
     let cancelled = false;
     const run = async () => {
       try {
+        const { requestFcmToken } = await import('./services/fcm');
         const token = await requestFcmToken();
         if (cancelled || !token) return;
         localStorage.setItem("fcmToken", token);

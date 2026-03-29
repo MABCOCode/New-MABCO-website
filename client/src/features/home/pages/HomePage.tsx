@@ -1,19 +1,23 @@
 // features/home/pages/HomePage.tsx
 import { Flame, Star } from 'lucide-react';
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import HomeSkeletonShell from "../../../components/shell/HomeSkeletonShell";
 import { useCart } from "../../../context/CartContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useCompareStore } from "../../../features/compare/state";
 import { setSeo } from "../../../services/seo";
-import CategorySection from "../components/CategorySection";
-import HeroCarousel from "../components/HeroCarousel";
-import ProductsSlider from "../components/ProductsSlider";
-import SearchSection from "../components/SearchSection";
-import { OfferTypeSlider } from "../components/OfferTypeSlider";
-import { ServicesGrid } from "../components/ServicesGrid";
-import { Suspense, lazy } from "react";
 
+const HeroCarousel = lazy(() => import("../components/HeroCarousel"));
+const SearchSection = lazy(() => import("../components/SearchSection"));
+const CategorySection = lazy(() => import("../components/CategorySection"));
+const ProductsSlider = lazy(() => import("../components/ProductsSlider"));
+const OfferTypeSlider = lazy(() =>
+  import("../components/OfferTypeSlider").then((m) => ({ default: m.OfferTypeSlider })),
+);
+const ServicesGrid = lazy(() =>
+  import("../components/ServicesGrid").then((m) => ({ default: m.ServicesGrid })),
+);
 const CompanyStrength = lazy(() => import("../components/CompanyStrength"));
 const WarrantySection = lazy(() => import("../components/WarrantySection"));
 const SEOSection = lazy(() => import("../components/SEOSection"));
@@ -28,6 +32,71 @@ const WarrantyCheckService = lazy(() =>
 );
 const MaintenanceStatusService = lazy(() =>
   import("../components/MaintenanceStatusService").then((m) => ({ default: m.MaintenanceStatusService })),
+);
+
+const SearchSkeleton = () => (
+  <div className="max-w-4xl mx-auto">
+    <div className="flex gap-3">
+      <div className="flex-1 h-14 rounded-full shimmer-surface" />
+      <div className="w-20 h-14 rounded-full shimmer-surface" />
+    </div>
+  </div>
+);
+
+const SectionTitleSkeleton = () => (
+  <div className="h-8 w-56 mx-auto rounded-xl shimmer-surface mb-8" />
+);
+
+const OffersSkeleton = () => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {Array.from({ length: 4 }).map((_, idx) => (
+      <div key={`offer-skeleton-${idx}`} className="h-[320px] rounded-3xl shimmer-surface" />
+    ))}
+  </div>
+);
+
+const CategorySkeleton = () => (
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    {Array.from({ length: 8 }).map((_, idx) => (
+      <div
+        key={`category-skeleton-${idx}`}
+        className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+      >
+        <div className="w-14 h-14 rounded-2xl shimmer-surface mb-4" />
+        <div className="h-4 w-3/4 shimmer-surface rounded mb-2" />
+        <div className="h-4 w-1/2 shimmer-surface rounded" />
+      </div>
+    ))}
+  </div>
+);
+
+const ServicesSkeleton = () => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    {Array.from({ length: 6 }).map((_, idx) => (
+      <div key={`service-skeleton-${idx}`} className="h-64 rounded-3xl shimmer-surface" />
+    ))}
+  </div>
+);
+
+const ProductSliderSkeleton = () => (
+  <section className="py-16">
+    <div className="container mx-auto px-4">
+      <SectionTitleSkeleton />
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {Array.from({ length: 5 }).map((_, idx) => (
+          <div
+            key={`product-slider-skeleton-${idx}`}
+            className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm"
+          >
+            <div className="aspect-square rounded-2xl shimmer-surface mb-4" />
+            <div className="h-4 w-4/5 shimmer-surface rounded mb-2" />
+            <div className="h-4 w-2/3 shimmer-surface rounded mb-4" />
+            <div className="h-10 w-full shimmer-surface rounded-xl" />
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
 );
 
 const HomePage: React.FC = () => {
@@ -50,6 +119,14 @@ const HomePage: React.FC = () => {
   const [mostSoldLoading, setMostSoldLoading] = useState(true);
   const [newBestLoading, setNewBestLoading] = useState(true);
   const [productLayoutKey, setProductLayoutKey] = useState(0);
+  const [shellReady, setShellReady] = useState(false);
+  const [mountHero, setMountHero] = useState(false);
+  const [mountSearch, setMountSearch] = useState(false);
+  const [mountCategories, setMountCategories] = useState(false);
+  const [mountOffers, setMountOffers] = useState(false);
+  const [mountProducts, setMountProducts] = useState(false);
+  const [mountServices, setMountServices] = useState(false);
+  const [mountSecondary, setMountSecondary] = useState(false);
   const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const navigateToOfferType = (
     offerType: "direct_discount" | "coupon" | "free_product" | "bundle_discount"
@@ -155,6 +232,7 @@ const HomePage: React.FC = () => {
 
 
   useEffect(() => {
+    if (!mountProducts) return;
     let mounted = true;
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
 
@@ -162,7 +240,7 @@ const HomePage: React.FC = () => {
       try {
         setMostSoldLoading(true);
         setNewBestLoading(true);
-        const res = await fetch(`${apiBase}/products/home-sliders?limit=40`);
+        const res = await fetch(`${apiBase}/products/home-sliders?limit=24`);
         
         if (!res.ok) {
           throw new Error(`Failed to load home sliders: ${res.status} ${res.statusText}`);
@@ -189,6 +267,41 @@ const HomePage: React.FC = () => {
 
     return () => {
       mounted = false;
+    };
+  }, [mountProducts]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const stage = (setter: React.Dispatch<React.SetStateAction<boolean>>, delay: number) => {
+      const timer = setTimeout(() => {
+        if (!cancelled) setter(true);
+      }, delay);
+      timers.push(timer);
+    };
+
+    const paintShell = () => {
+      if (cancelled) return;
+      setShellReady(true);
+      stage(setMountHero, 40);
+      stage(setMountSearch, 60);
+      stage(setMountCategories, 120);
+      stage(setMountOffers, 220);
+      stage(setMountProducts, 320);
+      stage(setMountServices, 460);
+      stage(setMountSecondary, 700);
+    };
+
+    if (typeof window !== "undefined" && "requestAnimationFrame" in window) {
+      requestAnimationFrame(paintShell);
+    } else {
+      paintShell();
+    }
+
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
     };
   }, []);
 
@@ -254,6 +367,14 @@ const HomePage: React.FC = () => {
     setConfirmedOrderData(null);
   };
 
+  if (!shellReady) {
+    return (
+      <main dir={language === "ar" ? "rtl" : "ltr"} className="pb-12">
+        <HomeSkeletonShell />
+      </main>
+    );
+  }
+
   return (
     <>
       <main 
@@ -285,87 +406,138 @@ const HomePage: React.FC = () => {
 
         {/* Hero Carousel */}
         <section id="home" className="relative">
-          <HeroCarousel language={language} />
+          {mountHero ? (
+            <Suspense fallback={<HomeSkeletonShell compact />}>
+              <HeroCarousel language={language} />
+            </Suspense>
+          ) : (
+            <div className="relative h-[340px] md:h-[440px] overflow-hidden bg-gray-100">
+              <div className="absolute inset-0 shimmer-surface" />
+            </div>
+          )}
         </section>
 
         {/* Search Section */}
         <section id="search-section" className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto">
-            <SearchSection language={language} />
-          </div>
+          {mountSearch ? (
+            <Suspense fallback={<SearchSkeleton />}>
+              <SearchSection language={language} />
+            </Suspense>
+          ) : (
+            <SearchSkeleton />
+          )}
         </section>
         {/* Categories Section */}
         <section id="categories" className="container mx-auto px-4 py-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center">
-            {t("productCategories") || "Product Categories"}
-          </h2>
-          <CategorySection
-            language={language}
-            onBrandClick={handleBrandClick}
-            selectedCategory={selectedCategory}
-            selectedCategoryCode={openCategoryCode}
-            onSelectCategory={setSelectedCategory}
-          />
+          {mountCategories ? (
+            <Suspense fallback={<HomeSkeletonShell compact />}>
+              <>
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center">
+                  {t("productCategories") || "Product Categories"}
+                </h2>
+                <CategorySection
+                  language={language}
+                  onBrandClick={handleBrandClick}
+                  selectedCategory={selectedCategory}
+                  selectedCategoryCode={openCategoryCode}
+                  onSelectCategory={setSelectedCategory}
+                />
+              </>
+            </Suspense>
+          ) : (
+            <>
+              <SectionTitleSkeleton />
+              <CategorySkeleton />
+            </>
+          )}
         </section>
         {/* Special Offers Slider */}
        <section id="special-offers-carousel" className="special-offers-carousel container mx-auto px-4 py-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center">
-            {t("specialOffers") || "Special Offers"}
-          </h2>
-          <OfferTypeSlider
-            language={language}
-            onOfferTypeClick={(offerType) => {
-              navigateToOfferType(offerType as any);
-            }}
-          />
+          {mountOffers ? (
+            <Suspense fallback={<OffersSkeleton />}>
+              <>
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center">
+                  {t("specialOffers") || "Special Offers"}
+                </h2>
+                <OfferTypeSlider
+                  language={language}
+                  onOfferTypeClick={(offerType) => {
+                    navigateToOfferType(offerType as any);
+                  }}
+                />
+              </>
+            </Suspense>
+          ) : (
+            <>
+              <SectionTitleSkeleton />
+              <OffersSkeleton />
+            </>
+          )}
         </section>
         {/* Most Bought Products */}
-        <ProductsSlider
-          language={language}
-          
-          title={t("mostSold") || "Most Sold"}
-          icon={
-            <Star className="w-6 h-6 md:w-8 md:h-8 text-yellow-500 fill-yellow-500" />
-          }
-          products={mostSoldProducts.map((product) => ({ ...product, isMostSold: true }))}
-          loading={mostSoldLoading}
-          onProductClick={handleProductClick}
-          onAddToCart={handleAddToCart}
-          onToggleCompare={handleToggleCompare}
-          compareItems={compareItems}
-          key={`most-bought-${productLayoutKey}`}
-        />
+        {mountProducts ? (
+          <Suspense fallback={<ProductSliderSkeleton />}>
+            <ProductsSlider
+              language={language}
+              title={t("mostSold") || "Most Sold"}
+              icon={
+                <Star className="w-6 h-6 md:w-8 md:h-8 text-yellow-500 fill-yellow-500" />
+              }
+              products={mostSoldProducts.map((product) => ({ ...product, isMostSold: true }))}
+              loading={mostSoldLoading}
+              onProductClick={handleProductClick}
+              onAddToCart={handleAddToCart}
+              onToggleCompare={handleToggleCompare}
+              compareItems={compareItems}
+              key={`most-bought-${productLayoutKey}`}
+            />
+          </Suspense>
+        ) : (
+          <ProductSliderSkeleton />
+        )}
 
         {/* New Products Slider */}
-        <ProductsSlider
-          language={language}
-          title={t("newProducts") || "New Products"}
-          icon={<Flame className="w-6 h-6 md:w-8 md:h-8 text-red-500" />}
-          products={newBestProducts}
-          loading={newBestLoading}
-          onProductClick={handleProductClick}
-          onAddToCart={handleAddToCart}
-          onToggleCompare={handleToggleCompare}
-          compareItems={compareItems}
-          key={`new-products-${productLayoutKey}`}
-        />
+        {mountProducts ? (
+          <Suspense fallback={<ProductSliderSkeleton />}>
+            <ProductsSlider
+              language={language}
+              title={t("newProducts") || "New Products"}
+              icon={<Flame className="w-6 h-6 md:w-8 md:h-8 text-red-500" />}
+              products={newBestProducts}
+              loading={newBestLoading}
+              onProductClick={handleProductClick}
+              onAddToCart={handleAddToCart}
+              onToggleCompare={handleToggleCompare}
+              compareItems={compareItems}
+              key={`new-products-${productLayoutKey}`}
+            />
+          </Suspense>
+        ) : (
+          <ProductSliderSkeleton />
+        )}
 
         {/* Services Section */}
         <section id="services" className="container mx-auto px-4 py-16">
-          <ServicesGrid
-            language={language}
-            onServiceClick={(servicePath: string) => {
-              if (servicePath === "gaming") {
-                navigate("/brand/07/2022");
-                return;
-              }
-              if (servicePath === "charging") {
-                navigate("/brand/07/2020");
-                return;
-              }
-              setSelectedService(servicePath);
-            }}
-          />
+          {mountServices ? (
+            <Suspense fallback={<ServicesSkeleton />}>
+              <ServicesGrid
+                language={language}
+                onServiceClick={(servicePath: string) => {
+                  if (servicePath === "gaming") {
+                    navigate("/brand/07/2022");
+                    return;
+                  }
+                  if (servicePath === "charging") {
+                    navigate("/brand/07/2020");
+                    return;
+                  }
+                  setSelectedService(servicePath);
+                }}
+              />
+            </Suspense>
+          ) : (
+            <ServicesSkeleton />
+          )}
         </section>
 
         {/* Service Modals */}
@@ -398,19 +570,25 @@ const HomePage: React.FC = () => {
         )}
 
         {/* Company Strength Section */}
-        <Suspense fallback={null}>
-          <CompanyStrength language={language} />
-        </Suspense>
+        {mountSecondary && (
+          <Suspense fallback={null}>
+            <CompanyStrength language={language} />
+          </Suspense>
+        )}
 
         {/* Warranty & Policy Section */}
-        <Suspense fallback={null}>
-          <WarrantySection language={language} />
-        </Suspense>
+        {mountSecondary && (
+          <Suspense fallback={null}>
+            <WarrantySection language={language} />
+          </Suspense>
+        )}
 
         {/* SEO Structured Data */}
-        <Suspense fallback={null}>
-          <SEOSection language={language} />
-        </Suspense>
+        {mountSecondary && (
+          <Suspense fallback={null}>
+            <SEOSection language={language} />
+          </Suspense>
+        )}
 
         {/* Geometric Background Pattern */}
         <div className="fixed inset-0 opacity-5 pointer-events-none z-0">
