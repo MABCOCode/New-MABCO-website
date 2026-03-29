@@ -60,6 +60,59 @@ function normalizeBsonLike(value) {
   return next;
 }
 
+function toDateValue(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = new Date(value);
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+  return null;
+}
+
+function normalizeOfferPayload(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const offerType = raw.offer_type || raw.type;
+  const offerNo = raw.offer_no != null ? String(raw.offer_no) : '';
+  const discountTypeRaw = String(raw.discount_type || raw.discountType || '').toLowerCase();
+  const discountType = discountTypeRaw === 'p' || discountTypeRaw === 'percentage' ? 'p' : 'v';
+  const isActiveRaw = raw.is_active ?? raw.isActive ?? raw.active;
+  const isActive =
+    typeof isActiveRaw === 'boolean'
+      ? isActiveRaw
+      : String(isActiveRaw || '').toUpperCase() === 'Y';
+  const start = toDateValue(raw.start || raw.startsAt);
+  const end = toDateValue(raw.end || raw.endsAt);
+  const products = Array.isArray(raw.products)
+    ? raw.products
+        .map((item) => (typeof item === 'string' ? item : item?.stk_code || item?.id || ''))
+        .filter(Boolean)
+        .map((item) => String(item))
+    : [];
+
+  if (!offerType || !offerNo) return null;
+
+  return {
+    offer_no: offerNo,
+    offer_type: offerType,
+    discount: Number(raw.discount ?? raw.discountValue ?? raw.couponValue ?? raw.discountPercentage ?? 0),
+    discount_type: discountType,
+    title: raw.title || raw.titleEn || '',
+    title_ar: raw.title_ar || raw.titleAr || '',
+    description: raw.description || raw.descriptionEn || '',
+    description_ar: raw.description_ar || raw.descriptionAr || '',
+    products,
+    start: start || raw.start,
+    end: end || raw.end,
+    is_active: isActive,
+  };
+}
+
+function normalizeOffersArray(raw) {
+  if (!Array.isArray(raw)) return raw;
+  return raw.map(normalizeOfferPayload).filter(Boolean);
+}
+
 router.get('/users', asyncHandler(async (req, res) => {
   const db = getDb();
   const query = {};
@@ -634,6 +687,22 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
     updates['audit.updatedAt'] = now;
   }
 
+  if (updates.offers !== undefined) {
+    updates.offers = normalizeOffersArray(updates.offers);
+  }
+  if (Array.isArray(updates.colorVariants)) {
+    updates.colorVariants = updates.colorVariants.map((variant) => ({
+      ...variant,
+      offers: normalizeOffersArray(variant?.offers),
+    }));
+  }
+  if (Array.isArray(updates.chargeOptions)) {
+    updates.chargeOptions = updates.chargeOptions.map((opt) => ({
+      ...opt,
+      offers: normalizeOffersArray(opt?.offers),
+    }));
+  }
+
   try {
     const existing = await db.collection('products').findOne(query);
     if (!existing) {
@@ -758,6 +827,22 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
     updates.updatedAt = now;
     if (typeof updates.audit === 'undefined') {
       updates['audit.updatedAt'] = now;
+    }
+
+    if (updates.offers !== undefined) {
+      updates.offers = normalizeOffersArray(updates.offers);
+    }
+    if (Array.isArray(updates.colorVariants)) {
+      updates.colorVariants = updates.colorVariants.map((variant) => ({
+        ...variant,
+        offers: normalizeOffersArray(variant?.offers),
+      }));
+    }
+    if (Array.isArray(updates.chargeOptions)) {
+      updates.chargeOptions = updates.chargeOptions.map((opt) => ({
+        ...opt,
+        offers: normalizeOffersArray(opt?.offers),
+      }));
     }
 
     const existing = await db.collection('products').findOne(query);

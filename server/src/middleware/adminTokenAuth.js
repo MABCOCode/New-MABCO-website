@@ -19,6 +19,11 @@ async function requireAdminToken(req, res, next) {
     return res.status(401).json({ success: false, message: 'Admin token required' });
   }
 
+  if (adminTokenSecret && String(token) === String(adminTokenSecret)) {
+    req.adminToken = { userId: null, source: 'env' };
+    return next();
+  }
+
   const tokenHash = hashToken(String(token));
   const db = getDb();
   const record = await db.collection('admin_tokens').findOne({ tokenHash });
