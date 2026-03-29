@@ -3,6 +3,7 @@ const express = require('express');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { hydrateCollection } = require('../models');
+const { filterProductForCatalog, validateProductContent } = require('../utils/productContentValidation');
 
 const router = express.Router();
 
@@ -209,8 +210,11 @@ router.get('/:offerType/products', asyncHandler(async (req, res) => {
         slug: 1,
         name: 1,
         nameAr: 1,
+        description: 1,
+        descriptionAr: 1,
         price: 1,
         image: 1,
+        images: 1,
         category: 1,
         categoryAr: 1,
         cat_code: 1,
@@ -238,6 +242,7 @@ router.get('/:offerType/products', asyncHandler(async (req, res) => {
           }
         },
         availability: 1,
+        specs: 1,
         colorVariants: {
           $map: {
             input: { $ifNull: ["$colorVariants", []] },
@@ -527,16 +532,22 @@ router.get('/:offerType/products', asyncHandler(async (req, res) => {
   
   const total = result.metadata[0]?.total || 0;
   const maxSavings = result.maxSavings[0] || { value: 0, type: 'percentage' };
+  const filteredProducts = hydrateCollection('products', result.products || [])
+    .map((product) => {
+      const validation = validateProductContent(product);
+      return validation.isCatalogReady ? filterProductForCatalog(product, validation) : null;
+    })
+    .filter(Boolean);
 
   // Prepare response
   const response = {
-    products: hydrateCollection('products', result.products || []),
+    products: filteredProducts,
     pagination: {
-      total,
+      total: filteredProducts.length,
       page,
       limit,
-      pages: Math.ceil(total / limit),
-      hasMore: skip + (result.products?.length || 0) < total
+      pages: Math.ceil(filteredProducts.length / limit),
+      hasMore: false
     },
     maxSavings: {
       value: maxSavings.value || 0,

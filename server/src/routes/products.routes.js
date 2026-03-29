@@ -3,71 +3,9 @@ const { ObjectId } = require('mongodb');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { hydrateCollection, hydrateDocument } = require('../models');
+const { filterProductForCatalog, validateProductContent } = require('../utils/productContentValidation');
 
 const router = express.Router();
-
-const computeContentMissing = (product) => {
-  const name = typeof product?.name === 'object' ? product?.name?.en : product?.name;
-  const nameAr = product?.nameAr || (typeof product?.name === 'object' ? product?.name?.ar : '');
-  const description = product?.description || '';
-  const descriptionAr = product?.descriptionAr || '';
-  const image = product?.image || '';
-  const specs = Array.isArray(product?.specs) ? product.specs : [];
-  const inTheBox = Array.isArray(product?.inTheBox) ? product.inTheBox : [];
-  const galleryImages = Array.isArray(product?.images) ? product.images : [];
-  const colors = Array.isArray(product?.colorVariants) ? product.colorVariants : [];
-
-  const colorImagesMissing = colors.filter((color) => {
-    const nameVal = color?.name || color?.color_name || '';
-    const nameArVal = color?.nameAr || color?.color_name_ar || nameVal || '';
-    const images = Array.isArray(color?.images)
-      ? color.images.map((img) => (typeof img === 'string' ? img : img?.image_link || img?.url || '')).filter(Boolean)
-      : [];
-    const imageVal = color?.image || images[0] || '';
-    return !String(nameVal || nameArVal).trim() || !String(imageVal).trim();
-  }).length;
-
-  const hasSpecs = specs.length > 0;
-  const hasDescription = String(description).trim().length > 0 || String(descriptionAr).trim().length > 0;
-  const hasName = String(name).trim().length > 0 && String(nameAr).trim().length > 0;
-  const hasColorImages = colors.some((color) => {
-    const images = Array.isArray(color?.images)
-      ? color.images.map((img) => (typeof img === 'string' ? img : img?.image_link || img?.url || '')).filter(Boolean)
-      : [];
-    const imageVal = color?.image || images[0] || '';
-    return String(imageVal).trim().length > 0;
-  });
-  const hasImage = String(image).trim().length > 0 || hasColorImages;
-  const hasGallery = galleryImages.length > 0;
-  const hasBox = inTheBox.length > 0;
-  const hasCategory = String(product?.category || '').trim().length > 0;
-  const hasBrand = String(product?.brand || '').trim().length > 0;
-
-  const missing = {
-    name: !hasName,
-    description: !hasDescription,
-    specs: !hasSpecs,
-    image: !hasImage,
-    colorImages: colorImagesMissing,
-    galleryImages: !hasGallery,
-    inTheBox: !hasBox,
-    category: !hasCategory,
-    brand: !hasBrand,
-  };
-
-  const hasMissing =
-    missing.name ||
-    missing.description ||
-    missing.specs ||
-    missing.image ||
-    missing.colorImages > 0 ||
-    missing.galleryImages ||
-    missing.inTheBox ||
-    missing.category ||
-    missing.brand;
-
-  return { missing, hasMissing };
-};
 
 router.get('/', asyncHandler(async (req, res) => {
   const db = getDb();
@@ -197,6 +135,7 @@ router.get('/', asyncHandler(async (req, res) => {
         descriptionAr: 1,
         price: 1,
         image: 1,
+        images: 1,
         category: 1,
         categoryAr: 1,
         cat_code: 1,
@@ -226,6 +165,7 @@ router.get('/', asyncHandler(async (req, res) => {
         descriptionAr: 1,
         price: 1,
         image: 1,
+        images: 1,
         category: 1,
         categoryAr: 1,
         cat_code: 1,
@@ -246,32 +186,45 @@ router.get('/', asyncHandler(async (req, res) => {
       }
     : undefined;
 
-  const [items, total] = await Promise.all([
-    db.collection('products')
-      .find(query, projection ? { projection } : {})
-      .skip(skip)
-      .limit(limit)
-      .sort({ updatedAt: -1 })
-      .toArray(),
-    doCount
-      ? db.collection('products').countDocuments(query)
-      : Promise.resolve(null),
-  ]);
-
   const includeMissing = req.query.include_missing === '1' || req.query.include_missing === 'true';
-  const shouldExcludeMissing =
-    !includeMissing &&
-    (req.query.brand_code ||
-      req.query.cat_code ||
-      req.query.brand ||
-      req.query.category ||
-      req.query.categoryId ||
-      req.query.brandId);
+  const shouldExcludeMissing = !includeMissing;
 
-  const hydrated = hydrateCollection('products', items);
-  const filtered = shouldExcludeMissing
-    ? hydrated.filter((item) => !computeContentMissing(item).hasMissing)
-    : hydrated;
+  let filtered = [];
+  let total = null;
+
+  if (shouldExcludeMissing) {
+    const items = await db.collection('products')
+      .find(query, projection ? { projection } : {})
+      .sort({ updatedAt: -1 })
+      .toArray();
+
+    const hydrated = hydrateCollection('products', items);
+    const catalogReady = hydrated
+      .map((item) => {
+        const validation = validateProductContent(item);
+        if (!validation.isCatalogReady) return null;
+        return filterProductForCatalog(item, validation);
+      })
+      .filter(Boolean);
+
+    total = doCount ? catalogReady.length : null;
+    filtered = catalogReady.slice(skip, skip + limit);
+  } else {
+    const [items, count] = await Promise.all([
+      db.collection('products')
+        .find(query, projection ? { projection } : {})
+        .skip(skip)
+        .limit(limit)
+        .sort({ updatedAt: -1 })
+        .toArray(),
+      doCount
+        ? db.collection('products').countDocuments(query)
+        : Promise.resolve(null),
+    ]);
+
+    filtered = hydrateCollection('products', items);
+    total = count;
+  }
 
   const response = {
     success: true,
@@ -294,8 +247,11 @@ router.get('/home-sliders', asyncHandler(async (req, res) => {
     slug: 1,
     name: 1,
     nameAr: 1,
+    description: 1,
+    descriptionAr: 1,
     price: 1,
     image: 1,
+    images: 1,
     category: 1,
     categoryAr: 1,
     cat_code: 1,
@@ -309,6 +265,7 @@ router.get('/home-sliders', asyncHandler(async (req, res) => {
     availability: 1,
     colorVariants: 1,
     chargeOptions: 1,
+    specs: 1,
     status: 1,
     updatedAt: 1,
   };
@@ -364,8 +321,22 @@ router.get('/home-sliders', asyncHandler(async (req, res) => {
       .sort((a, b) => b._priceValue - a._priceValue)
       .map(({ _priceValue, ...rest }) => rest);
 
-  const filteredNewHot = sortByPriceDesc(newHot).filter((item) => parsePrice(item.price) > 10).slice(0, limit);
-  const filteredMostSold = sortByPriceDesc(mostSold).slice(0, limit);
+  const filteredNewHot = sortByPriceDesc(newHot)
+    .filter((item) => parsePrice(item.price) > 10)
+    .map((item) => {
+      const validation = validateProductContent(item);
+      return validation.isCatalogReady ? filterProductForCatalog(item, validation) : null;
+    })
+    .filter(Boolean)
+    .slice(0, limit);
+
+  const filteredMostSold = sortByPriceDesc(mostSold)
+    .map((item) => {
+      const validation = validateProductContent(item);
+      return validation.isCatalogReady ? filterProductForCatalog(item, validation) : null;
+    })
+    .filter(Boolean)
+    .slice(0, limit);
 
   res.json({
     success: true,

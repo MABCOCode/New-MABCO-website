@@ -8,6 +8,7 @@ const { posSyncToken, posSyncConnString } = require('../config/env');
 const { syncPosProducts } = require('../services/posProductsSync.service');
 const { sendToTokens } = require('../services/fcm');
 const { normalizePhone } = require('../utils/phone');
+const { validateProductContent } = require('../utils/productContentValidation');
 
 const router = express.Router();
 
@@ -509,78 +510,18 @@ router.post('/pos/sync-products', requirePosSyncToken, asyncHandler(async (req, 
   res.json({ success: true, data: result });
 }));
 
-const computeContentMissing = (product) => {
-  const name = typeof product?.name === 'object' ? product?.name?.en : product?.name;
-  const nameAr = product?.nameAr || (typeof product?.name === 'object' ? product?.name?.ar : '');
-  const description = product?.description || '';
-  const descriptionAr = product?.descriptionAr || '';
-  const image = product?.image || '';
-  const specs = Array.isArray(product?.specs) ? product.specs : [];
-  const inTheBox = Array.isArray(product?.inTheBox) ? product.inTheBox : [];
-  const galleryImages = Array.isArray(product?.images) ? product.images : [];
-  const colors = Array.isArray(product?.colorVariants) ? product.colorVariants : [];
-
-  const colorImagesMissing = colors.filter((color) => {
-    const nameVal = color?.name || color?.color_name || '';
-    const nameArVal = color?.nameAr || color?.color_name_ar || nameVal || '';
-    const images = Array.isArray(color?.images)
-      ? color.images.map((img) => (typeof img === 'string' ? img : img?.image_link || img?.url || '')).filter(Boolean)
-      : [];
-    const imageVal = color?.image || images[0] || '';
-    return !String(nameVal || nameArVal).trim() || !String(imageVal).trim();
-  }).length;
-
-  const hasSpecs = specs.length > 0;
-  const hasDescription = String(description).trim().length > 0 || String(descriptionAr).trim().length > 0;
-  const hasName = String(name).trim().length > 0 && String(nameAr).trim().length > 0;
-  const hasColorImages = colors.some((color) => {
-    const images = Array.isArray(color?.images)
-      ? color.images.map((img) => (typeof img === 'string' ? img : img?.image_link || img?.url || '')).filter(Boolean)
-      : [];
-    const imageVal = color?.image || images[0] || '';
-    return String(imageVal).trim().length > 0;
-  });
-  const hasImage = String(image).trim().length > 0 || hasColorImages;
-  const hasGallery = galleryImages.length > 0;
-  const hasBox = inTheBox.length > 0;
-  const hasCategory = String(product?.category || '').trim().length > 0;
-  const hasBrand = String(product?.brand || '').trim().length > 0;
-
-  const missing = {
-    name: !hasName,
-    description: !hasDescription,
-    specs: !hasSpecs,
-    image: !hasImage,
-    colorImages: colorImagesMissing,
-    galleryImages: !hasGallery,
-    inTheBox: !hasBox,
-    category: !hasCategory,
-    brand: !hasBrand,
-  };
-
-  const hasMissing =
-    missing.name ||
-    missing.description ||
-    missing.specs ||
-    missing.image ||
-    missing.colorImages > 0 ||
-    missing.galleryImages ||
-    missing.inTheBox ||
-    missing.category ||
-    missing.brand;
-
-  return { missing, hasMissing };
-};
-
 router.get('/products', asyncHandler(async (req, res) => {
   const db = getDb();
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit || '50', 10), 1), 200);
   const skip = (page - 1) * limit;
   const onlyMissing = req.query.missing === '1' || req.query.missing === 'true';
+  const onlyComplete = req.query.missing === '0' || req.query.missing === 'false';
   const search = String(req.query.search || '').trim().toLowerCase();
 
   const query = {};
+  if (req.query.cat_code) query.cat_code = String(req.query.cat_code);
+  if (req.query.brand_code) query.brand_code = String(req.query.brand_code);
   if (search) {
     query.$or = [
       { stk_code: { $regex: search, $options: 'i' } },
@@ -595,24 +536,56 @@ router.get('/products', asyncHandler(async (req, res) => {
     .collection('products')
     .find(query)
     .sort({ updatedAt: -1 })
-    .skip(skip)
-    .limit(limit)
     .toArray();
 
   const mapped = items.map((item) => {
-    const { missing, hasMissing } = computeContentMissing(item);
+    const product = hydrateDocument('products', item);
+    const validation = validateProductContent(product);
     return {
-      ...hydrateDocument('products', item),
-      _missing: missing,
-      _hasMissing: hasMissing,
+      ...product,
+      _missing: validation.missing,
+      _hasMissing: validation.hasMissing,
+      _validation: {
+        product: validation.productMissing,
+        variants: {
+          colors: {
+            total: validation.variants.colors.total,
+            completeCount: validation.variants.colors.complete.length,
+            incomplete: validation.variants.colors.incomplete.map((entry) => ({
+              index: entry.index,
+              key: entry.key,
+              label: entry.label,
+              labelAr: entry.labelAr,
+              missing: entry.missing,
+            })),
+          },
+          charges: {
+            total: validation.variants.charges.total,
+            completeCount: validation.variants.charges.complete.length,
+            incomplete: validation.variants.charges.incomplete.map((entry) => ({
+              index: entry.index,
+              key: entry.key,
+              label: entry.label,
+              labelAr: entry.labelAr,
+              missing: entry.missing,
+            })),
+          },
+        },
+        isCatalogReady: validation.isCatalogReady,
+      },
     };
   });
 
-  const filtered = onlyMissing ? mapped.filter((item) => item._hasMissing) : mapped;
+  const filtered = onlyMissing
+    ? mapped.filter((item) => item._hasMissing)
+    : onlyComplete
+      ? mapped.filter((item) => !item._hasMissing)
+      : mapped;
+  const paged = filtered.slice(skip, skip + limit);
 
   res.json({
     success: true,
-    data: filtered,
+    data: paged,
     pagination: { page, limit, total: filtered.length },
   });
 }));

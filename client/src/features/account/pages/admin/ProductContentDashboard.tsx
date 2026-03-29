@@ -192,25 +192,14 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
           : [];
 
     const missing = product._missing || {};
-    const readyToPublish = !product._hasMissing;
-    const hasName = Boolean(String(nameEn || nameAr || "").trim());
-    const hasDescription = Boolean(String(product?.description || product?.descriptionAr || "").trim());
-    const hasSpecs = Array.isArray(product?.specs) && product.specs.length > 0;
-    const hasDetails = hasDescription || hasSpecs;
-    const hasImage = Boolean(String(product?.image || colors?.[0]?.image || "").trim());
-    const hasPrice = Number(product?.price || 0) > 0;
-    const colorHasImages = colors.length === 0 || colors.some((c) => Boolean(String(c.image || "").trim()));
-    const hasCategoryCode = Boolean(String(product?.cat_code || product?.category_code || product?.catCode || "").trim());
-    const hasBrandCode = Boolean(String(product?.brand_code || product?.brandCode || "").trim());
-    const requiredMissing = !(
-      hasName &&
-      hasDetails &&
-      hasImage &&
-      hasPrice &&
-      colorHasImages &&
-      hasCategoryCode &&
-      hasBrandCode
-    );
+    const validation = product._validation || {};
+    const incompleteColorVariants = Array.isArray(validation?.variants?.colors?.incomplete)
+      ? validation.variants.colors.incomplete
+      : [];
+    const incompleteChargeOptions = Array.isArray(validation?.variants?.charges?.incomplete)
+      ? validation.variants.charges.incomplete
+      : [];
+    const requiredMissing = Boolean(product._hasMissing);
 
     return {
       id: String(product?._id || product?.id || product?.stk_code || ""),
@@ -239,14 +228,19 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       missingFields: {
         productName: Boolean(missing.name),
         productDetails: Boolean(missing.description),
-        colorImages: Number(missing.colorImages || 0),
+        productImage: Boolean(missing.image),
+        incompleteColors: Number(missing.colorVariants || 0),
+        incompleteCharges: Number(missing.chargeOptions || 0),
         galleryImages: Boolean(missing.galleryImages),
         specs: Boolean(missing.specs),
         category: Boolean(missing.category),
         brand: Boolean(missing.brand),
       },
+      variantIssues: {
+        colors: incompleteColorVariants,
+        charges: incompleteChargeOptions,
+      },
       requiredMissing,
-      readyToPublish,
       _raw: product,
     };
   };
@@ -408,23 +402,20 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
 
   // Calculate completion percentage
   const calculateCompletion = (product: any) => {
-    const total = 5;
-    const hasName = Boolean(String(product?.nameEn || product?.nameAr || "").trim());
-    const hasDescription = Boolean(
-      String(product?.existingContent?.descriptionEn || product?.existingContent?.descriptionAr || "").trim(),
-    );
-    const hasInTheBox = Array.isArray(product?.existingContent?.whatsInBox) && product.existingContent.whatsInBox.length > 0;
-    const hasImage = Boolean(String(product?.existingContent?.thumbnail || "").trim());
-    const hasColorImages = !product?.hasMultipleColors || (product?.colors || []).some((c: any) => Boolean(String(c.image || "").trim()));
+    const checks = [
+      !product?.missingFields?.productName,
+      !product?.missingFields?.productDetails,
+      !product?.missingFields?.productImage,
+      !product?.missingFields?.galleryImages,
+      !product?.missingFields?.specs,
+      !product?.missingFields?.category,
+      !product?.missingFields?.brand,
+      Number(product?.missingFields?.incompleteColors || 0) === 0,
+      Number(product?.missingFields?.incompleteCharges || 0) === 0,
+    ];
 
-    const completed =
-      (hasName ? 1 : 0) +
-      (hasDescription ? 1 : 0) +
-      (hasInTheBox ? 1 : 0) +
-      (hasImage ? 1 : 0) +
-      (hasColorImages ? 1 : 0);
-
-    return Math.round((completed / total) * 100);
+    const completed = checks.filter(Boolean).length;
+    return Math.round((completed / checks.length) * 100);
   };
 
   const getProgressColor = (percentage: number) => {
@@ -729,13 +720,6 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                       {t("admin.content.hidden")}
                     </div>
                   )}
-                  {/* Ready Badge */}
-                  {completionPercentage >= 90 && (
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-green-500 text-white font-bold text-xs shadow-lg">
-                      <CheckCircle2 className="w-4 h-4 inline mr-1" />
-                      {t('admin.content.readyBadge')}
-                    </div>
-                  )}
                 </div>
 
                 {/* Product Info */}
@@ -804,11 +788,43 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                         <span>{t('admin.content.productDetails')}</span>
                       </div>
                     )}
-                    {product.missingFields.colorImages > 0 && (
+                    {product.missingFields.productImage && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                        <span>{t('admin.content.productImage')}</span>
+                      </div>
+                    )}
+                    {product.missingFields.incompleteColors > 0 && (
+                      <div className="flex items-start gap-2 text-sm text-gray-600">
+                        <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                         <span>
-                          {product.missingFields.colorImages} {t('admin.content.colorImages')}
+                          {product.missingFields.incompleteColors} {t('admin.content.colorImages')}
+                          {product.variantIssues.colors.length > 0 && (
+                            <span className="block text-xs text-gray-500">
+                              {product.variantIssues.colors
+                                .slice(0, 3)
+                                .map((variant: any) => language === "ar" ? variant.labelAr || variant.label : variant.label || variant.labelAr)
+                                .join(", ")}
+                              {product.variantIssues.colors.length > 3 ? "..." : ""}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    {product.missingFields.incompleteCharges > 0 && (
+                      <div className="flex items-start gap-2 text-sm text-gray-600">
+                        <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                        <span>
+                          {product.missingFields.incompleteCharges} {t('chargeOptions')}
+                          {product.variantIssues.charges.length > 0 && (
+                            <span className="block text-xs text-gray-500">
+                              {product.variantIssues.charges
+                                .slice(0, 3)
+                                .map((variant: any) => language === "ar" ? variant.labelAr || variant.label : variant.label || variant.labelAr)
+                                .join(", ")}
+                              {product.variantIssues.charges.length > 3 ? "..." : ""}
+                            </span>
+                          )}
                         </span>
                       </div>
                     )}
