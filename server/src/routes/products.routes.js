@@ -7,6 +7,46 @@ const { filterProductForCatalog, validateProductContent } = require('../utils/pr
 
 const router = express.Router();
 
+async function collectCatalogReadyProducts({
+  collection,
+  query,
+  projection,
+  sort,
+  rawSkip = 0,
+  targetCount,
+  batchSize,
+}) {
+  let scanned = rawSkip;
+  let filtered = [];
+
+  while (filtered.length < targetCount) {
+    const items = await collection
+      .find(query, projection ? { projection } : {})
+      .sort(sort)
+      .skip(scanned)
+      .limit(batchSize)
+      .toArray();
+
+    if (items.length === 0) break;
+
+    const hydrated = hydrateCollection('products', items);
+    const catalogReadyBatch = hydrated
+      .map((item) => {
+        const validation = validateProductContent(item);
+        if (!validation.isCatalogReady) return null;
+        return filterProductForCatalog(item, validation);
+      })
+      .filter(Boolean);
+
+    filtered = filtered.concat(catalogReadyBatch);
+    scanned += items.length;
+
+    if (items.length < batchSize) break;
+  }
+
+  return filtered;
+}
+
 router.get('/', asyncHandler(async (req, res) => {
   const db = getDb();
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
@@ -14,8 +54,12 @@ router.get('/', asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
   const useLiteProjection = req.query.lite === '1' || req.query.lite === 'true';
   const useCardProjection = req.query.card === '1' || req.query.card === 'true';
+  const includeHidden = req.query.include_hidden === '1' || req.query.include_hidden === 'true';
 
   const query = {};
+  if (!includeHidden && req.query.hidden !== 'true') {
+    query['status.isHidden'] = { $ne: true };
+  }
   const search = String(req.query.search || '').trim();
   if (req.query.categoryId) query.categoryIds = new ObjectId(req.query.categoryId);
   if (req.query.brandId) query.brandId = new ObjectId(req.query.brandId);
@@ -193,22 +237,39 @@ router.get('/', asyncHandler(async (req, res) => {
   let total = null;
 
   if (shouldExcludeMissing) {
-    const items = await db.collection('products')
-      .find(query, projection ? { projection } : {})
-      .sort({ updatedAt: -1 })
-      .toArray();
+    if (!doCount) {
+      const batchSize = Math.min(Math.max(limit * 3, 60), 250);
+      const targetCount = skip + limit;
+      const catalogReady = await collectCatalogReadyProducts({
+        collection: db.collection('products'),
+        query,
+        projection,
+        sort: { updatedAt: -1 },
+        rawSkip: 0,
+        targetCount,
+        batchSize,
+      });
 
-    const hydrated = hydrateCollection('products', items);
-    const catalogReady = hydrated
-      .map((item) => {
-        const validation = validateProductContent(item);
-        if (!validation.isCatalogReady) return null;
-        return filterProductForCatalog(item, validation);
-      })
-      .filter(Boolean);
+      total = null;
+      filtered = catalogReady.slice(skip, skip + limit);
+    } else {
+      const items = await db.collection('products')
+        .find(query, projection ? { projection } : {})
+        .sort({ updatedAt: -1 })
+        .toArray();
 
-    total = doCount ? catalogReady.length : null;
-    filtered = catalogReady.slice(skip, skip + limit);
+      const hydrated = hydrateCollection('products', items);
+      const catalogReady = hydrated
+        .map((item) => {
+          const validation = validateProductContent(item);
+          if (!validation.isCatalogReady) return null;
+          return filterProductForCatalog(item, validation);
+        })
+        .filter(Boolean);
+
+      total = catalogReady.length;
+      filtered = catalogReady.slice(skip, skip + limit);
+    }
   } else {
     const [items, count] = await Promise.all([
       db.collection('products')
@@ -362,6 +423,10 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const item = await db.collection('products').findOne(query);
 
   if (!item) {
+    return res.status(404).json({ success: false, message: 'Product not found' });
+  }
+
+  if (req.query.include_hidden !== 'true' && item?.status?.isHidden === true) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
 

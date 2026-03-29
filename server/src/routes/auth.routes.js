@@ -16,6 +16,8 @@ const PURPOSES = {
   PASSWORD_RESET: 'password_reset',
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+
 const normalizePhone = (raw) => {
   if (!raw) return null;
   const digits = String(raw).replace(/\D/g, '');
@@ -44,6 +46,12 @@ const hashPassword = (password, salt) =>
 
 const comparePassword = (password, salt, hash) =>
   hashPassword(password, salt) === hash;
+
+const buildValidationError = (message, fieldErrors) => ({
+  success: false,
+  message,
+  fieldErrors,
+});
 
 const sendOtpSms = async ({ phone, code }) => {
   if (process.env.NODE_ENV === 'development') {
@@ -154,11 +162,19 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
   const phone = normalizePhone(req.body?.phone);
   const code = String(req.body?.code || '').trim();
   const name = String(req.body?.name || '').trim();
-  const email = req.body?.email ? String(req.body.email).trim() : '';
+  const email = req.body?.email ? String(req.body.email).trim().toLowerCase() : '';
   const password = String(req.body?.password || '');
 
-  if (!phone || code.length !== OTP_LENGTH || !name || password.length < 6) {
-    return res.status(400).json({ success: false, message: 'Invalid signup payload' });
+  const fieldErrors = {};
+  if (!name) fieldErrors.name = 'Full name is required';
+  if (!phone) fieldErrors.phone = 'Invalid phone number';
+  if (code.length !== OTP_LENGTH) fieldErrors.code = 'Verification code must be 6 digits';
+  if (!password) fieldErrors.password = 'Password is required';
+  else if (password.length < 6) fieldErrors.password = 'Password must be at least 6 characters';
+  if (email && !EMAIL_REGEX.test(email)) fieldErrors.email = 'Invalid email address';
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return res.status(400).json(buildValidationError('Invalid signup payload', fieldErrors));
   }
 
   const record = await loadOtpRecord(db, phone, PURPOSES.SIGNUP);
@@ -179,7 +195,9 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
 
   const existing = await db.collection('users').findOne({ phone });
   if (existing) {
-    return res.status(409).json({ success: false, message: 'Phone already registered' });
+    return res.status(409).json(buildValidationError('Phone already registered', {
+      phone: 'Phone number is already registered',
+    }));
   }
 
   const salt = crypto.randomBytes(16).toString('hex');
@@ -200,7 +218,25 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
     user.email = email.trim();
   }
 
-  const result = await db.collection('users').insertOne(user);
+  let result;
+  try {
+    result = await db.collection('users').insertOne(user);
+  } catch (error) {
+    if (error?.code === 11000) {
+      const duplicateKey = Object.keys(error.keyPattern || {})[0];
+      if (duplicateKey === 'phone') {
+        return res.status(409).json(buildValidationError('Phone already registered', {
+          phone: 'Phone number is already registered',
+        }));
+      }
+      if (duplicateKey === 'email') {
+        return res.status(409).json(buildValidationError('Email already registered', {
+          email: 'Email address is already registered',
+        }));
+      }
+    }
+    throw error;
+  }
   await db.collection('otp_verifications').deleteOne({ phone, purpose: PURPOSES.SIGNUP });
 
   res.json({

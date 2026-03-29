@@ -33,6 +33,7 @@ router.get('/:offerType/products', asyncHandler(async (req, res) => {
       $match: {
         $and: [
           { "status.isActive": true },
+          { "status.isHidden": { $ne: true } },
           { "availability.isAvailable": true },
           {
             $expr: {

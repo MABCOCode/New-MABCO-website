@@ -1,7 +1,20 @@
 const BaseModel = require('./BaseModel');
 
 class SavedSpecTitleModel extends BaseModel {
-  static props = ['_id', 'name', 'icon', 'usageCount', 'category', 'nameEnNormalized', 'status', 'audit'];
+  static props = [
+    '_id',
+    'name',
+    'nameEn',
+    'nameAr',
+    'icon',
+    'iconImage',
+    'iconImageHash',
+    'usageCount',
+    'category',
+    'nameEnNormalized',
+    'status',
+    'audit',
+  ];
 
   constructor(data = {}) {
     super(data, SavedSpecTitleModel.props);

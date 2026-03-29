@@ -458,19 +458,21 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   };
 
   const specsList = Array.isArray(prod?.specs) ? prod.specs : [];
-  const populatedSpecs = specsList.filter((spec: any) => {
-    const title = String(spec?.title ?? spec?.titleAr ?? "").trim();
-    const value = String(spec?.value ?? spec?.valueAr ?? "").trim();
-    return title.length > 0 && value.length > 0;
-  });
   const getSpecTitle = (spec: any) =>
     language === "ar"
-      ? spec?.titleAr || spec?.title || ""
-      : spec?.title || spec?.titleAr || "";
+      ? spec?.titleAr || spec?.nameAr || spec?.title || spec?.nameEn || ""
+      : spec?.title || spec?.nameEn || spec?.titleAr || spec?.nameAr || "";
   const getSpecValue = (spec: any) =>
     language === "ar"
-      ? spec?.valueAr || spec?.value || ""
-      : spec?.value || spec?.valueAr || "";
+      ? spec?.valueAr || spec?.value || spec?.valueEn || ""
+      : spec?.value || spec?.valueEn || spec?.valueAr || "";
+  const populatedSpecs = specsList.filter((spec: any) => {
+    const title =
+      String(spec?.title ?? spec?.nameEn ?? spec?.titleAr ?? spec?.nameAr ?? "").trim();
+    const value =
+      String(spec?.value ?? spec?.valueEn ?? spec?.valueAr ?? "").trim();
+    return title.length > 0 && value.length > 0;
+  });
   const selectedKeyFeatures = populatedSpecs.filter((spec: any) => spec?.isKeyFeature).slice(0, 4);
   const displayKeyFeatures = selectedKeyFeatures.length > 0 ? selectedKeyFeatures : populatedSpecs.slice(0, 4);
   const shouldShowKeyFeatures = userPermissions.canEditContent || displayKeyFeatures.length > 0;

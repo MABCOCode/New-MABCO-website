@@ -20,7 +20,6 @@ import {
   Package,
   Palette,
   Plus,
-  Save,
   Search,
   Settings as SettingsIcon,
   Shield,
@@ -32,11 +31,10 @@ import {
   Watch,
   Wifi,
   X,
-  Zap,
+  Zap
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../context/LanguageContext";
-import hiddenProductsManager from "../../../../data/hiddenProductsData";
 import savedSpecTitlesManager from "../../../../data/savedSpecTitlesData";
 
 interface ProductContentDashboardProps {
@@ -121,7 +119,6 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   const [selectedBrandFilter, setSelectedBrandFilter] = useState("");
   const [missingFilter, setMissingFilter] = useState<"missing" | "complete" | "all">("missing");
   const [hasUserFilter, setHasUserFilter] = useState(false);
-  const [hiddenProducts, setHiddenProducts] = useState<Set<string>>(new Set());
   const [contentProducts, setContentProducts] = useState<any[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -129,10 +126,6 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   const [filterCategories, setFilterCategories] = useState<FilterCategoryOption[]>([]);
   const [filterBrands, setFilterBrands] = useState<FilterBrandOption[]>([]);
   const { t, language } = useLanguage();
-
-  useEffect(() => {
-    setHiddenProducts(new Set(hiddenProductsManager.getHiddenProducts()));
-  }, []);
 
   const mapProduct = (product: any) => {
     const nameEn =
@@ -241,6 +234,8 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
         charges: incompleteChargeOptions,
       },
       requiredMissing,
+      isHidden: Boolean(product?.status?.isHidden),
+      hiddenReason: String(product?.availability?.hiddenReason || ""),
       _raw: product,
     };
   };
@@ -430,16 +425,33 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
     return "bg-red-500";
   };
 
-  const toggleProductVisibility = (productId: string) => {
-    const isNowHidden = hiddenProductsManager.toggleProductVisibility(productId);
-    hiddenProductsManager.saveToStorage();
-    setHiddenProducts((prev) => {
-      const next = new Set(prev);
-      if (isNowHidden) next.add(String(productId));
-      else next.delete(String(productId));
-      return next;
-    });
-    alert(isNowHidden ? t("admin.content.productHidden") : t("admin.content.productVisible"));
+  const toggleProductVisibility = async (product: any) => {
+    const nextHiddenState = !Boolean(product?.isHidden);
+    const reason = nextHiddenState
+      ? product?.hiddenReason || "Hidden from Store Management"
+      : "";
+
+    try {
+      const saved = await saveProductUpdate(product.id, {
+        status: {
+          isHidden: nextHiddenState,
+          isActive: product?._raw?.status?.isActive ?? true,
+        },
+        availability: {
+          hiddenReason: reason,
+        },
+      });
+      const mapped = mapProduct(saved);
+      setContentProducts((prev) =>
+        prev.map((item) => (item.id === product.id ? mapped : item)),
+      );
+      if (selectedProduct?.id === product.id) {
+        setSelectedProduct(mapped);
+      }
+      alert(nextHiddenState ? t("admin.content.productHidden") : t("admin.content.productVisible"));
+    } catch (err: any) {
+      alert(err?.message || "Failed to update product visibility");
+    }
   };
 
   const meta = adminMeta || resolvedAdminMeta || {};
@@ -710,7 +722,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                   >
                       {completionPercentage}%
                   </div>
-                  {hiddenProducts.has(product.id) && (
+                  {product.isHidden && (
                     <div
                       className={`absolute top-4 ${
                         language === "ar" ? "right-4" : "left-4"
@@ -863,15 +875,15 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                       {t("admin.content.editContent")}
                     </button>
                     <button
-                      onClick={() => toggleProductVisibility(product.id)}
+                      onClick={() => toggleProductVisibility(product)}
                       className={`w-full py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 border-2 ${
-                        hiddenProducts.has(product.id)
+                        product.isHidden
                           ? "bg-gray-900 text-white border-gray-900 hover:bg-black"
                           : "bg-white text-gray-800 border-gray-300 hover:border-gray-500"
                       }`}
                     >
-                      {hiddenProducts.has(product.id) ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      {hiddenProducts.has(product.id) ? t("admin.content.showProduct") : t("admin.content.hideProduct")}
+                      {product.isHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      {product.isHidden ? t("admin.content.showProduct") : t("admin.content.hideProduct")}
                     </button>
                   </div>
                 </div>
@@ -937,6 +949,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   const [showSpecSuggestions, setShowSpecSuggestions] = useState(false);
   const [showSpecNameSuggestions, setShowSpecNameSuggestions] = useState<number | null>(null);
   const [specNameSearch, setSpecNameSearch] = useState<{[key: number]: string}>({});
+  const [customSpecIcons, setCustomSpecIcons] = useState(() => savedSpecTitlesManager.getCustomIcons());
   
   // What's in the Box State
   const [whatsInBox, setWhatsInBox] = useState<Array<{id: string, itemEn: string, itemAr: string, quantity: number}>>(
@@ -1075,6 +1088,16 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   }, [activeTab, hasManyColors]);
 
   useEffect(() => {
+    savedSpecTitlesManager.initialize().then(() => {
+      setCustomSpecIcons(savedSpecTitlesManager.getCustomIcons());
+    });
+    const unsubscribe = savedSpecTitlesManager.subscribe(() => {
+      setCustomSpecIcons(savedSpecTitlesManager.getCustomIcons());
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     if (selectedBrand && !availableEditorBrands.some((brand) => brand.id === selectedBrand)) {
       setSelectedBrand("");
     }
@@ -1086,25 +1109,6 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
       return;
     }
     setSpecs([...specs, { icon: "Smartphone", iconImage: "", nameEn: "", nameAr: "", valueEn: "", valueAr: "" }]);
-    setShowSpecSuggestions(false);
-  };
-
-  const addSpecFromSaved = (savedSpec: any) => {
-    if (specs.length >= CONTENT_REQUIREMENTS.maxSpecs) {
-      alert(language === "ar" ? `الحد الأقصى ${CONTENT_REQUIREMENTS.maxSpecs} مواصفات` : `Maximum ${CONTENT_REQUIREMENTS.maxSpecs} specs`);
-      return;
-    }
-    setSpecs([...specs, { 
-      icon: savedSpec.icon, 
-      iconImage: savedSpec.iconImage || "",
-      nameEn: savedSpec.nameEn, 
-      nameAr: savedSpec.nameAr, 
-      valueEn: "", 
-      valueAr: "" 
-    }]);
-    savedSpecTitlesManager.incrementUsage(savedSpec.id);
-    setSpecSearchQuery("");
-    setShowSpecSuggestions(false);
   };
 
   const removeSpec = (index: number) => {
@@ -1124,26 +1128,19 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     newSpecs[index].iconImage = imageUrl;
     newSpecs[index].icon = ""; // Clear icon if using image
     setSpecs(newSpecs);
+    if (imageUrl) {
+      setCustomSpecIcons(savedSpecTitlesManager.getCustomIcons());
+    }
   };
 
   const handleIconImageUpload = (index: number, file: File) => {
     const reader = new FileReader();
-    reader.onloadend = () => {
-      updateSpecIconImage(index, reader.result as string);
+    reader.onloadend = async () => {
+      const imageUrl = reader.result as string;
+      await savedSpecTitlesManager.addCustomIcon(imageUrl);
+      updateSpecIconImage(index, imageUrl);
     };
     reader.readAsDataURL(file);
-  };
-
-  const applySpecTitleFromSaved = (index: number, savedSpec: any) => {
-    const newSpecs = [...specs];
-    newSpecs[index].nameEn = savedSpec.nameEn;
-    newSpecs[index].nameAr = savedSpec.nameAr;
-    newSpecs[index].icon = savedSpec.icon;
-    newSpecs[index].iconImage = savedSpec.iconImage || "";
-    setSpecs(newSpecs);
-    setShowSpecNameSuggestions(null);
-    setSpecNameSearch({ ...specNameSearch, [index]: "" });
-    savedSpecTitlesManager.incrementUsage(savedSpec.id);
   };
 
   const addBoxItem = () => {
@@ -1172,13 +1169,15 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     setColors(newColors);
   };
 
-  const handleSave = () => {
-    // Save new spec titles to the manager
-    specs.forEach((spec: any) => {
-      if (spec.nameEn && spec.nameAr) {
-        savedSpecTitlesManager.addOrUpdateTitle(spec.nameEn, spec.nameAr, spec.icon, spec.iconImage);
-      }
-    });
+  const handleSave = async () => {
+    await Promise.all(
+      specs.map((spec: any) => {
+        if (spec.nameEn && spec.nameAr) {
+          return savedSpecTitlesManager.addOrUpdateTitle(spec.nameEn, spec.nameAr, spec.icon, spec.iconImage);
+        }
+        return Promise.resolve(null);
+      }),
+    );
 
     const formattedSpecs = specs.map((spec: any) => ({
       icon: spec.icon || "Smartphone",
@@ -1873,6 +1872,37 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                     );
                                   })}
                                 </div>
+                                {customSpecIcons.length > 0 && (
+                                  <>
+                                    <p className="text-sm font-bold text-gray-700 mt-4 mb-3">
+                                      {language === "ar" ? "الأيقونات المخصصة" : "Custom Icons"}
+                                    </p>
+                                    <div className="grid grid-cols-4 gap-2">
+                                      {customSpecIcons.map((iconItem) => (
+                                        <button
+                                          key={iconItem.id}
+                                          onClick={() => {
+                                            updateSpecIconImage(index, iconItem.iconImage || "");
+                                            setShowIconPicker(null);
+                                            savedSpecTitlesManager.incrementUsage(iconItem.id);
+                                          }}
+                                          className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all ${
+                                            spec.iconImage === iconItem.iconImage
+                                              ? "bg-[#009FE3] text-white"
+                                              : "bg-gray-50 hover:bg-gray-100 text-gray-700"
+                                          }`}
+                                        >
+                                          <div className="w-8 h-8 bg-white rounded flex items-center justify-center overflow-hidden border border-gray-200">
+                                            <img src={iconItem.iconImage} alt={iconItem.nameEn} className="w-full h-full object-contain" />
+                                          </div>
+                                          <span className="text-xs font-medium text-center">
+                                            {language === "ar" ? iconItem.nameAr : iconItem.nameEn}
+                                          </span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             )}
                           </>
@@ -1889,127 +1919,39 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
 
                     {/* Spec Fields */}
                     <div className="space-y-3">
-                      {/* Spec Name with Autocomplete */}
-                      <div>
-                        <label className="block text-xs font-bold text-gray-600 mb-1">
-                          {t("admin.content.searchSavedSpecs")}
-                        </label>
-                        <div className="relative">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            {t('admin.content.specNameEn')}
+                          </label>
                           <input
                             type="text"
-                            value={specNameSearch[index] !== undefined ? specNameSearch[index] : ""}
+                            value={spec.nameEn}
                             onChange={(e) => {
-                              setSpecNameSearch({ ...specNameSearch, [index]: e.target.value });
-                              setShowSpecNameSuggestions(index);
+                              const newSpecs = [...specs];
+                              newSpecs[index].nameEn = e.target.value;
+                              setSpecs(newSpecs);
                             }}
-                            onFocus={() => setShowSpecNameSuggestions(index)}
-                            onBlur={() => {
-                              setTimeout(() => setShowSpecNameSuggestions(null), 200);
-                            }}
-                            className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
-                            placeholder={t("admin.content.searchSavedSpecPlaceholder")}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
+                            placeholder={t("admin.content.specNamePlaceholderEn")}
                           />
-                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          
-                          {/* Suggestions Dropdown */}
-                          {showSpecNameSuggestions === index && (
-                            <div className="absolute top-full mt-1 left-0 right-0 bg-white rounded-lg shadow-xl border-2 border-gray-200 max-h-48 overflow-y-auto z-30">
-                              {(() => {
-                                const searchTerm = specNameSearch[index] || "";
-                                const results = searchTerm 
-                                  ? savedSpecTitlesManager.searchTitles(searchTerm, language)
-                                  : savedSpecTitlesManager.getMostUsed(8);
-                                
-                                return (
-                                  <div className="p-2">
-                                    {!searchTerm && results.length > 0 && (
-                                      <p className="text-xs font-bold text-gray-500 mb-2 px-2">
-                                        {t('admin.content.mostUsedSpecs')}
-                                      </p>
-                                    )}
-                                    {results.length > 0 ? (
-                                      results.map((savedSpec) => (
-                                        <button
-                                          key={savedSpec.id}
-                                          onClick={() => applySpecTitleFromSaved(index, savedSpec)}
-                                          className="w-full flex items-center gap-2 px-2 py-2 hover:bg-blue-50 rounded-lg transition-all text-left"
-                                        >
-                                          {(() => {
-                                            if (savedSpec.iconImage) {
-                                              return (
-                                                <div className="w-6 h-6 bg-white rounded flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
-                                                  <img src={savedSpec.iconImage} alt="Icon" className="w-full h-full object-contain" />
-                                                </div>
-                                              );
-                                            } else {
-                                              const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
-                                              return (
-                                                <div className="w-6 h-6 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded flex items-center justify-center flex-shrink-0">
-                                                  <Icon className="w-4 h-4 text-white" />
-                                                </div>
-                                              );
-                                            }
-                                          })()}
-                                          <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-xs text-gray-900 truncate">
-                                              {language === "ar" ? savedSpec.nameAr : savedSpec.nameEn}
-                                            </p>
-                                            <p className="text-xs text-gray-500 truncate">
-                                              {language === "ar" ? savedSpec.nameEn : savedSpec.nameAr}
-                                            </p>
-                                          </div>
-                                          <span className="text-xs text-gray-400">
-                                            {savedSpec.usageCount}×
-                                          </span>
-                                        </button>
-                                      ))
-                                    ) : (
-                                      <div className="p-2 text-center text-gray-500 text-xs">
-                                        {t("admin.content.noResultsAddNewSpec")}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
                         </div>
-                        
-                        {/* Manual Entry Fields for New Spec */}
-                        <div className="grid grid-cols-2 gap-3 mt-3">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              {t('admin.content.specNameEn')}
-                            </label>
-                            <input
-                              type="text"
-                              value={spec.nameEn}
-                              onChange={(e) => {
-                                const newSpecs = [...specs];
-                                newSpecs[index].nameEn = e.target.value;
-                                setSpecs(newSpecs);
-                              }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
-                              placeholder={t("admin.content.specNamePlaceholderEn")}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              {t('admin.content.specNameAr')}
-                            </label>
-                            <input
-                              type="text"
-                              value={spec.nameAr}
-                              onChange={(e) => {
-                                const newSpecs = [...specs];
-                                newSpecs[index].nameAr = e.target.value;
-                                setSpecs(newSpecs);
-                              }}
-                              dir="rtl"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
-                              placeholder={t("admin.content.specNamePlaceholderAr")}
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            {t('admin.content.specNameAr')}
+                          </label>
+                          <input
+                            type="text"
+                            value={spec.nameAr}
+                            onChange={(e) => {
+                              const newSpecs = [...specs];
+                              newSpecs[index].nameAr = e.target.value;
+                              setSpecs(newSpecs);
+                            }}
+                            dir="rtl"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
+                            placeholder={t("admin.content.specNamePlaceholderAr")}
+                          />
                         </div>
                       </div>
 
@@ -2220,13 +2162,13 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
           </button>
 
           <div className="flex items-center gap-3">
-            <button
+            {/* <button
               onClick={handleSave}
               className="px-6 py-3 border-2 border-[#009FE3] text-[#009FE3] rounded-xl font-bold hover:bg-blue-50 transition-all flex items-center gap-2"
             >
               <Save className="w-5 h-5" />
               {t('admin.content.saveDraft')}
-            </button>
+            </button> */}
             <button
               onClick={handleSave}
               className="px-6 py-3 bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
@@ -2240,3 +2182,4 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     </div>
   );
 }
+

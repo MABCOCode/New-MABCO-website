@@ -41,6 +41,22 @@ export function SignupFlow({
 
   const t = translations[language];
   const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const applyFieldErrors = (fieldErrors?: Record<string, string>) => {
+    if (!fieldErrors || typeof fieldErrors !== "object") return;
+
+    const nextErrors: Record<string, string> = {};
+    if (fieldErrors.name) nextErrors.fullName = fieldErrors.name;
+    if (fieldErrors.phone) nextErrors.phoneNumber = fieldErrors.phone;
+    if (fieldErrors.password) nextErrors.password = fieldErrors.password;
+    if (fieldErrors.email) nextErrors.email = fieldErrors.email;
+    if (fieldErrors.code) nextErrors.code = fieldErrors.code;
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors((prev: Record<string, string>) => ({ ...prev, ...nextErrors }));
+    }
+  };
 
   const mapAuthError = (message?: string) => {
     const normalized = (message || "").toLowerCase();
@@ -51,6 +67,9 @@ export function SignupFlow({
     if (normalized.includes("otp not found")) return t.account_error_otp_not_found;
     if (normalized.includes("otp expired")) return t.account_error_otp_expired;
     if (normalized.includes("invalid otp")) return t.account_error_otp_invalid;
+    if (normalized.includes("email already registered")) {
+      return language === "ar" ? "البريد الإلكتروني مسجل بالفعل" : "Email address is already registered";
+    }
     if (
       normalized.includes("phone already registered") ||
       normalized.includes("phone number is already registered") ||
@@ -58,6 +77,7 @@ export function SignupFlow({
     )
       return t.account_error_phone_registered;
     if (normalized.includes("invalid payload")) return t.account_error_invalid_payload;
+    if (normalized.includes("invalid email")) return t.account_settings_email_invalid;
     return t.account_error_generic;
   };
 
@@ -88,6 +108,10 @@ export function SignupFlow({
       newErrors.password = t.account_signup_password_required;
     } else if (password.length < 6) {
       newErrors.password = t.account_signup_password_short;
+    }
+
+    if (email.trim() && !emailRegex.test(email.trim())) {
+      newErrors.email = t.account_settings_email_invalid;
     }
 
     if (password !== confirmPassword) {
@@ -124,6 +148,7 @@ export function SignupFlow({
         });
         const json = await res.json().catch(() => ({}));
         if (res.status === 409) {
+          applyFieldErrors(json?.fieldErrors);
           setApiError(mapAuthError(json?.message || "Phone number is already registered"));
           setRemainingAttempts(json?.remainingAttempts ?? null);
           // if phone already exists, offer login path
@@ -131,6 +156,7 @@ export function SignupFlow({
           return;
         }
         if (!res.ok) {
+          applyFieldErrors(json?.fieldErrors);
           setApiError(mapAuthError(json?.message || ""));
           setRemainingAttempts(json?.remainingAttempts ?? null);
           throw new Error(json?.message || "");
@@ -169,6 +195,7 @@ export function SignupFlow({
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
+          applyFieldErrors(json?.fieldErrors);
           throw new Error(json?.message || "");
         }
         setDirection(1);
@@ -217,6 +244,7 @@ export function SignupFlow({
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
+          applyFieldErrors(json?.fieldErrors);
           setApiError(mapAuthError(json?.message || ""));
           setRemainingAttempts(json?.remainingAttempts ?? null);
           throw new Error(json?.message || "");
@@ -400,12 +428,26 @@ export function SignupFlow({
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] transition-all ${
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setErrors({ ...errors, email: "" });
+                    }}
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] transition-all ${
+                      errors.email ? "border-red-500" : "border-gray-300"
+                    } ${
                       language === "ar" ? "text-right" : "text-left"
                     }`}
                     dir={language === "ar" ? "rtl" : "ltr"}
                   />
+                  {errors.email && (
+                    <p
+                      className={`text-red-500 text-sm mt-1 ${
+                        language === "ar" ? "text-right" : "text-left"
+                      }`}
+                    >
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
 
                 {/* Password */}

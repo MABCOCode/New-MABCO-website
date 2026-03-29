@@ -15,7 +15,6 @@ import {
   Monitor,
   Plus,
   Save,
-  Search,
   Shield,
   Smartphone,
   Speaker,
@@ -118,8 +117,7 @@ export function InlineProductEditor({
     });
   });
   const [showRemoveConfirm, setShowRemoveConfirm] = useState<number | null>(null);
-  const [specNameSearch, setSpecNameSearch] = useState<{ [key: number]: string }>({});
-  const [showSpecNameSuggestions, setShowSpecNameSuggestions] = useState<number | null>(null);
+  const [customSpecIcons, setCustomSpecIcons] = useState(() => savedSpecTitlesManager.getCustomIcons());
 
   // Update state when product prop changes
   useEffect(() => {
@@ -166,6 +164,16 @@ export function InlineProductEditor({
     setBoxItems(normalizedBox);
   }, [product, language]);
 
+  useEffect(() => {
+    savedSpecTitlesManager.initialize().then(() => {
+      setCustomSpecIcons(savedSpecTitlesManager.getCustomIcons());
+    });
+    const unsubscribe = savedSpecTitlesManager.subscribe(() => {
+      setCustomSpecIcons(savedSpecTitlesManager.getCustomIcons());
+    });
+    return unsubscribe;
+  }, []);
+
   const getCharCountStatus = (text: string, limits: any) => {
     const length = text.length;
     if (length < limits.min) return { status: "short", color: "text-red-600" };
@@ -191,7 +199,7 @@ export function InlineProductEditor({
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  const handleSaveSpecs = () => {
+  const handleSaveSpecs = async () => {
     if (specs.length < CONTENT_LIMITS.minSpecs) {
       alert(`${t("editor.minSpecs")}: ${CONTENT_LIMITS.minSpecs}`);
       return;
@@ -209,11 +217,14 @@ export function InlineProductEditor({
 
     // Convert to both formats for compatibility
     // Save new spec titles to the manager
-    specs.forEach((spec: any) => {
-      if (spec.nameEn && spec.nameAr) {
-        savedSpecTitlesManager.addOrUpdateTitle(spec.nameEn, spec.nameAr, spec.icon, spec.iconImage);
-      }
-    });
+    await Promise.all(
+      specs.map((spec: any) => {
+        if (spec.nameEn && spec.nameAr) {
+          return savedSpecTitlesManager.addOrUpdateTitle(spec.nameEn, spec.nameAr, spec.icon, spec.iconImage);
+        }
+        return Promise.resolve(null);
+      }),
+    );
 
     const formattedSpecs = specs.map((spec: any) => ({
       icon: spec.icon,
@@ -316,26 +327,19 @@ export function InlineProductEditor({
     newSpecs[index].iconImage = imageUrl;
     newSpecs[index].icon = ""; // Clear icon if using image
     setSpecs(newSpecs);
+    if (imageUrl) {
+      setCustomSpecIcons(savedSpecTitlesManager.getCustomIcons());
+    }
   };
 
   const handleIconImageUpload = (index: number, file: File) => {
     const reader = new FileReader();
-    reader.onloadend = () => {
-      updateSpecIconImage(index, reader.result as string);
+    reader.onloadend = async () => {
+      const imageUrl = reader.result as string;
+      await savedSpecTitlesManager.addCustomIcon(imageUrl);
+      updateSpecIconImage(index, imageUrl);
     };
     reader.readAsDataURL(file);
-  };
-
-  const applySpecTitleFromSaved = (index: number, savedSpec: any) => {
-    const newSpecs = [...specs];
-    newSpecs[index].nameEn = savedSpec.nameEn;
-    newSpecs[index].nameAr = savedSpec.nameAr;
-    newSpecs[index].icon = savedSpec.icon;
-    newSpecs[index].iconImage = savedSpec.iconImage || "";
-    setSpecs(newSpecs);
-    setShowSpecNameSuggestions(null);
-    setSpecNameSearch({ ...specNameSearch, [index]: "" });
-    savedSpecTitlesManager.incrementUsage(savedSpec.id);
   };
 
   if (!userPermissions.canEditContent) {
@@ -776,90 +780,40 @@ export function InlineProductEditor({
                                       );
                                     })}
                                   </div>
+                                  {customSpecIcons.length > 0 && (
+                                    <>
+                                      <p className="text-sm font-bold text-gray-700 mt-4 mb-3">
+                                        {language === "ar" ? "الأيقونات المخصصة" : "Custom Icons"}
+                                      </p>
+                                      <div className="grid grid-cols-4 gap-2">
+                                        {customSpecIcons.map((iconItem) => (
+                                          <button
+                                            key={iconItem.id}
+                                            onClick={() => {
+                                              updateSpecIconImage(index, iconItem.iconImage || "");
+                                              setShowIconPicker(null);
+                                              savedSpecTitlesManager.incrementUsage(iconItem.id);
+                                            }}
+                                            className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all ${
+                                              spec.iconImage === iconItem.iconImage
+                                                ? "bg-purple-600 text-white"
+                                                : "bg-gray-50 hover:bg-gray-100 text-gray-700"
+                                            }`}
+                                          >
+                                            <div className="w-8 h-8 bg-white rounded flex items-center justify-center overflow-hidden border border-gray-200">
+                                              <img src={iconItem.iconImage} alt={iconItem.nameEn} className="w-full h-full object-contain" />
+                                            </div>
+                                            <span className="text-xs font-medium text-center leading-tight">
+                                              {language === "ar" ? iconItem.nameAr : iconItem.nameEn}
+                                            </span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Spec Name with Autocomplete */}
-                      <div>
-                        <label className="block text-xs font-bold text-gray-600 mb-1">
-                          {t("admin.content.searchSavedSpecs")}
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={specNameSearch[index] !== undefined ? specNameSearch[index] : ""}
-                            onChange={(e) => {
-                              setSpecNameSearch({ ...specNameSearch, [index]: e.target.value });
-                              setShowSpecNameSuggestions(index);
-                            }}
-                            onFocus={() => setShowSpecNameSuggestions(index)}
-                            onBlur={() => {
-                              setTimeout(() => setShowSpecNameSuggestions(null), 200);
-                            }}
-                            className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                            placeholder={t("admin.content.searchSavedSpecPlaceholder")}
-                          />
-                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          
-                          {/* Suggestions Dropdown */}
-                          {showSpecNameSuggestions === index && (
-                            <div className="absolute top-full mt-1 left-0 right-0 bg-white rounded-lg shadow-xl border-2 border-gray-200 max-h-48 overflow-y-auto z-30">
-                              {(() => {
-                                const searchTerm = specNameSearch[index] || "";
-                                const results = searchTerm 
-                                  ? savedSpecTitlesManager.searchTitles(searchTerm, language)
-                                  : savedSpecTitlesManager.getMostUsed(8);
-                                
-                                return (
-                                  <div className="p-2">
-                                    {!searchTerm && results.length > 0 && (
-                                      <p className="text-xs font-bold text-gray-500 mb-2 px-2">
-                                        {t('admin.content.mostUsedSpecs')}
-                                      </p>
-                                    )}
-                                    {results.length > 0 ? (
-                                      results.map((savedSpec) => (
-                                        <button
-                                          key={savedSpec.id}
-                                          onClick={() => applySpecTitleFromSaved(index, savedSpec)}
-                                          className="w-full flex items-center gap-2 px-2 py-2 hover:bg-blue-50 rounded-lg transition-all text-left"
-                                        >
-                                          {(() => {
-                                            if (savedSpec.iconImage) {
-                                              return (
-                                                <div className="w-6 h-6 bg-white rounded flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
-                                                  <img src={savedSpec.iconImage} alt="Icon" className="w-full h-full object-contain" />
-                                                </div>
-                                              );
-                                            } else {
-                                              const Icon = AVAILABLE_ICONS.find((i) => i.name === savedSpec.icon)?.icon || Smartphone;
-                                              return (
-                                                <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded flex items-center justify-center flex-shrink-0">
-                                                  <Icon className="w-4 h-4 text-white" />
-                                                </div>
-                                              );
-                                            }
-                                          })()}
-                                          <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-xs text-gray-900 truncate">
-                                              {language === "ar" ? savedSpec.nameAr : savedSpec.nameEn}
-                                            </p>
-                                          </div>
-                                        </button>
-                                      ))
-                                    ) : (
-                                      <div className="px-3 py-4 text-center text-gray-400">
-                                        <p className="text-sm">{t("admin.content.noResultsFound")}</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </div>
                           )}
                         </div>
                       </div>

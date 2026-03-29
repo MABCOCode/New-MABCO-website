@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const { ObjectId } = require('mongodb');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
@@ -11,6 +12,69 @@ const { normalizePhone } = require('../utils/phone');
 const { validateProductContent } = require('../utils/productContentValidation');
 
 const router = express.Router();
+
+const DEFAULT_SAVED_SPEC_TITLES = [
+  { id: 'processor', nameEn: 'Processor', nameAr: 'المعالج', icon: 'Cpu', usageCount: 50, category: 'performance' },
+  { id: 'ram', nameEn: 'RAM', nameAr: 'الذاكرة العشوائية', icon: 'MemoryStick', usageCount: 48, category: 'performance' },
+  { id: 'storage', nameEn: 'Storage', nameAr: 'التخزين', icon: 'HardDrive', usageCount: 47, category: 'storage' },
+  { id: 'display', nameEn: 'Display', nameAr: 'الشاشة', icon: 'Monitor', usageCount: 45, category: 'display' },
+  { id: 'camera', nameEn: 'Camera', nameAr: 'الكاميرا', icon: 'Camera', usageCount: 42, category: 'camera' },
+  { id: 'battery', nameEn: 'Battery', nameAr: 'البطارية', icon: 'Battery', usageCount: 40, category: 'battery' },
+  { id: 'charging', nameEn: 'Charging', nameAr: 'الشحن', icon: 'Zap', usageCount: 38, category: 'charging' },
+  { id: 'connectivity', nameEn: 'Connectivity', nameAr: 'الاتصال', icon: 'Wifi', usageCount: 35, category: 'connectivity' },
+  { id: 'audio', nameEn: 'Audio', nameAr: 'الصوت', icon: 'Speaker', usageCount: 30, category: 'audio' },
+  { id: 'protection', nameEn: 'Protection', nameAr: 'الحماية', icon: 'Shield', usageCount: 28, category: 'protection' },
+  { id: 'os', nameEn: 'Operating System', nameAr: 'نظام التشغيل', icon: 'Smartphone', usageCount: 25, category: 'software' },
+  { id: 'weight', nameEn: 'Weight', nameAr: 'الوزن', icon: 'Package', usageCount: 22, category: 'physical' },
+  { id: 'dimensions', nameEn: 'Dimensions', nameAr: 'الأبعاد', icon: 'Package', usageCount: 20, category: 'physical' },
+  { id: 'gpu', nameEn: 'Graphics', nameAr: 'معالج الرسوميات', icon: 'Monitor', usageCount: 18, category: 'performance' },
+  { id: 'refresh-rate', nameEn: 'Refresh Rate', nameAr: 'معدل التحديث', icon: 'Monitor', usageCount: 15, category: 'display' },
+];
+
+function normalizeSpecTitleText(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeSpecTitleKey(value) {
+  return normalizeSpecTitleText(value).toLowerCase();
+}
+
+function hashIconImage(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  return crypto.createHash('sha1').update(normalized).digest('hex');
+}
+
+async function ensureSavedSpecTitleSeed(database) {
+  const collection = database.collection('saved_spec_titles');
+  const existingCount = await collection.countDocuments();
+  if (existingCount > 0) return;
+
+  const now = new Date();
+  const docs = DEFAULT_SAVED_SPEC_TITLES.map((item) => ({
+    name: {
+      en: item.nameEn,
+      ar: item.nameAr,
+    },
+    nameEn: item.nameEn,
+    nameAr: item.nameAr,
+    nameEnNormalized: normalizeSpecTitleKey(item.nameEn),
+    icon: item.icon,
+    iconImage: '',
+    iconImageHash: '',
+    usageCount: item.usageCount,
+    category: item.category,
+    status: { isActive: true },
+    audit: {
+      createdAt: now,
+      updatedAt: now,
+    },
+  }));
+
+  await collection.insertMany(docs);
+}
 
 function requirePosSyncToken(req, res, next) {
   const authHeader = req.headers.authorization || '';
@@ -297,6 +361,188 @@ router.put('/users/:id/role', asyncHandler(async (req, res) => {
     { projection: { email:1, role:1, adminMeta:1 } }
   );
   res.json({ success: true, data: updatedUser });
+}));
+
+router.get('/saved-spec-titles', asyncHandler(async (req, res) => {
+  const db = getDb();
+  await ensureSavedSpecTitleSeed(db);
+  const items = await db
+    .collection('saved_spec_titles')
+    .find({ $or: [{ 'status.isActive': { $ne: false } }, { status: { $exists: false } }] })
+    .sort({ usageCount: -1, 'audit.updatedAt': -1, nameEn: 1 })
+    .limit(500)
+    .toArray();
+
+  res.json({ success: true, data: hydrateCollection('saved_spec_titles', items) });
+}));
+
+router.post('/saved-spec-titles', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const nameEn = normalizeSpecTitleText(req.body?.nameEn);
+  const nameAr = normalizeSpecTitleText(req.body?.nameAr);
+  const icon = normalizeSpecTitleText(req.body?.icon);
+  const iconImage = String(req.body?.iconImage || '').trim();
+  const category = normalizeSpecTitleText(req.body?.category);
+
+  if (!nameEn || !nameAr) {
+    return res.status(400).json({ success: false, message: 'nameEn and nameAr are required' });
+  }
+
+  const now = new Date();
+  const nameEnNormalized = normalizeSpecTitleKey(nameEn);
+  const iconImageHash = hashIconImage(iconImage);
+  const existing = await db.collection('saved_spec_titles').findOne({ nameEnNormalized });
+
+  if (existing) {
+    const updates = {
+      name: {
+        en: nameEn,
+        ar: nameAr,
+      },
+      nameEn,
+      nameAr,
+      usageCount: Number(existing.usageCount || 0) + 1,
+      'audit.updatedAt': now,
+      'status.isActive': true,
+    };
+    if (icon) updates.icon = icon;
+    if (iconImage) {
+      updates.iconImage = iconImage;
+      updates.iconImageHash = iconImageHash;
+    }
+    if (category) updates.category = category;
+
+    await db.collection('saved_spec_titles').updateOne(
+      { _id: existing._id },
+      { $set: updates },
+    );
+
+    const updated = await db.collection('saved_spec_titles').findOne({ _id: existing._id });
+    return res.json({ success: true, data: hydrateDocument('saved_spec_titles', updated) });
+  }
+
+  const doc = {
+    name: {
+      en: nameEn,
+      ar: nameAr,
+    },
+    nameEn,
+    nameAr,
+    nameEnNormalized,
+    icon: icon || '',
+    iconImage: iconImage || '',
+    iconImageHash: iconImageHash || '',
+    usageCount: 1,
+    category: category || '',
+    status: { isActive: true },
+    audit: {
+      createdAt: now,
+      updatedAt: now,
+    },
+  };
+
+  const result = await db.collection('saved_spec_titles').insertOne(doc);
+  const saved = await db.collection('saved_spec_titles').findOne({ _id: result.insertedId });
+  res.status(201).json({ success: true, data: hydrateDocument('saved_spec_titles', saved) });
+}));
+
+router.post('/saved-spec-titles/custom-icon', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const iconImage = String(req.body?.iconImage || '').trim();
+
+  if (!iconImage) {
+    return res.status(400).json({ success: false, message: 'iconImage is required' });
+  }
+
+  const iconImageHash = hashIconImage(iconImage);
+  const now = new Date();
+  const existing = await db.collection('saved_spec_titles').findOne({ iconImageHash });
+
+  if (existing) {
+    await db.collection('saved_spec_titles').updateOne(
+      { _id: existing._id },
+      {
+        $set: {
+          iconImage,
+          iconImageHash,
+          'status.isActive': true,
+          'audit.updatedAt': now,
+        },
+        $inc: { usageCount: 1 },
+      },
+    );
+    const updated = await db.collection('saved_spec_titles').findOne({ _id: existing._id });
+    return res.json({ success: true, data: hydrateDocument('saved_spec_titles', updated) });
+  }
+
+  const existingCount = await db.collection('saved_spec_titles').countDocuments({ category: 'custom_icon' });
+  const sequence = existingCount + 1;
+  const doc = {
+    name: {
+      en: `Custom Icon ${sequence}`,
+      ar: `أيقونة مخصصة ${sequence}`,
+    },
+    nameEn: `Custom Icon ${sequence}`,
+    nameAr: `أيقونة مخصصة ${sequence}`,
+    nameEnNormalized: `custom-icon-${sequence}-${now.getTime()}`,
+    icon: '',
+    iconImage,
+    iconImageHash,
+    usageCount: 1,
+    category: 'custom_icon',
+    status: { isActive: true },
+    audit: {
+      createdAt: now,
+      updatedAt: now,
+    },
+  };
+
+  const result = await db.collection('saved_spec_titles').insertOne(doc);
+  const saved = await db.collection('saved_spec_titles').findOne({ _id: result.insertedId });
+  res.status(201).json({ success: true, data: hydrateDocument('saved_spec_titles', saved) });
+}));
+
+router.post('/saved-spec-titles/:id/usage', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid saved spec title id' });
+  }
+
+  await db.collection('saved_spec_titles').updateOne(
+    { _id: new ObjectId(id) },
+    {
+      $inc: { usageCount: 1 },
+      $set: {
+        'audit.updatedAt': new Date(),
+        'status.isActive': true,
+      },
+    },
+  );
+
+  const updated = await db.collection('saved_spec_titles').findOne({ _id: new ObjectId(id) });
+  if (!updated) {
+    return res.status(404).json({ success: false, message: 'Saved spec title not found' });
+  }
+
+  res.json({ success: true, data: hydrateDocument('saved_spec_titles', updated) });
+}));
+
+router.delete('/saved-spec-titles/:id', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid saved spec title id' });
+  }
+
+  const result = await db.collection('saved_spec_titles').deleteOne({ _id: new ObjectId(id) });
+  if (result.deletedCount === 0) {
+    return res.status(404).json({ success: false, message: 'Saved spec title not found' });
+  }
+
+  res.json({ success: true, data: { id } });
 }));
 
 router.get('/orders', asyncHandler(async (req, res) => {
@@ -962,6 +1208,22 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
   setIfDefined('brand', payload.brand);
   setIfDefined('brand_code', payload.brand_code);
   setIfDefined('inTheBox', payload.inTheBox);
+  if (payload.status && typeof payload.status === 'object') {
+    if (payload.status.isHidden !== undefined) {
+      updates['status.isHidden'] = Boolean(payload.status.isHidden);
+    }
+    if (payload.status.isActive !== undefined) {
+      updates['status.isActive'] = Boolean(payload.status.isActive);
+    }
+  }
+  if (payload.availability && typeof payload.availability === 'object') {
+    if (payload.availability.hiddenReason !== undefined) {
+      updates['availability.hiddenReason'] = payload.availability.hiddenReason || '';
+    }
+    if (payload.availability.isAvailable !== undefined) {
+      updates['availability.isAvailable'] = Boolean(payload.availability.isAvailable);
+    }
+  }
   if (payload.specs !== undefined) {
     updates.specs = Array.isArray(payload.specs) ? payload.specs.map(spec => ({
       icon: spec.iconImage ? { type: 'url', url: spec.iconImage } : { type: 'react_icon', key: spec.icon || 'Smartphone' },
@@ -1055,7 +1317,7 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
   await db.collection('admin_actions').insertOne({
     actorUserId,
     actorRole: String(actorRole),
-    actionType: 'product_content_update',
+    actionType: payload?.status?.isHidden !== undefined ? (payload.status.isHidden ? 'hide' : 'show') : 'product_content_update',
     targetType: 'product',
     targetId: existing._id,
     createdAt: new Date(),
