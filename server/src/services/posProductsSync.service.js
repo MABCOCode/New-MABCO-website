@@ -311,6 +311,8 @@ async function syncPosProducts({ connString, db, logger = console }) {
 
       const existing = await db.collection('products').findOne({ stk_code: stkCode });
       if (!existing) {
+        if (!updates.name) updates.name = `${stkCode}`;
+        if (!updates.nameAr) updates.nameAr = `${stkCode}`;
         const requiredMissing = !updates.name || !updates.nameAr || !updates.price;
         if (requiredMissing) {
           errors.push({

@@ -911,6 +911,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
               setContentProducts((prev) =>
                 prev.map((item) => (item.id === updatedProduct.id ? mapProduct(saved) : item)),
               );
+              fetchProducts();
             } catch (err: any) {
               alert(err?.message || "Failed to save product");
             }
@@ -991,7 +992,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     [availableEditorBrands, selectedBrand],
   );
   const hasManyColors = Array.isArray(colors) && colors.length > 0;
-  const needsCategoryBrand = !["00", "09"].includes(selectedCategory);
+  const needsCategoryBrand = !["00"].includes(selectedCategory);
   const selectedCategoryLabel =
     (language === "ar"
       ? selectedCategoryOption?.nameAr || selectedCategoryOption?.nameEn
