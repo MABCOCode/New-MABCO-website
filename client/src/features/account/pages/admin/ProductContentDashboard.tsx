@@ -548,9 +548,12 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       allowAllBrands ||
       (allowedBrandIds.length > 0 && inferredBrandCode && allowedBrandIds.includes(inferredBrandCode));
 
+    const brandMissing = !inferredBrandCode;
+
     const hasCategoryRules = allowedCategoryIds.length > 0 || allowAllCategories;
     const hasBrandRules = allowedBrandIds.length > 0 || allowAllBrands;
     const permissionPass =
+      (brandMissing && categoryAllowed) ||
       (hasCategoryRules && hasBrandRules && categoryAllowed && brandAllowed) ||
       (hasCategoryRules && !hasBrandRules && categoryAllowed) ||
       (!hasCategoryRules && hasBrandRules && brandAllowed);
