@@ -236,6 +236,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       requiredMissing,
       isHidden: Boolean(product?.status?.isHidden),
       hiddenReason: String(product?.availability?.hiddenReason || ""),
+      isAvailable: product?.availability?.isAvailable !== false,
       _raw: product,
     };
   };
@@ -730,6 +731,16 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                     >
                       <EyeOff className="w-3 h-3" />
                       {t("admin.content.hidden")}
+                    </div>
+                  )}
+                  {!product.isAvailable && (
+                    <div
+                      className={`absolute top-4 ${
+                        language === "ar" ? "left-4" : "right-4"
+                      } px-3 py-1 rounded-full bg-red-600 text-white font-bold text-xs shadow-lg flex items-center gap-1`}
+                    >
+                      <AlertCircle className="w-3 h-3" />
+                      {language === "ar" ? "غير متوفر" : "Unavailable"}
                     </div>
                   )}
                 </div>

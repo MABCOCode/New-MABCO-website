@@ -55,10 +55,14 @@ router.get('/', asyncHandler(async (req, res) => {
   const useLiteProjection = req.query.lite === '1' || req.query.lite === 'true';
   const useCardProjection = req.query.card === '1' || req.query.card === 'true';
   const includeHidden = req.query.include_hidden === '1' || req.query.include_hidden === 'true';
+  const includeUnavailable = req.query.include_unavailable === '1' || req.query.include_unavailable === 'true';
 
   const query = {};
   if (!includeHidden && req.query.hidden !== 'true') {
     query['status.isHidden'] = { $ne: true };
+  }
+  if (!includeUnavailable && req.query.available !== 'false') {
+    query['availability.isAvailable'] = { $ne: false };
   }
   const search = String(req.query.search || '').trim();
   if (req.query.categoryId) query.categoryIds = new ObjectId(req.query.categoryId);
@@ -334,6 +338,7 @@ router.get('/home-sliders', asyncHandler(async (req, res) => {
   const baseQuery = {
     'status.isHidden': { $ne: true },
     'status.isActive': true,
+    'availability.isAvailable': { $ne: false },
   };
 
   const parsePrice = (value) => {
@@ -427,6 +432,9 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   if (req.query.include_hidden !== 'true' && item?.status?.isHidden === true) {
+    return res.status(404).json({ success: false, message: 'Product not found' });
+  }
+  if (req.query.include_unavailable !== 'true' && item?.availability?.isAvailable === false) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
 
