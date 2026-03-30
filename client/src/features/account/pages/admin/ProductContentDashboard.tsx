@@ -173,7 +173,8 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
           quantity: Number(item?.quantity || item?.qty || 1),
         }))
       : [];
-    const thumbnailImage = product?.image || colors[0]?.image || "";
+    const firstColorImage = colors.find((c: any) => Boolean(c?.image))?.image || "";
+    const thumbnailImage = product?.image || firstColorImage || "";
     const galleryImages = Array.isArray(product?.images)
       ? product.images.filter((image: any) => Boolean(String(image || "").trim()))
       : [];
@@ -957,6 +958,11 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   
   // Gallery State
   const [galleryImages, setGalleryImages] = useState(product.existingContent.images || []);
+  const [removedGalleryImages, setRemovedGalleryImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    setRemovedGalleryImages([]);
+  }, [product.id]);
   
   // Specs State
   const [specs, setSpecs] = useState(product.existingContent.specs || []);
@@ -1176,6 +1182,15 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     const newColors = [...colors];
     newColors[index].image = imageUrl;
     setColors(newColors);
+  };
+
+  const handleColorImageUpload = (index: number, file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      updateColorImage(index, reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const toggleColorVisibility = (index: number) => {
@@ -1552,19 +1567,37 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           <div className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group">
                             <img src={color.image} alt={color.name} className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <button
-                                onClick={() => updateColorImage(index, "")}
-                                className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-gray-700 text-xs font-semibold cursor-pointer hover:bg-gray-100">
+                                  <Upload className="w-4 h-4" />
+                                  {language === "ar" ? "تغيير الصورة" : "Change"}
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => handleColorImageUpload(index, e.target.files?.[0] || null)}
+                                  />
+                                </label>
+                                <button
+                                  onClick={() => updateColorImage(index, "")}
+                                  className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ) : (
-                          <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#009FE3] transition-all cursor-pointer group">
+                          <label className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#009FE3] transition-all cursor-pointer group block">
                             <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2 group-hover:text-[#009FE3] transition-colors" />
                             <p className="text-sm text-gray-600">{t('admin.content.uploadColorImage')}</p>
-                          </div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleColorImageUpload(index, e.target.files?.[0] || null)}
+                            />
+                          </label>
                         )}
                       </div>
                     ))}
@@ -1648,7 +1681,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                           <button
-                            onClick={() => setGalleryImages(galleryImages.filter((_: any, idx: number) => idx !== i))}
+                            onClick={() => {
+                              setGalleryImages((prev) => prev.filter((_: any, idx: number) => idx !== i));
+                              setRemovedGalleryImages((prev) => [...prev, img]);
+                            }}
                             className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                             title={t('admin.content.delete')}
                           >
@@ -1661,6 +1697,38 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {removedGalleryImages.length > 0 && (
+                <div className="border-2 border-dashed border-red-200 rounded-2xl p-4">
+                  <h5 className="font-bold text-red-700 mb-4 flex items-center gap-2">
+                    <Trash2 className="w-5 h-5" />
+                    {language === "ar" ? "صور معلقة للحذف" : "Images pending removal"}
+                  </h5>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {removedGalleryImages.map((img: string, i: number) => (
+                      <div key={`removed-${i}`} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border-2 border-red-200">
+                        <img src={img} alt={`Removed ${i + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={() => {
+                              setRemovedGalleryImages((prev) => prev.filter((_, idx) => idx !== i));
+                              setGalleryImages((prev) => [...prev, img]);
+                            }}
+                            className="px-3 py-2 bg-white text-gray-700 rounded-lg text-xs font-semibold"
+                          >
+                            {language === "ar" ? "تراجع" : "Undo"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-red-600 mt-3">
+                    {language === "ar"
+                      ? "سيتم حذف هذه الصور عند الضغط على نشر"
+                      : "These images will be removed once you press Publish"}
+                  </p>
                 </div>
               )}
 
