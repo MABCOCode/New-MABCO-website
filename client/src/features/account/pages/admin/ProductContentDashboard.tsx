@@ -162,6 +162,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
           image: color?.image || (Array.isArray(color?.images) ? color.images[0] : "") || "",
           stkCode: String(color?.stk_code || color?.stkCode || color?.id || ""),
           isHidden: color?.active === false,
+          inStock: color?.in_stock !== false,
         }))
       : [];
 
@@ -175,6 +176,11 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       : [];
     const firstColorImage = colors.find((c: any) => Boolean(c?.image))?.image || "";
     const thumbnailImage = product?.image || firstColorImage || "";
+    const isAvailableFromColors = colors.length > 0 ? colors.some((color) => color.inStock) : null;
+    const resolvedAvailable =
+      isAvailableFromColors === null
+        ? product?.availability?.isAvailable !== false
+        : isAvailableFromColors;
     const galleryImages = Array.isArray(product?.images)
       ? product.images.filter((image: any) => Boolean(String(image || "").trim()))
       : [];
@@ -237,7 +243,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       requiredMissing,
       isHidden: Boolean(product?.status?.isHidden),
       hiddenReason: String(product?.availability?.hiddenReason || ""),
-      isAvailable: product?.availability?.isAvailable !== false,
+      isAvailable: resolvedAvailable,
       _raw: product,
     };
   };
@@ -576,6 +582,10 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
     return matchesScope && matchesSearch;
   });
 
+  const sortedProducts = filteredProducts
+    .slice()
+    .sort((a, b) => (a.isAvailable === b.isAvailable ? 0 : a.isAvailable ? -1 : 1));
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-white ">
        {/* Header */}
@@ -704,7 +714,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => {
+            {sortedProducts.map((product) => {
             const completionPercentage = calculateCompletion(product);
 
             return (
@@ -1540,6 +1550,11 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                 stk_code: {color.stkCode}
                               </div>
                             )}
+                            <div className={`mt-1 text-xs font-semibold ${color.inStock ? "text-green-600" : "text-red-600"}`}>
+                              {color.inStock
+                                ? (language === "ar" ? "?????" : "In stock")
+                                : (language === "ar" ? "??? ?????" : "Out of stock")}
+                            </div>
                             <div className={`mt-1 text-xs font-semibold ${color.isHidden ? "text-red-600" : "text-green-600"}`}>
                               {color.isHidden
                                 ? (language === "ar" ? "مخفي من الموقع" : "Hidden from website")
