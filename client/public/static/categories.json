@@ -69,6 +69,8 @@
   "iconName": "Battery",
   "brands": [
     { "brand_code": "12", "name": "إيكوفلو", "englishName": "EcoFlow" },
+    { "brand_code": "81", "name": "داي", "englishName": "Deye" },
+
     { "brand_code": "83", "name": "اكسسوار ايكو فلو", "englishName": "Ecoflow Accessories" }
   ]
 },
