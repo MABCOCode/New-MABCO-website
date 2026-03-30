@@ -64,24 +64,62 @@ const CategorySection: React.FC<CategorySectionProps> = ({
           }
         });
 
-        setCategories(
-          (Array.isArray(categoriesJson) ? categoriesJson : []).map((c: any) => ({
+        const normalizedCategories = (Array.isArray(categoriesJson) ? categoriesJson : []).map((c: any) => {
+          const baseBrands = (Array.isArray(c.brands) ? c.brands : []).map((brand: any) => {
+            if (typeof brand === 'string') {
+              const match = brandsByName.get(brand.trim().toLowerCase());
+              return match ? { ...match } : { name: brand };
+            }
+            const codeMatch = brand?.brand_code != null
+              ? brandsByCode.get(String(brand.brand_code))
+              : null;
+            const nameKey = String(brand?.name || brand?.englishName || '').trim().toLowerCase();
+            const nameMatch = nameKey ? brandsByName.get(nameKey) : null;
+            return { ...brand, ...(codeMatch || nameMatch || {}) };
+          });
+
+          const catCode = String(c?.cat_code || c?.category_code || "");
+          const fromCategoryCode = (Array.isArray(brandsJson) ? brandsJson : [])
+            .filter((b: any) => String(b?.category_code ?? b?.cat_code ?? "") === catCode)
+            .map((b: any) => ({ ...b }));
+
+          const seen = new Set(
+            baseBrands
+              .map((b: any) => String(b?.brand_code ?? b?.brandCode ?? b?.code ?? b?.name ?? ""))
+              .filter(Boolean),
+          );
+          const mergedBrands = [...baseBrands];
+          fromCategoryCode.forEach((b: any) => {
+            const key = String(b?.brand_code ?? b?.brandCode ?? b?.code ?? b?.name ?? "");
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            mergedBrands.push(b);
+          });
+
+          return {
             ...c,
             icon: iconsMap[c.iconName] || ChevronUp,
-            brands: (Array.isArray(c.brands) ? c.brands : []).map((brand: any) => {
-              if (typeof brand === 'string') {
-                const match = brandsByName.get(brand.trim().toLowerCase());
-                return match ? { ...match } : { name: brand };
-              }
-              const codeMatch = brand?.brand_code != null
-                ? brandsByCode.get(String(brand.brand_code))
-                : null;
-              const nameKey = String(brand?.name || brand?.englishName || '').trim().toLowerCase();
-              const nameMatch = nameKey ? brandsByName.get(nameKey) : null;
-              return { ...brand, ...(codeMatch || nameMatch || {}) };
+            brands: mergedBrands.sort((a: any, b: any) => {
+              const aOrder = Number(a?.order ?? 9999);
+              const bOrder = Number(b?.order ?? 9999);
+              if (aOrder !== bOrder) return aOrder - bOrder;
+              const aName = String(a?.englishName || a?.name || "");
+              const bName = String(b?.englishName || b?.name || "");
+              return aName.localeCompare(bName);
             }),
-          }))
-        );
+          };
+        });
+
+        const orderedCategories = normalizedCategories.sort((a: any, b: any) => {
+          const aOrder = Number(a?.order ?? 9999);
+          const bOrder = Number(b?.order ?? 9999);
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          const aName = String(a?.nameEn || a?.name || "");
+          const bName = String(b?.nameEn || b?.name || "");
+          return aName.localeCompare(bName);
+        });
+
+        setCategories(orderedCategories);
         setIsLoading(false);
       } catch (e) {
         // Keep shimmer visible and retry on network/timeouts.

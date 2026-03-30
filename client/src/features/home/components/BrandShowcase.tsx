@@ -52,6 +52,7 @@ const BrandShowcase: React.FC<BrandShowcaseProps> = ({
             category: b.category || '',
             productsCount: b.productsCount || 0,
             uiTint: b.uiTint || '',
+            order: Number(b.order ?? idx + 1),
           }));
           setFetchedBrands(normalized);
         } catch (err) {
@@ -66,7 +67,14 @@ const BrandShowcase: React.FC<BrandShowcaseProps> = ({
     return () => { mounted = false; };
   }, [customBrands]);
 
-  const brands = customBrands || fetchedBrands || [];
+  const brands = (customBrands || fetchedBrands || []).slice().sort((a: any, b: any) => {
+    const aOrder = Number(a?.order ?? 9999);
+    const bOrder = Number(b?.order ?? 9999);
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    const aName = String(a?.englishName || a?.name || "");
+    const bName = String(b?.englishName || b?.name || "");
+    return aName.localeCompare(bName);
+  });
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [centerItems, setCenterItems] = useState(false);
