@@ -169,6 +169,9 @@ router.get('/', asyncHandler(async (req, res) => {
     ];
   }
 
+  // Determine sort order: price ascending for brand queries, updatedAt descending otherwise
+  const sort = req.query.brand_code ? { price: 1 } : { updatedAt: -1 };
+
   const doCount = !(req.query.count === '0' || req.query.count === 'false');
 
   const projection = useCardProjection
@@ -248,7 +251,7 @@ router.get('/', asyncHandler(async (req, res) => {
         collection: db.collection('products'),
         query,
         projection,
-        sort: { updatedAt: -1 },
+        sort,
         rawSkip: 0,
         targetCount,
         batchSize,
@@ -259,7 +262,7 @@ router.get('/', asyncHandler(async (req, res) => {
     } else {
       const items = await db.collection('products')
         .find(query, projection ? { projection } : {})
-        .sort({ updatedAt: -1 })
+        .sort(sort)
         .toArray();
 
       const hydrated = hydrateCollection('products', items);
@@ -280,7 +283,7 @@ router.get('/', asyncHandler(async (req, res) => {
         .find(query, projection ? { projection } : {})
         .skip(skip)
         .limit(limit)
-        .sort({ updatedAt: -1 })
+        .sort(sort)
         .toArray(),
       doCount
         ? db.collection('products').countDocuments(query)

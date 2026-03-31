@@ -228,17 +228,46 @@ function getSavedSpecTitlesValidator() {
 
 async function ensureProductIndexes(database) {
   const products = database.collection('products');
+  
+  // Drop existing indexes if they exist with different names
+  try {
+    await products.dropIndex({ brand_code: 1, cat_code: 1, 'status.isHidden': 1, 'availability.isAvailable': 1, updatedAt: -1 });
+  } catch (error) {
+    // Index doesn't exist, continue
+  }
   await products.createIndex(
     { brand_code: 1, cat_code: 1, 'status.isHidden': 1, 'availability.isAvailable': 1, updatedAt: -1 },
     { name: 'brand_cat_visibility_updatedAt', background: true },
   );
+  
+  try {
+    await products.dropIndex({ brand_code: 1, updatedAt: -1 });
+  } catch (error) {
+    // Index doesn't exist, continue
+  }
   await products.createIndex(
     { brand_code: 1, updatedAt: -1 },
     { name: 'brand_updatedAt', background: true },
   );
+  
+  try {
+    await products.dropIndex({ cat_code: 1, updatedAt: -1 });
+  } catch (error) {
+    // Index doesn't exist, continue
+  }
   await products.createIndex(
     { cat_code: 1, updatedAt: -1 },
     { name: 'cat_updatedAt', background: true },
+  );
+  
+  try {
+    await products.dropIndex({ brand_code: 1, price: 1 });
+  } catch (error) {
+    // Index doesn't exist, continue
+  }
+  await products.createIndex(
+    { brand_code: 1, price: 1 },
+    { name: 'brand_price', background: true },
   );
 }
 
