@@ -55,15 +55,29 @@ export function StoreProductsGallery({ onClose }: StoreProductsGalleryProps) {
         ) as string[];
 
         setCategories(uniqueCategories);
+        const resolveImage = (value: any) => {
+          if (typeof value === "string") return value;
+          if (value && typeof value === "object") {
+            return value.image_link || value.url || value.src || value.image || "";
+          }
+          return "";
+        };
+        const resolveProductImage = (product: any) => {
+          if (Array.isArray(product?.images) && product.images.length > 0) {
+            return resolveImage(product.images[0]) || product.image || "";
+          }
+          return product.image || "";
+        };
+
         setProducts(
           items
-            .filter((p: any) => p.image && p.name && p.price)
+            .filter((p: any) => resolveProductImage(p) && p.name && p.price)
             .map((p: any) => ({
               id: p.id || p.stk_code,
               sku: p.stk_code || p.id,
               name: p.name || "",
               nameAr: p.nameAr || p.name || "",
-              image: p.image || "",
+              image: resolveProductImage(p),
               price: p.price || 0,
               category: p.category || "",
               brand: p.brand || "",

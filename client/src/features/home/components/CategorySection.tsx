@@ -27,9 +27,16 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   const categoryCardRefs = useRef<Array<HTMLDivElement | null>>([]);
   const animationTimerRef = useRef<number | null>(null);
   const lastAppliedCategoryCodeRef = useRef<string | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragMovedRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollRef = useRef(0);
+  const activePointerIdRef = useRef<number | null>(null);
+  const pointerCapturedRef = useRef(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [centerItems, setCenterItems] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -240,9 +247,53 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const selectCategory = (index: number) => {
+    if (dragMovedRef.current) return;
     if (onSelectCategory) {
       onSelectCategory(selectedCategory === index ? null : index);
     }
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const container = categoriesScrollRef.current;
+    if (!container) return;
+    isDraggingRef.current = true;
+    dragMovedRef.current = false;
+    dragStartXRef.current = event.clientX;
+    dragStartScrollRef.current = container.scrollLeft;
+    activePointerIdRef.current = event.pointerId;
+    pointerCapturedRef.current = false;
+    setIsDragging(true);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const container = categoriesScrollRef.current;
+    if (!container) return;
+    if (activePointerIdRef.current !== event.pointerId) return;
+    const delta = event.clientX - dragStartXRef.current;
+    if (Math.abs(delta) > 8) {
+      dragMovedRef.current = true;
+      if (!pointerCapturedRef.current) {
+        container.setPointerCapture?.(event.pointerId);
+        pointerCapturedRef.current = true;
+      }
+      container.scrollLeft = dragStartScrollRef.current - delta;
+    }
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const container = categoriesScrollRef.current;
+    if (pointerCapturedRef.current && container?.hasPointerCapture?.(event.pointerId)) {
+      container.releasePointerCapture?.(event.pointerId);
+    }
+    pointerCapturedRef.current = false;
+    activePointerIdRef.current = null;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    window.setTimeout(() => {
+      dragMovedRef.current = false;
+    }, 0);
   };
 
   return (
@@ -264,7 +315,14 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         {/* Categories Container */}
         <div
           ref={categoriesScrollRef}
-          className={`flex overflow-x-auto gap-4 px-4 scroll-smooth scrollbar-hide select-none snap-x snap-mandatory ${centerItems ? 'justify-center' : ''}`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className={`flex overflow-x-auto gap-4 px-4 scroll-smooth scrollbar-hide select-none snap-x snap-mandatory cursor-grab ${
+            isDragging ? "cursor-grabbing" : ""
+          } ${centerItems ? 'justify-center' : ''}`}
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",

@@ -112,6 +112,45 @@ const pickLocalizedStaticName = (value: any, fallback = "") => {
   return fallback;
 };
 
+const normalizeImageEntry = (value: any) => {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object") {
+    return String(
+      value.image_link || value.url || value.src || value.image || "",
+    ).trim();
+  }
+  return "";
+};
+
+const normalizeImageList = (value: any) => {
+  const items = Array.isArray(value) ? value : value ? [value] : [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  items.forEach((item) => {
+    const img = normalizeImageEntry(item);
+    if (img && !seen.has(img)) {
+      seen.add(img);
+      result.push(img);
+    }
+  });
+  return result;
+};
+
+const mergeImageSources = (...values: any[]) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  values.forEach((value) => {
+    normalizeImageList(value).forEach((img) => {
+      if (!seen.has(img)) {
+        seen.add(img);
+        result.push(img);
+      }
+    });
+  });
+  return result;
+};
+
+
 export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDashboardProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -175,18 +214,16 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
         }))
       : [];
     const firstColorImage = colors.find((c: any) => Boolean(c?.image))?.image || "";
-    const thumbnailImage = product?.image || firstColorImage || "";
+    const baseProductImages = mergeImageSources(product?.images, product?.image);
+    const thumbnailImage = baseProductImages[0] || firstColorImage || "";
     const isAvailableFromColors = colors.length > 0 ? colors.some((color) => color.inStock) : null;
     const resolvedAvailable =
       isAvailableFromColors === null
         ? product?.availability?.isAvailable !== false
         : isAvailableFromColors;
-    const galleryImages = Array.isArray(product?.images)
-      ? product.images.filter((image: any) => Boolean(String(image || "").trim()))
-      : [];
     const normalizedGalleryImages =
-      galleryImages.length > 0
-        ? galleryImages
+      baseProductImages.length > 0
+        ? baseProductImages
         : thumbnailImage
           ? [thumbnailImage]
           : [];
@@ -365,7 +402,9 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
             ),
             categoryIds: Array.isArray(brand.categoryIds)
               ? brand.categoryIds.map(String)
-              : [String(brand.category_code || brand.cat_code || "")].filter(Boolean),
+              : Array.isArray(brand.cat_codes)
+              ? brand.cat_codes.map(String)
+              : [String(brand.category_code || brand.cat_code || brand.categoryCode || brand.catCode || "")].filter(Boolean),
           }))
           .filter((brand) => brand.id);
 
@@ -969,6 +1008,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   // Gallery State
   const [galleryImages, setGalleryImages] = useState(product.existingContent.images || []);
   const [removedGalleryImages, setRemovedGalleryImages] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     setRemovedGalleryImages([]);
@@ -1005,7 +1045,9 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
 
     pushImage(product?.existingContent?.thumbnail);
     (Array.isArray(galleryImages) ? galleryImages : []).forEach(pushImage);
-    (Array.isArray(colors) ? colors : []).forEach((color: any) => pushImage(color?.image));
+    (Array.isArray(colors) ? colors : []).forEach((color: any) => {
+      if (!color?.isHidden) pushImage(color?.image);
+    });
 
     return Array.from(imageSet);
   }, [product, galleryImages, colors]);
@@ -1188,25 +1230,34 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     ));
   };
 
-  const updateColorImage = (index: number, imageUrl: string) => {
-    const newColors = [...colors];
-    newColors[index].image = imageUrl;
-    setColors(newColors);
+  const getColorKey = (color: any, fallbackIndex: number) =>
+    String(color?.stkCode || color?.stk_code || fallbackIndex);
+
+  const updateColorImage = (key: string, imageUrl: string) => {
+    setColors((prev) =>
+      prev.map((color: any, idx: number) =>
+        getColorKey(color, idx) === key ? { ...color, image: imageUrl } : color,
+      ),
+    );
   };
 
-  const handleColorImageUpload = (index: number, file: File | null) => {
+  const handleColorImageUpload = (key: string, file: File | null) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      updateColorImage(index, reader.result as string);
+      updateColorImage(key, reader.result as string);
     };
     reader.readAsDataURL(file);
   };
 
-  const toggleColorVisibility = (index: number) => {
-    const newColors = [...colors];
-    newColors[index].isHidden = !Boolean(newColors[index].isHidden);
-    setColors(newColors);
+  const toggleColorVisibility = (key: string) => {
+    setColors((prev) =>
+      prev.map((color: any, idx: number) =>
+        getColorKey(color, idx) === key
+          ? { ...color, isHidden: !Boolean(color.isHidden) }
+          : color,
+      ),
+    );
   };
 
   const handleSave = async () => {
@@ -1218,6 +1269,8 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
         return Promise.resolve(null);
       }),
     );
+
+    const normalizedGalleryImages = normalizeImageList(galleryImages);
 
     const formattedSpecs = specs.map((spec: any) => ({
       icon: spec.icon || "Smartphone",
@@ -1231,7 +1284,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     const formattedColors = colors.map((color: any) => ({
       stk_code: color?.stkCode || "",
       active: !color?.isHidden,
-      images: color?.image ? [color.image] : [],
+      images: color?.isHidden ? [] : color?.image ? [color.image] : [],
     }));
 
     const formattedBox = whatsInBox.map((item: any) => ({
@@ -1246,8 +1299,8 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
       nameAr,
       description: descriptionEn,
       descriptionAr,
-      image: hasManyColors ? (product.existingContent.thumbnail || "") : (galleryImages[0] || ""),
-      images: galleryImages,
+      image: normalizedGalleryImages[0] || "",
+      images: normalizedGalleryImages,
       specs: formattedSpecs,
       inTheBox: formattedBox,
       category: selectedCategoryOption?.nameEn || "",
@@ -1531,8 +1584,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {colors.map((color: any, index: number) => (
-                      <div key={index} className="border-2 border-gray-200 rounded-xl p-4 hover:border-[#009FE3] transition-all">
+                    {colors.map((color: any, index: number) => {
+                      const colorKey = getColorKey(color, index);
+                      return (
+                      <div key={colorKey} className="border-2 border-gray-200 rounded-xl p-4 hover:border-[#009FE3] transition-all">
                         <div className="flex items-center gap-3 mb-3">
                           <div
                             className="w-8 h-8 rounded-full border-2 border-gray-300"
@@ -1565,7 +1620,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
 
                         <button
                           type="button"
-                          onClick={() => toggleColorVisibility(index)}
+                          onClick={() => toggleColorVisibility(colorKey)}
                           className={`mb-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
                             color.isHidden
                               ? "bg-green-50 text-green-700 hover:bg-green-100"
@@ -1590,11 +1645,11 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                     type="file"
                                     accept="image/*"
                                     className="hidden"
-                                    onChange={(e) => handleColorImageUpload(index, e.target.files?.[0] || null)}
+                                    onChange={(e) => handleColorImageUpload(colorKey, e.target.files?.[0] || null)}
                                   />
                                 </label>
                                 <button
-                                  onClick={() => updateColorImage(index, "")}
+                                  onClick={() => updateColorImage(colorKey, "")}
                                   className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1610,12 +1665,12 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                               type="file"
                               accept="image/*"
                               className="hidden"
-                              onChange={(e) => handleColorImageUpload(index, e.target.files?.[0] || null)}
+                              onChange={(e) => handleColorImageUpload(colorKey, e.target.files?.[0] || null)}
                             />
                           </label>
                         )}
                       </div>
-                    ))}
+                    )})}
                   </div>
                 </>
               ) : (
@@ -1689,12 +1744,20 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           src={img} 
                           alt={`Gallery ${i + 1}`} 
                           className="w-full h-full object-cover"
+                          onClick={() => setPreviewImage(img)}
                           onError={(e) => {
                             const img = e.target as HTMLImageElement;
                             img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3Ctext y='50' font-size='12' fill='%23999' text-anchor='middle' dy='.3em'%3EImage Error%3C/text%3E%3C/svg%3E";
                           }}
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={() => setPreviewImage(img)}
+                            className="p-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                            title={language === "ar" ? "معاينة" : "Preview"}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => {
                               setGalleryImages((prev) => prev.filter((_: any, idx: number) => idx !== i));
@@ -1726,6 +1789,12 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                       <div key={`removed-${i}`} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border-2 border-red-200">
                         <img src={img} alt={`Removed ${i + 1}`} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={() => setPreviewImage(img)}
+                            className="p-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => {
                               setRemovedGalleryImages((prev) => prev.filter((_, idx) => idx !== i));
@@ -2277,6 +2346,28 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
           </div>
         </div>
       </div>
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-3 right-3 p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              aria-label="Close preview"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="w-full max-h-[75vh] flex items-center justify-center">
+              <img src={previewImage} alt="Preview" className="max-h-[75vh] w-full object-contain" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

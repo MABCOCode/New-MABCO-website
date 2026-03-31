@@ -1,14 +1,24 @@
 const hasText = (value) => String(value ?? '').trim().length > 0;
 
 const normalizeImages = (value) => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (typeof item === 'string') return item.trim();
-      if (!item || typeof item !== 'object') return '';
-      return String(item.image_link || item.url || item.src || '').trim();
-    })
-    .filter(Boolean);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (!item || typeof item !== 'object') return '';
+        return String(item.image_link || item.url || item.src || '').trim();
+      })
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  if (value && typeof value === 'object') {
+    const entry = String(value.image_link || value.url || value.src || '').trim();
+    return entry ? [entry] : [];
+  }
+  return [];
 };
 
 const pickLocalizedText = (...values) => {
@@ -109,7 +119,7 @@ const validateProductContent = (product) => {
   const chargeOptions = Array.isArray(product?.chargeOptions) ? product.chargeOptions : [];
   const hasVariantDrivenImage = colorVariants.length > 0 || chargeOptions.length > 0;
   const hasColorVariantSku = colorVariants.some((variant) => hasText(variant?.stk_code || variant?.stkCode));
-  const mainImage = pickLocalizedText(product?.image);
+  const mainImage = pickLocalizedText(product?.image, galleryImages[0]);
   const categoryName = pickLocalizedText(product?.category, product?.categoryAr);
   const categoryCode = pickLocalizedText(product?.cat_code, product?.category_code, product?.catCode);
   const brandName = pickLocalizedText(product?.brand, product?.brandAr);

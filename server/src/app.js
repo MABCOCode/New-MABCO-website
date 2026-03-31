@@ -89,7 +89,8 @@ const isPublicRoute = (req) => {
     '/api/products',
     '/api/categories',
     '/api/brands',
-    '/api/offers'
+    '/api/offers',
+    '/api/faqs'
   ];
   return publicRoutes.some(route => path.startsWith(route)) && req.method === 'GET';
 };

@@ -2,12 +2,14 @@ import {
     Battery,
     Camera,
     CheckCircle2,
+    ChevronDown,
     ChevronRight,
     CreditCard,
     Edit3,
     FileText,
     GitCompare,
     Headphones,
+    HelpCircle,
     Laptop,
     Minus,
     PackageCheck,
@@ -60,8 +62,8 @@ interface ProductDetailPageProps {
   t?: any;
   addToCart?: () => void;
   resetProductDetail?: () => void;
-  activeTab?: "specs" | "offers";
-  setActiveTab?: (tab: "specs" | "offers") => void;
+  activeTab?: "description" | "faq" | "offers";
+  setActiveTab?: (tab: "description" | "faq" | "offers") => void;
   categoryName?: string;
   brandName?: string;
   userPermissions?: {
@@ -79,6 +81,49 @@ const iconMap: { [key: string]: any } = {
   Laptop,
   Shield,
   Settings,
+};
+
+const normalizeImageEntry = (value: any) => {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object") {
+    return String(
+      value.image_link || value.url || value.src || value.image || "",
+    ).trim();
+  }
+  return "";
+};
+
+const normalizeImageList = (value: any) => {
+  const items = Array.isArray(value) ? value : value ? [value] : [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  items.forEach((item) => {
+    const img = normalizeImageEntry(item);
+    if (img && !seen.has(img)) {
+      seen.add(img);
+      result.push(img);
+    }
+  });
+  return result;
+};
+
+const mergeImageSources = (...values: any[]) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  values.forEach((value) => {
+    normalizeImageList(value).forEach((img) => {
+      if (!seen.has(img)) {
+        seen.add(img);
+        result.push(img);
+      }
+    });
+  });
+  return result;
+};
+
+const normalizePreferredImages = (imagesValue: any, imageValue: any) => {
+  const normalized = normalizeImageList(imagesValue);
+  return normalized.length > 0 ? normalized : normalizeImageList(imageValue);
 };
 
 function SpecIcon({ spec, size }: { spec: any; size: "sm" | "lg" }) {
@@ -125,6 +170,65 @@ function SpecIcon({ spec, size }: { spec: any; size: "sm" | "lg" }) {
   }
 
   return <Settings className={`${dimension} text-white`} />;
+}
+
+function FaqAccordion({
+  items,
+  isRTL,
+  language,
+}: {
+  items: Array<{ question: { en: string; ar: string }; answer: { en: string; ar: string } }>;
+  isRTL: boolean;
+  language: "ar" | "en";
+}) {
+  const [openSection, setOpenSection] = useState<number | null>(0);
+  const toggleSection = (id: number) => {
+    setOpenSection(openSection === id ? null : id);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-4">
+      {items.map((item, index) => {
+        const isOpen = openSection === index;
+        return (
+          <div
+            key={`${item.question}-${index}`}
+            className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 transition-all duration-300 hover:shadow-lg"
+          >
+            <button
+              onClick={() => toggleSection(index)}
+              className={`w-full flex items-center justify-between p-5 text-${isRTL ? "right" : "left"} transition-colors duration-200 hover:bg-gray-50`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 text-[#009FE3]">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg text-gray-900">
+                  {language === "ar" ? item.question.ar || item.question.en : item.question.en || item.question.ar}
+                </h3>
+              </div>
+              <ChevronDown
+                className={`w-5 h-5 text-gray-500 transition-transform duration-300 ease-in-out ${
+                  isOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                isOpen ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+              }`}
+            >
+              <div className="p-6 pt-2 bg-gray-50 border-t border-gray-200">
+                <p className={`text-gray-700 ${isRTL ? "text-right" : "text-left"}`}>
+                  {language === "ar" ? item.answer.ar || item.answer.en : item.answer.en || item.answer.ar}
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export function ProductDetailPage(props: ProductDetailPageProps) {
@@ -333,6 +437,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         : String(prod.description || prod.descriptionAr || '').slice(0, 160) ||
           `${productName} at MABCO - quality, warranty, and fast delivery.`;
 
+    const seoImage =
+      mergeImageSources(prod?.images, prod?.image)[0] ||
+      "https://mabcoonline.com/images/giphy.gif";
     setSeo({
       title:
         language === 'ar'
@@ -340,7 +447,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
           : `${productName} | MABCO`,
       description: descriptionText,
       url: window.location.href,
-      image: prod.image || 'https://mabcoonline.com/images/giphy.gif',
+      image: seoImage,
       keywords: `${productName}, ${resolvedBrandName || ''}`,
     });
   }, [prod, language, resolvedBrandName]);
@@ -391,13 +498,16 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     setIsSaving(true);
     setSaveError(null);
     try {
-      const payload = {
+      const hasImagePayload =
+        updated?.images !== undefined || updated?.image !== undefined;
+      const normalizedImages = hasImagePayload
+        ? normalizePreferredImages(updated?.images, updated?.image)
+        : [];
+      const payload: Record<string, any> = {
         name: updated?.name,
         nameAr: updated?.nameAr,
         description: updated?.description,
         descriptionAr: updated?.descriptionAr,
-        image: updated?.image,
-        images: updated?.images,
         specs: updated?.specs ? updated.specs.map((spec: any) => {
           let icon = "Smartphone";
           let iconImage = spec.iconImage || "";
@@ -425,6 +535,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         brand: updated?.brand,
         colorVariants: updated?.colorVariants,
       };
+      if (hasImagePayload) {
+        payload.images = normalizedImages;
+      }
       const res = await fetch(`${apiBase}/admin/products/${encodeURIComponent(String(productId))}`, {
         method: "PUT",
         headers,
@@ -485,7 +598,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     const variants = Array.isArray(prod?.colorVariants) ? prod.colorVariants : [];
     const deduped = new Map<string, any>();
     const scoreVariant = (variant: any) => {
-      const hasImage = Boolean(String(variant.image || (variant.images && variant.images[0]) || "").trim());
+      const hasImage = Boolean(
+        String(variant.image || (variant.images && variant.images[0]) || "").trim(),
+      );
       const isActive = typeof variant.active !== "boolean" || variant.active;
       const isAvailable = variant.isAvailable !== false;
       const inStock = variant.inStock !== false;
@@ -493,14 +608,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     };
 
     variants.forEach((variant: any) => {
-      const images = Array.isArray(variant.images)
-        ? variant.images
-            .map((img: any) =>
-              typeof img === "string" ? img : img?.image_link || img?.url || "",
-            )
-            .filter(Boolean)
-        : [];
-      const image = variant.image || images[0] || "";
+      const images = mergeImageSources(variant.images, variant.image);
+      const image = images[0] || "";
       const name = variant.name || variant.color_name || "";
       const nameAr = variant.nameAr || variant.color_name_ar || name;
       const hexCode = variant.hexCode || variant.color_hex || variant.hex || "";
@@ -609,9 +718,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     normalizedChargeOptions[0]?.id || null,
   );
   const [quantity, setQuantity] = useState(1);
-  const [tabState, setTabState] = useState<"description" | "specs" | "offers">(
-    "description",
-  );
+  const [tabState, setTabState] = useState<"description" | "faq" | "offers">("description");
   const [heroProductInCart, setHeroProductInCart] = useState(false);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -623,26 +730,89 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const [offerProducts, setOfferProducts] = useState<any[]>([]);
   const [offerProductsLoading, setOfferProductsLoading] = useState(false);
   const [offerProductsError, setOfferProductsError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!userPermissions.canEditContent && !hasSpecsContent && tabState === "specs") {
-      setTabState("description");
-    }
-  }, [hasSpecsContent, tabState, userPermissions.canEditContent]);
+  const [faqItems, setFaqItems] = useState<
+    Array<{ question: { en: string; ar: string }; answer: { en: string; ar: string } }>
+  >([]);
+  const [faqLoading, setFaqLoading] = useState(false);
+  const [faqError, setFaqError] = useState<string | null>(null);
+  const [faqLoaded, setFaqLoaded] = useState(false);
+  const [faqHidden, setFaqHidden] = useState(false);
 
   const displayColor = hoveredColor || selectedColor;
   const currentColorVariant = hasColors
     ? availableColorVariants.find((v: any) => v.name === displayColor)
     : null;
 
-  // Get images array for current color (support both single image and images array)
-  const currentImages = currentColorVariant?.images || 
-    (currentColorVariant?.image ? [currentColorVariant.image] : null) ||
-    (prod?.images && Array.isArray(prod.images) ? prod.images : [prod?.image]).filter(Boolean);
+  useEffect(() => {
+    setFaqItems([]);
+    setFaqLoading(false);
+    setFaqError(null);
+    setFaqLoaded(false);
+    setFaqHidden(false);
+  }, [prod?.id]);
 
-  const currentImage = currentImages && currentImages.length > 0 
-    ? currentImages[0]
-    : prod?.image;
+  useEffect(() => {
+    if (faqLoaded || faqLoading) return;
+    if (!prod) return;
+    const catCode = String(prod?.cat_code || prod?.category_code || prod?.catCode || "").trim();
+    const brandValue = String(
+      prod?.brand_code || prod?.brandCode || prod?.brand || prod?.brandAr || "",
+    ).trim();
+    const apiBase =
+      (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+    const params = new URLSearchParams();
+    if (catCode) params.set("cat_code", catCode);
+    if (brandValue) params.set("brand", brandValue);
+    setFaqLoading(true);
+    setFaqError(null);
+    fetch(`${apiBase}/faqs?${params.toString()}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((json) => {
+        const list = Array.isArray(json?.data?.questions)
+          ? json.data.questions
+          : Array.isArray(json?.data)
+          ? json.data
+          : [];
+        const normalized = list
+          .map((item: any) => ({
+            question: {
+              en: String(item?.question?.en || "").trim(),
+              ar: String(item?.question?.ar || "").trim(),
+            },
+            answer: {
+              en: String(item?.answer?.en || "").trim(),
+              ar: String(item?.answer?.ar || "").trim(),
+            },
+          }))
+          .filter((item: any) => item.question.en || item.question.ar);
+        setFaqItems(normalized);
+        setFaqLoaded(true);
+        if (normalized.length === 0) {
+          setFaqHidden(true);
+          setTabState("description");
+        }
+      })
+      .catch(() => {
+        setFaqError(language === "ar" ? "تعذر تحميل الأسئلة الشائعة" : "Failed to load FAQs");
+        setFaqLoaded(true);
+      })
+      .finally(() => {
+        setFaqLoading(false);
+      });
+  }, [faqLoaded, faqLoading, prod, language]);
+
+  const productImages = mergeImageSources(prod?.images, prod?.image);
+  const variantImages = currentColorVariant
+    ? mergeImageSources(currentColorVariant.images, currentColorVariant.image)
+    : [];
+
+  // Get images array for current color (support both single image and images array)
+  const currentImages = variantImages.length > 0 ? variantImages : productImages;
+
+  const currentImage =
+    currentImages && currentImages.length > 0
+      ? currentImages[0]
+      : productImages[0] || prod?.image;
 
   const showImagePagination = !hasColors && currentImages.length > 1;
 
@@ -719,7 +889,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       ? availableColorVariants.find((v: any) => v.name === chosenColor)
       : null;
     const chosenColorHex = currentColorVar?.hexCode ?? null;
-    const chosenVariantImage = currentImage ?? prod?.image ?? null;
+    const chosenVariantImage = currentImage ?? productImages[0] ?? null;
 
     const selectedCharge = selectedChargeOption
       ? normalizedChargeOptions.find(
@@ -1238,20 +1408,33 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                             if (
                                               variant.name === selectedColor
                                             ) {
-                                              const updatedImages =
-                                                variant.images
-                                                  ? [...variant.images]
-                                                  : [variant.image];
-                                              updatedImages[index] =
-                                                newImageUrl;
+                                              const baseImages =
+                                                mergeImageSources(
+                                                  variant.images,
+                                                  variant.image,
+                                                );
+                                              const updatedImages = [
+                                                ...baseImages,
+                                              ];
+                                              while (
+                                                updatedImages.length <= index
+                                              ) {
+                                                updatedImages.push("");
+                                              }
+                                              updatedImages[index] = newImageUrl;
+                                              const normalizedImages =
+                                                normalizeImageList(
+                                                  updatedImages,
+                                                );
 
                                               return {
                                                 ...variant,
                                                 image:
                                                   index === 0
                                                     ? newImageUrl
-                                                    : variant.image,
-                                                images: updatedImages,
+                                                    : normalizedImages[0] ||
+                                                      variant.image,
+                                                images: normalizedImages,
                                               };
                                             }
                                             return variant;
@@ -1263,9 +1446,16 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                         colorVariants: updatedColorVariants,
                                       });
                                     } else {
+                                      const updatedImages = [...currentImages];
+                                      while (updatedImages.length <= index) {
+                                        updatedImages.push("");
+                                      }
+                                      updatedImages[index] = newImageUrl;
+                                      const normalizedImages =
+                                        normalizeImageList(updatedImages);
                                       persistProductContent(prod.id, {
                                         ...prod,
-                                        image: newImageUrl,
+                                        images: normalizedImages,
                                       });
                                     }
                                   }}
@@ -1307,12 +1497,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                           <div className="aspect-square rounded-2xl bg-white shadow-xl border border-gray-200 flex items-center justify-center overflow-hidden">
                             {userPermissions.canEditContent ? (
                               <EditableImage
-                                src={prod?.image}
+                                src={currentImage || prod?.image}
                                 alt={prod?.name}
                                 onSave={(newImageUrl) => {
+                                  const normalizedImages =
+                                    normalizeImageList([newImageUrl]);
                                   persistProductContent(prod.id, {
                                     ...prod,
-                                    image: newImageUrl,
+                                    images: normalizedImages,
                                   });
                                 }}
                                 className="w-full h-full object-cover rounded-2xl"
@@ -1770,18 +1962,18 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               )}
             </button>
 
-            {(userPermissions.canEditContent || hasSpecsContent) && (
+            {!faqHidden && faqItems.length > 0 && (
               <button
-                onClick={() => setTabState("specs")}
+                onClick={() => setTabState("faq")}
                 className={`flex-shrink-0 px-4 sm:px-6 py-4 font-bold transition-all duration-300 relative flex items-center justify-center gap-2 min-w-0 ${
-                  tabState === "specs"
+                  tabState === "faq"
                     ? "text-[#009FE3] bg-white"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 } ${language === "ar" ? "flex-row-reverse" : "flex-row"}`}
               >
-                <Settings className="w-5 h-5 flex-shrink-0" />
-                <span className="whitespace-nowrap">{t("specifications")}</span>
-                {tabState === "specs" && (
+                <HelpCircle className="w-5 h-5 flex-shrink-0" />
+                <span className="whitespace-nowrap">{language === "ar" ? "الأسئلة الشائعة" : "FAQ"}</span>
+                {tabState === "faq" && (
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7]" />
                 )}
               </button>
@@ -1947,81 +2139,83 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                         {prod?.description}
                       </p>
 
-                      <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
-                        <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                          <PackageCheck className="w-5 h-5 text-[#009FE3]" />
-                          {t("admin.content.boxTitle") ||
-                            (language === "ar"
-                              ? "ما يأتي في العلبة"
-                              : "What's in the box")}
-                        </h4>
-                        {userPermissions.canEditContent && (
-                          <InlineProductEditor
-                            product={prod}
-                            userPermissions={userPermissions}
-                            onSave={(updatedContent) =>
-                              persistProductContent(prod.id, updatedContent)
-                            }
-                            mode="box"
-                          />
-                        )}
+                      {(userPermissions.canEditContent || hasBoxItems) && (
+                        <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
+                          <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <PackageCheck className="w-5 h-5 text-[#009FE3]" />
+                            {t("admin.content.boxTitle") ||
+                              (language === "ar"
+                                ? "ما يأتي في العلبة"
+                                : "What's in the box")}
+                          </h4>
+                          {userPermissions.canEditContent && (
+                            <InlineProductEditor
+                              product={prod}
+                              userPermissions={userPermissions}
+                              onSave={(updatedContent) =>
+                                persistProductContent(prod.id, updatedContent)
+                              }
+                              mode="box"
+                            />
+                          )}
 
-                        <ul className="space-y-2 text-gray-600">
-                          {(() => {
-                            const raw = prod?.inTheBox ||
-                              prod?.box ||
-                              prod?.boxItems || [
-                                prod?.name,
-                                language === "ar"
-                                  ? "دليل المستخدم"
-                                  : "User Manual",
-                                language === "ar"
-                                  ? "بطاقة الضمان"
-                                  : "Warranty Card",
-                                language === "ar"
-                                  ? "ملحقات إضافية"
-                                  : "Accessories",
-                              ];
-                            return (raw || [])
-                              .filter(Boolean)
-                              .map((item: any) => {
-                                if (typeof item === "string") return item;
-                                if (item && (item.en || item.ar)) {
-                                  return language === "ar"
-                                    ? `${item.ar || item.en}${item.en ? " / " + item.en : ""}`
-                                    : `${item.en || item.ar}${item.ar ? " / " + item.ar : ""}`;
-                                }
-                                if (
-                                  item &&
-                                  (item.nameEn ||
-                                    item.valueEn ||
-                                    item.nameAr ||
-                                    item.valueAr)
-                                ) {
-                                  return language === "ar"
-                                    ? item.nameAr ||
-                                        item.valueAr ||
-                                        item.nameEn ||
-                                        item.valueEn
-                                    : item.nameEn ||
-                                        item.valueEn ||
-                                        item.nameAr ||
-                                        item.valueAr;
-                                }
-                                return String(item);
-                              })
-                              .map((display: any, idx: number) => (
-                                <li
-                                  key={idx}
-                                  className="flex items-center gap-2"
-                                >
-                                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                                  {display}
-                                </li>
-                              ));
-                          })()}
-                        </ul>
-                      </div>
+                          <ul className="space-y-2 text-gray-600">
+                            {(() => {
+                              const raw = prod?.inTheBox ||
+                                prod?.box ||
+                                prod?.boxItems || [
+                                  prod?.name,
+                                  language === "ar"
+                                    ? "دليل المستخدم"
+                                    : "User Manual",
+                                  language === "ar"
+                                    ? "بطاقة الضمان"
+                                    : "Warranty Card",
+                                  language === "ar"
+                                    ? "ملحقات إضافية"
+                                    : "Accessories",
+                                ];
+                              return (raw || [])
+                                .filter(Boolean)
+                                .map((item: any) => {
+                                  if (typeof item === "string") return item;
+                                  if (item && (item.en || item.ar)) {
+                                    return language === "ar"
+                                      ? `${item.ar || item.en}${item.en ? " / " + item.en : ""}`
+                                      : `${item.en || item.ar}${item.ar ? " / " + item.ar : ""}`;
+                                  }
+                                  if (
+                                    item &&
+                                    (item.nameEn ||
+                                      item.valueEn ||
+                                      item.nameAr ||
+                                      item.valueAr)
+                                  ) {
+                                    return language === "ar"
+                                      ? item.nameAr ||
+                                          item.valueAr ||
+                                          item.nameEn ||
+                                          item.valueEn
+                                      : item.nameEn ||
+                                          item.valueEn ||
+                                          item.nameAr ||
+                                          item.valueAr;
+                                  }
+                                  return String(item);
+                                })
+                                .map((display: any, idx: number) => (
+                                  <li
+                                    key={idx}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                    {display}
+                                  </li>
+                                ));
+                            })()}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                    ) : (
                     <div>
@@ -2031,38 +2225,44 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                           : "No description available"}
                       </div>
 
-                      <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
-                        <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                          <PackageCheck className="w-5 h-5 text-[#009FE3]" />
-                          {t("admin.content.boxTitle") ||
-                            (language === "ar"
-                            ? "لا يوجد وصف متاح"
-                              : "What's in the box")}
-                        </h4>
-                        {userPermissions.canEditContent && (
-                          <InlineProductEditor
-                            product={prod}
-                            userPermissions={userPermissions}
-                            onSave={(updatedContent) =>
-                              persistProductContent(prod.id, updatedContent)
-                            }
-                            mode="box"
-                          />
-                        )}
-                        <p className="text-sm text-gray-500">
-                          {language === "ar"
-                            ? "لا يوجد وصف متاح"
-                            : "No box items added yet."}
-                        </p>
-                      </div>
+                      {(userPermissions.canEditContent || hasBoxItems) && (
+                        <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
+                          <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <PackageCheck className="w-5 h-5 text-[#009FE3]" />
+                            {t("admin.content.boxTitle") ||
+                              (language === "ar"
+                              ? "لا يوجد وصف متاح"
+                                : "What's in the box")}
+                          </h4>
+                          {userPermissions.canEditContent && (
+                            <InlineProductEditor
+                              product={prod}
+                              userPermissions={userPermissions}
+                              onSave={(updatedContent) =>
+                                persistProductContent(prod.id, updatedContent)
+                              }
+                              mode="box"
+                            />
+                          )}
+                          <p className="text-sm text-gray-500">
+                            {language === "ar"
+                              ? "لا يوجد وصف متاح"
+                              : "No box items added yet."}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {tabState === "specs" && (userPermissions.canEditContent || hasSpecsContent) && (
-              <div className="animate-fadeIn">
+            {tabState === "description" && (userPermissions.canEditContent || hasSpecsContent) && (
+              <div className="animate-fadeIn mt-8 pt-8 border-t border-gray-200">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <Settings className="w-6 h-6 text-[#009FE3]" />
+                  {language === "ar" ? "المواصفات" : "Specifications"}
+                </h3>
                 {/* Inline Editor for Specifications Only */}
                 {userPermissions.canEditContent && (
                   <InlineProductEditor
@@ -2113,36 +2313,47 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   </div>
                 )}
 
-                {/* Offers Section in Specs Tab */}
-                {prod?.productOffers && prod.productOffers.length > 0 && (
-                  <div className="mt-8 pt-8 border-t border-gray-200">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                      <Star className="w-6 h-6 text-[#009FE3]" />
-                      {t("offers")}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {prod.productOffers.map((offer: any) => (
-                        <div
-                          key={offer.id}
-                          className="bg-gradient-to-br from-green-50 to-emerald-50/50 rounded-xl p-6 border-2 border-green-200 hover:border-green-400 transition-all duration-300 hover:shadow-lg"
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className="bg-gradient-to-br from-green-500 to-green-600 p-3 rounded-xl shadow-md flex-shrink-0">
-                              <Star className="w-6 h-6 text-white fill-white" />
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-bold text-green-700 mb-2 text-lg">
-                                {offer.title}
-                              </h4>
-                              <p className="text-gray-700">
-                                {offer.description}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+              </div>
+            )}
+
+            {tabState === "faq" && (
+              <div className="animate-fadeIn">
+                <div className="text-center mb-10">
+                  <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-100 rounded-full mb-4">
+                    <HelpCircle className="w-7 h-7 text-[#009FE3]" />
                   </div>
+                  <h2 className="text-3xl text-gray-900 mb-2">
+                    {language === "ar" ? "الأسئلة الشائعة" : "Frequently Asked Questions"}
+                  </h2>
+                  <p className="text-base text-gray-600">
+                    {language === "ar"
+                      ? "إجابات سريعة عن أكثر الأسئلة شيوعاً حول هذا المنتج"
+                      : "Quick answers to the most common questions about this product"}
+                  </p>
+                </div>
+
+                {faqLoading && (
+                  <div className="text-center py-10 text-gray-500">
+                    {language === "ar" ? "جارٍ تحميل الأسئلة..." : "Loading FAQs..."}
+                  </div>
+                )}
+
+                {!faqLoading && faqError && (
+                  <div className="text-center py-10 text-red-600">
+                    {faqError}
+                  </div>
+                )}
+
+                {!faqLoading && !faqError && faqItems.length === 0 && (
+                  <div className="text-center py-10 text-gray-500">
+                    {language === "ar"
+                      ? "لا توجد أسئلة شائعة متاحة حالياً."
+                      : "No FAQs available at the moment."}
+                  </div>
+                )}
+
+                {!faqLoading && !faqError && faqItems.length > 0 && (
+                  <FaqAccordion items={faqItems} isRTL={language === "ar"} language={language} />
                 )}
               </div>
             )}

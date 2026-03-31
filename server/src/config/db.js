@@ -226,6 +226,69 @@ function getSavedSpecTitlesValidator() {
   };
 }
 
+function getFaqsValidator() {
+  return {
+    $jsonSchema: {
+      bsonType: 'object',
+      properties: {
+        cat_code: { bsonType: 'string' },
+        brand: { bsonType: 'string' },
+        questions: {
+          bsonType: 'array',
+          items: {
+            bsonType: 'object',
+            required: ['question', 'answer'],
+            properties: {
+              question: {
+                bsonType: 'object',
+                required: ['en', 'ar'],
+                properties: {
+                  en: { bsonType: 'string' },
+                  ar: { bsonType: 'string' },
+                },
+              },
+              answer: {
+                bsonType: 'object',
+                required: ['en', 'ar'],
+                properties: {
+                  en: { bsonType: 'string' },
+                  ar: { bsonType: 'string' },
+                },
+              },
+            },
+          },
+        },
+        audit: {
+          bsonType: 'object',
+          properties: {
+            createdAt: { bsonType: 'date' },
+            updatedAt: { bsonType: 'date' },
+          },
+        },
+      },
+    },
+  };
+}
+
+async function ensureFaqsValidator(database) {
+  const collections = await database
+    .listCollections({ name: 'faqs' }, { nameOnly: false })
+    .toArray();
+
+  if (collections.length === 0) {
+    await database.createCollection('faqs', {
+      validator: getFaqsValidator(),
+    });
+    return;
+  }
+
+  await database.command({
+    collMod: 'faqs',
+    validator: getFaqsValidator(),
+    validationLevel: 'moderate',
+  });
+}
+
 async function ensureSavedSpecTitleValidator(database) {
   const collections = await database
     .listCollections({ name: 'saved_spec_titles' }, { nameOnly: false })
@@ -265,6 +328,7 @@ async function connectMongo() {
   await ensureUserIndexes(db);
   await ensureSavedSpecTitleValidator(db);
   await ensureSavedSpecTitleIndexes(db);
+  await ensureFaqsValidator(db);
   return db;
 }
 
