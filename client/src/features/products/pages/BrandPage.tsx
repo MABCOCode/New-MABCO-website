@@ -7,6 +7,8 @@ import { getProductRef } from '../../../utils/entityRefs';
 import { useCompareStore } from '../../compare/state';
 import ProductCard from "../components/ProductCard";
 
+const brandProductsCache = new Map<string, any[]>();
+
 const BrandPage: React.FC = () => {
   const { id, category } = useParams<{ id: string; category?: string }>();
   const navigate = useNavigate();
@@ -49,14 +51,23 @@ const BrandPage: React.FC = () => {
     params.set('card', '1');
     params.set('count', '0');
     setIsLoadingProducts(true);
+    const cacheKey = `${apiBase}/products?${params.toString()}`;
+    const cached = brandProductsCache.get(cacheKey);
+    if (cached) {
+      setApiProducts(cached);
+      setIsLoadingProducts(false);
+      return;
+    }
 
     (async () => {
       try {
-        const res = await fetch(`${apiBase}/products?${params.toString()}`);
+        const res = await fetch(cacheKey);
         if (!res.ok) throw new Error('Failed to load products');
         const json = await res.json();
         if (mounted) {
-          setApiProducts(Array.isArray(json?.data) ? json.data : []);
+          const items = Array.isArray(json?.data) ? json.data : [];
+          brandProductsCache.set(cacheKey, items);
+          setApiProducts(items);
           setIsLoadingProducts(false);
         }
       } catch {

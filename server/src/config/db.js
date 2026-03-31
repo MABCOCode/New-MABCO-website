@@ -226,6 +226,22 @@ function getSavedSpecTitlesValidator() {
   };
 }
 
+async function ensureProductIndexes(database) {
+  const products = database.collection('products');
+  await products.createIndex(
+    { brand_code: 1, cat_code: 1, 'status.isHidden': 1, 'availability.isAvailable': 1, updatedAt: -1 },
+    { name: 'brand_cat_visibility_updatedAt', background: true },
+  );
+  await products.createIndex(
+    { brand_code: 1, updatedAt: -1 },
+    { name: 'brand_updatedAt', background: true },
+  );
+  await products.createIndex(
+    { cat_code: 1, updatedAt: -1 },
+    { name: 'cat_updatedAt', background: true },
+  );
+}
+
 function getFaqsValidator() {
   return {
     $jsonSchema: {
@@ -325,6 +341,7 @@ async function connectMongo() {
   await client.connect();
   db = client.db(mongoDbName);
   await ensureProductValidator(db);
+  await ensureProductIndexes(db);
   await ensureUserIndexes(db);
   await ensureSavedSpecTitleValidator(db);
   await ensureSavedSpecTitleIndexes(db);

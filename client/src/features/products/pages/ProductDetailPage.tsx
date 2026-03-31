@@ -200,9 +200,9 @@ function FaqAccordion({
               className={`w-full flex items-center justify-between p-5 text-${isRTL ? "right" : "left"} transition-colors duration-200 hover:bg-gray-50`}
             >
               <div className="flex items-center gap-4">
-                <div className="flex-shrink-0 text-[#009FE3]">
+                {/* <div className="flex-shrink-0 text-[#009FE3]">
                   <CheckCircle2 className="w-5 h-5" />
-                </div>
+                </div> */}
                 <h3 className="text-lg text-gray-900">
                   {language === "ar" ? item.question.ar || item.question.en : item.question.en || item.question.ar}
                 </h3>
