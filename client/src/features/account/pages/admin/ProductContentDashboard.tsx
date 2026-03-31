@@ -1552,8 +1552,8 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             )}
                             <div className={`mt-1 text-xs font-semibold ${color.inStock ? "text-green-600" : "text-red-600"}`}>
                               {color.inStock
-                                ? (language === "ar" ? "?????" : "In stock")
-                                : (language === "ar" ? "??? ?????" : "Out of stock")}
+                                ? (language === "ar" ? "متوفر" : "In stock")
+                                : (language === "ar" ? "غير متوفر" : "Out of stock")}
                             </div>
                             <div className={`mt-1 text-xs font-semibold ${color.isHidden ? "text-red-600" : "text-green-600"}`}>
                               {color.isHidden
