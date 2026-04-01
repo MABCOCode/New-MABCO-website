@@ -66,8 +66,8 @@ const CONTENT_REQUIREMENTS = {
   description: { min: 10, max: 500, optimal: 200 },
   minImages: 1,
   maxImages: 10,
-  minSpecs: 1,
-  maxSpecs: 1,
+  minSpecs: 0,
+  maxSpecs: 14,
   imageMaxSize: 2, // MB
 };
 
@@ -158,6 +158,22 @@ type UnifiedImage = {
   colorKey?: string;
   source?: string;
   variantKey?: string;
+};
+
+const createSpecId = (seed: string) => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return `spec_${hash.toString(36)}`;
+};
+
+const resolveSpecId = (spec: any, fallbackSeed: string) => {
+  if (spec && typeof spec === "object") {
+    const id = spec.id || spec._id || spec.uid || spec.specId || spec.key;
+    if (id) return String(id);
+  }
+  return createSpecId(fallbackSeed);
 };
 
 const normalizeColorKey = (value: any) =>
@@ -325,7 +341,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       typeof product?.name === "object" ? product?.name?.en || "" : product?.name || "";
     const nameAr = product?.nameAr || (typeof product?.name === "object" ? product?.name?.ar || "" : "");
     const specs = Array.isArray(product?.specs) ? product.specs : [];
-    const specsNormalized = specs.map((spec: any) => {
+    const specsNormalized = specs.map((spec: any, index: number) => {
       let icon = "Smartphone";
       let iconImage = "";
       if (typeof spec.icon === "object" && spec.icon) {
@@ -338,6 +354,10 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
         icon = spec.icon;
       }
       return {
+        id: resolveSpecId(
+          spec,
+          `spec|${index}|${spec.title || spec.titleAr || spec.nameEn || ""}|${spec.value || spec.valueAr || spec.valueEn || ""}`,
+        ),
         icon,
         iconImage,
         nameEn: spec.nameEn || spec.title || "",
@@ -1220,7 +1240,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   const [selectedCategory, setSelectedCategory] = useState(product.categoryCode || "");
   const [selectedBrand, setSelectedBrand] = useState(product.brandCode || "");
   
-  const [showIconPicker, setShowIconPicker] = useState<number | null>(null);
+  const [showIconPicker, setShowIconPicker] = useState<string | null>(null);
 
   const { t, language } = useLanguage();
   const editorPreviewImages = useMemo(() => {
@@ -1367,37 +1387,62 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
       alert(language === "ar" ? `الحد الأقصى ${CONTENT_REQUIREMENTS.maxSpecs} مواصفات` : `Maximum ${CONTENT_REQUIREMENTS.maxSpecs} specs`);
       return;
     }
-    setSpecs([...specs, { icon: "Smartphone", iconImage: "", nameEn: "", nameAr: "", valueEn: "", valueAr: "" }]);
+    setSpecs([
+      ...specs,
+      {
+        id: createSpecId(`new|${Date.now()}|${Math.random()}`),
+        icon: "Smartphone",
+        iconImage: "",
+        nameEn: "",
+        nameAr: "",
+        valueEn: "",
+        valueAr: "",
+      },
+    ]);
   };
 
-  const removeSpec = (index: number) => {
-    setSpecs(specs.filter((_, i) => i !== index));
+  const removeSpec = (specId: string) => {
+    setSpecs(specs.filter((spec: any) => spec.id !== specId));
   };
 
-  const updateSpecIcon = (index: number, iconName: string) => {
-    const newSpecs = [...specs];
-    newSpecs[index].icon = iconName;
-    newSpecs[index].iconImage = ""; // Clear image if switching to icon
-    setSpecs(newSpecs);
+  const updateSpecIcon = (specId: string, iconName: string) => {
+    setSpecs((prev) =>
+      prev.map((spec: any) =>
+        spec.id === specId
+          ? { ...spec, icon: iconName, iconImage: "" }
+          : spec,
+      ),
+    );
     setShowIconPicker(null);
   };
 
-  const updateSpecIconImage = (index: number, imageUrl: string) => {
-    const newSpecs = [...specs];
-    newSpecs[index].iconImage = imageUrl;
-    newSpecs[index].icon = ""; // Clear icon if using image
-    setSpecs(newSpecs);
+  const updateSpecIconImage = (specId: string, imageUrl: string) => {
+    setSpecs((prev) =>
+      prev.map((spec: any) =>
+        spec.id === specId
+          ? { ...spec, iconImage: imageUrl, icon: "" }
+          : spec,
+      ),
+    );
     if (imageUrl) {
       setCustomSpecIcons(savedSpecTitlesManager.getCustomIcons());
     }
   };
 
-  const handleIconImageUpload = (index: number, file: File) => {
+  const updateSpecField = (specId: string, field: string, value: string) => {
+    setSpecs((prev) =>
+      prev.map((spec: any) =>
+        spec.id === specId ? { ...spec, [field]: value } : spec,
+      ),
+    );
+  };
+
+  const handleIconImageUpload = (specId: string, file: File) => {
     const reader = new FileReader();
     reader.onloadend = async () => {
       const imageUrl = reader.result as string;
       await savedSpecTitlesManager.addCustomIcon(imageUrl);
-      updateSpecIconImage(index, imageUrl);
+      updateSpecIconImage(specId, imageUrl);
     };
     reader.readAsDataURL(file);
   };
@@ -1547,6 +1592,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     const serializedImages = serializeUnifiedImages(finalUnifiedImages);
 
     const formattedSpecs = specs.map((spec: any) => ({
+      id: spec.id,
       icon: spec.icon || "Smartphone",
       iconImage: spec.iconImage || "",
       title: spec.nameEn || "",
@@ -2233,13 +2279,13 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                     : spec.valueEn || spec.valueAr || "";
 
                 return (
-                  <div key={index} className="border-2 border-gray-200 rounded-xl p-4 space-y-3 relative hover:border-[#009FE3] transition-all">
+                  <div key={spec.id || index} className="border-2 border-gray-200 rounded-xl p-4 space-y-3 relative hover:border-[#009FE3] transition-all">
                     {/* Icon Selector */}
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-2">
                           <label className="block text-sm font-bold text-gray-700">{t('admin.content.selectIcon')}</label>
                         <button
-                          onClick={() => removeSpec(index)}
+                          onClick={() => removeSpec(spec.id)}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all flex items-center gap-1"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -2250,11 +2296,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                       {/* Icon/Image Tabs */}
                       <div className="flex gap-2 mb-3">
                         <button
-                          onClick={() => {
-                            const newSpecs = [...specs];
-                            newSpecs[index].iconImage = "";
-                            setSpecs(newSpecs);
-                          }}
+                          onClick={() => updateSpecIconImage(spec.id, "")}
                           className={`flex-1 py-2 px-3 rounded-lg font-bold text-xs transition-all ${
                             !spec.iconImage 
                               ? "bg-[#009FE3] text-white" 
@@ -2278,7 +2320,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                handleIconImageUpload(index, file);
+                                handleIconImageUpload(spec.id, file);
                               }
                             }}
                           />
@@ -2304,13 +2346,13 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
                                   if (file) {
-                                    handleIconImageUpload(index, file);
+                                    handleIconImageUpload(spec.id, file);
                                   }
                                 }}
                               />
                             </label>
                             <button
-                              onClick={() => updateSpecIconImage(index, "")}
+                              onClick={() => updateSpecIconImage(spec.id, "")}
                               className="text-red-500 hover:bg-red-50 p-1 rounded"
                             >
                               <X className="w-4 h-4" />
@@ -2320,7 +2362,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           /* Show icon library button */
                           <>
                             <button
-                              onClick={() => setShowIconPicker(showIconPicker === index ? null : index)}
+                              onClick={() => setShowIconPicker(showIconPicker === spec.id ? null : spec.id)}
                               className="flex items-center gap-3 px-4 py-3 border-2 border-gray-300 rounded-xl hover:border-[#009FE3] transition-all w-full"
                             >
                               <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center">
@@ -2335,7 +2377,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             </button>
 
                             {/* Icon Picker Dropdown */}
-                            {showIconPicker === index && (
+                            {showIconPicker === spec.id && (
                               <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-xl shadow-2xl border-2 border-gray-200 p-4 z-20 max-h-64 overflow-y-auto">
                                 <p className="text-sm font-bold text-gray-700 mb-3">{t('admin.content.chooseIcon')}</p>
                                 <div className="grid grid-cols-4 gap-2">
@@ -2344,7 +2386,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                     return (
                                       <button
                                         key={iconItem.name}
-                                        onClick={() => updateSpecIcon(index, iconItem.name)}
+                                        onClick={() => updateSpecIcon(spec.id, iconItem.name)}
                                         className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all ${
                                           spec.icon === iconItem.name
                                             ? "bg-[#009FE3] text-white"
@@ -2369,7 +2411,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                         <button
                                           key={iconItem.id}
                                           onClick={() => {
-                                            updateSpecIconImage(index, iconItem.iconImage || "");
+                                            updateSpecIconImage(spec.id, iconItem.iconImage || "");
                                             setShowIconPicker(null);
                                             savedSpecTitlesManager.incrementUsage(iconItem.id);
                                           }}
@@ -2415,9 +2457,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             type="text"
                             value={spec.nameEn}
                             onChange={(e) => {
-                              const newSpecs = [...specs];
-                              newSpecs[index].nameEn = e.target.value;
-                              setSpecs(newSpecs);
+                              updateSpecField(spec.id, "nameEn", e.target.value);
                             }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
                             placeholder={t("admin.content.specNamePlaceholderEn")}
@@ -2431,9 +2471,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             type="text"
                             value={spec.nameAr}
                             onChange={(e) => {
-                              const newSpecs = [...specs];
-                              newSpecs[index].nameAr = e.target.value;
-                              setSpecs(newSpecs);
+                              updateSpecField(spec.id, "nameAr", e.target.value);
                             }}
                             dir="rtl"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
@@ -2450,9 +2488,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             type="text"
                             value={spec.valueEn}
                             onChange={(e) => {
-                              const newSpecs = [...specs];
-                              newSpecs[index].valueEn = e.target.value;
-                              setSpecs(newSpecs);
+                              updateSpecField(spec.id, "valueEn", e.target.value);
                             }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
                             placeholder={t("admin.content.specValuePlaceholderEn")}
@@ -2464,9 +2500,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             type="text"
                             value={spec.valueAr}
                             onChange={(e) => {
-                              const newSpecs = [...specs];
-                              newSpecs[index].valueAr = e.target.value;
-                              setSpecs(newSpecs);
+                              updateSpecField(spec.id, "valueAr", e.target.value);
                             }}
                             dir="rtl"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"

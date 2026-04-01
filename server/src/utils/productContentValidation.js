@@ -125,11 +125,10 @@ const validateProductContent = (product) => {
   const brandName = pickLocalizedText(product?.brand, product?.brandAr);
   const brandCode = pickLocalizedText(product?.brand_code, product?.brandCode);
 
-  const specsRequired = categoryCode !== '02';
   const productMissing = {
     name: !hasText(name.en) || !hasText(name.ar),
     description: !hasText(description.en) || !hasText(description.ar),
-    specs: specsRequired && specs.length === 0,
+    specs: false,
     galleryImages: !hasColorVariantSku && galleryImages.length === 0,
     category: !hasText(categoryName) || !hasText(categoryCode),
     brand: !hasText(brandName) || !hasText(brandCode),

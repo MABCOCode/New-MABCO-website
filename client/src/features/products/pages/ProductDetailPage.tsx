@@ -671,6 +671,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             icon = spec.icon;
           }
           return {
+            id: spec.id,
             icon: iconImage ? { type: "url", url: iconImage } : icon,
             iconImage,
             title: spec.title || "",

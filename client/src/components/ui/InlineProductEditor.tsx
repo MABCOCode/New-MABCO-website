@@ -35,8 +35,8 @@ const CONTENT_LIMITS = {
   descriptionAr: { min: 10, max: 500, optimal: 200 },
   specName: { max: 50 },
   specValue: { max: 100 },
-  maxSpecs: 1,
-  minSpecs: 1,
+  maxSpecs: 14,
+  minSpecs: 0,
 };
 
 // Available icons for specifications
@@ -57,6 +57,22 @@ const AVAILABLE_ICONS = [
   { name: "Cpu", icon: Cpu, labelAr: "أداء", labelEn: "Performance" },
   { name: "MemoryStick", icon: MemoryStick, labelAr: "ذاكرة", labelEn: "Memory" },
 ];
+
+const createSpecId = (seed: string) => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return `spec_${hash.toString(36)}`;
+};
+
+const resolveSpecId = (spec: any, fallbackSeed: string) => {
+  if (spec && typeof spec === "object") {
+    const id = spec.id || spec._id || spec.uid || spec.specId || spec.key;
+    if (id) return String(id);
+  }
+  return createSpecId(fallbackSeed);
+};
 
 interface InlineProductEditorProps {
   product: any;
@@ -82,13 +98,23 @@ export function InlineProductEditor({
     // Support both 'specs' and 'specifications' formats
     const rawSpecs = product.specifications || product.specs || [];
     // Convert from {title, value, icon} to {nameEn, nameAr, valueEn, valueAr, icon}
-    return rawSpecs.map((spec: any) => {
+    return rawSpecs.map((spec: any, index: number) => {
       if (spec.nameEn || spec.nameAr) {
         // Already in the correct format
-        return spec;
+        return {
+          ...spec,
+          id: resolveSpecId(
+            spec,
+            `spec|${index}|${spec.nameEn || spec.nameAr || ""}|${spec.valueEn || spec.valueAr || ""}`,
+          ),
+        };
       } else {
         // Convert from old format {title, value, icon}
         return {
+          id: resolveSpecId(
+            spec,
+            `spec|${index}|${spec.title || ""}|${spec.value || ""}`,
+          ),
           icon: spec.icon || "Smartphone",
           iconImage: spec.iconImage || "",
           nameEn: spec.title || "",
@@ -99,7 +125,7 @@ export function InlineProductEditor({
       }
     });
   });
-  const [showIconPicker, setShowIconPicker] = useState<number | null>(null);
+  const [showIconPicker, setShowIconPicker] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isEditingBox, setIsEditingBox] = useState(false);
   const [boxItems, setBoxItems] = useState<{ en: string; ar: string }[]>(() => {
@@ -116,7 +142,7 @@ export function InlineProductEditor({
       return { en: String(it), ar: "" };
     });
   });
-  const [showRemoveConfirm, setShowRemoveConfirm] = useState<number | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState<string | null>(null);
   const [customSpecIcons, setCustomSpecIcons] = useState(() => savedSpecTitlesManager.getCustomIcons());
 
   // Update state when product prop changes
@@ -125,9 +151,15 @@ export function InlineProductEditor({
     setDescriptionAr(product.descriptionAr || "");
     
     const rawSpecs = product.specifications || product.specs || [];
-    const normalizedSpecs = rawSpecs.map((spec: any) => {
+    const normalizedSpecs = rawSpecs.map((spec: any, index: number) => {
       if (spec.nameEn || spec.nameAr) {
-        return spec;
+        return {
+          ...spec,
+          id: resolveSpecId(
+            spec,
+            `spec|${index}|${spec.nameEn || spec.nameAr || ""}|${spec.valueEn || spec.valueAr || ""}`,
+          ),
+        };
       } else {
         let icon = "Smartphone";
         let iconImage = "";
@@ -141,6 +173,10 @@ export function InlineProductEditor({
           icon = spec.icon;
         }
         return {
+          id: resolveSpecId(
+            spec,
+            `spec|${index}|${spec.title || spec.titleAr || ""}|${spec.value || spec.valueAr || ""}`,
+          ),
           icon,
           iconImage,
           nameEn: spec.title || "",
@@ -227,6 +263,7 @@ export function InlineProductEditor({
     );
 
     const formattedSpecs = specs.map((spec: any) => ({
+      id: spec.id,
       icon: spec.icon,
       iconImage: spec.iconImage,
       title: spec.nameEn, // For display in specs list
@@ -290,16 +327,26 @@ export function InlineProductEditor({
       alert(`${t("editor.maxSpecs")}: ${CONTENT_LIMITS.maxSpecs}`);
       return;
     }
-    setSpecs([...specs, { icon: "Smartphone", nameEn: "", nameAr: "", valueEn: "", valueAr: "" }]);
+    setSpecs([
+      ...specs,
+      {
+        id: createSpecId(`new|${Date.now()}|${Math.random()}`),
+        icon: "Smartphone",
+        nameEn: "",
+        nameAr: "",
+        valueEn: "",
+        valueAr: "",
+      },
+    ]);
   };
 
-  const removeSpec = (index: number) => {
-    setShowRemoveConfirm(index);
+  const removeSpec = (specId: string) => {
+    setShowRemoveConfirm(specId);
   };
 
   const confirmRemoveSpec = () => {
     if (showRemoveConfirm !== null) {
-      setSpecs(specs.filter((_: any, i: number) => i !== showRemoveConfirm));
+      setSpecs(specs.filter((spec: any) => spec.id !== showRemoveConfirm));
       setShowRemoveConfirm(null);
     }
   };
@@ -308,36 +355,44 @@ export function InlineProductEditor({
     setShowRemoveConfirm(null);
   };
 
-  const updateSpec = (index: number, field: string, value: string) => {
-    const newSpecs = [...specs];
-    newSpecs[index][field] = value;
-    setSpecs(newSpecs);
+  const updateSpec = (specId: string, field: string, value: string) => {
+    setSpecs((prev) =>
+      prev.map((spec: any) =>
+        spec.id === specId ? { ...spec, [field]: value } : spec,
+      ),
+    );
   };
 
-  const updateSpecIcon = (index: number, iconName: string) => {
-    const newSpecs = [...specs];
-    newSpecs[index].icon = iconName;
-    newSpecs[index].iconImage = ""; // Clear image if switching to icon
-    setSpecs(newSpecs);
+  const updateSpecIcon = (specId: string, iconName: string) => {
+    setSpecs((prev) =>
+      prev.map((spec: any) =>
+        spec.id === specId
+          ? { ...spec, icon: iconName, iconImage: "" }
+          : spec,
+      ),
+    );
     setShowIconPicker(null);
   };
 
-  const updateSpecIconImage = (index: number, imageUrl: string) => {
-    const newSpecs = [...specs];
-    newSpecs[index].iconImage = imageUrl;
-    newSpecs[index].icon = ""; // Clear icon if using image
-    setSpecs(newSpecs);
+  const updateSpecIconImage = (specId: string, imageUrl: string) => {
+    setSpecs((prev) =>
+      prev.map((spec: any) =>
+        spec.id === specId
+          ? { ...spec, iconImage: imageUrl, icon: "" }
+          : spec,
+      ),
+    );
     if (imageUrl) {
       setCustomSpecIcons(savedSpecTitlesManager.getCustomIcons());
     }
   };
 
-  const handleIconImageUpload = (index: number, file: File) => {
+  const handleIconImageUpload = (specId: string, file: File) => {
     const reader = new FileReader();
     reader.onloadend = async () => {
       const imageUrl = reader.result as string;
       await savedSpecTitlesManager.addCustomIcon(imageUrl);
-      updateSpecIconImage(index, imageUrl);
+      updateSpecIconImage(specId, imageUrl);
     };
     reader.readAsDataURL(file);
   };
@@ -647,16 +702,16 @@ export function InlineProductEditor({
 
               {/* Specs List */}
               <div className="space-y-4 mb-4">
-                {specs.map((spec: any, index: number) => {
+              {specs.map((spec: any, index: number) => {
                   const IconComponent = AVAILABLE_ICONS.find((i) => i.name === spec.icon)?.icon || Smartphone;
 
                   return (
                     <div
-                      key={index}
+                      key={spec.id || index}
                       className="bg-white border-2 border-gray-200 rounded-xl p-6 space-y-3 relative hover:border-purple-300 transition-all"
                     >
                       <button
-                        onClick={() => removeSpec(index)}
+                        onClick={() => removeSpec(spec.id)}
                         className={`absolute top-4 ${language === "ar" ? "left-4" : "right-4"} p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -672,9 +727,7 @@ export function InlineProductEditor({
                         <div className="flex gap-2 mb-3">
                           <button
                             onClick={() => {
-                              const newSpecs = [...specs];
-                              newSpecs[index].iconImage = "";
-                              setSpecs(newSpecs);
+                              updateSpecIconImage(spec.id, "");
                             }}
                             className={`flex-1 py-2 px-3 rounded-lg font-bold text-xs transition-all ${
                               !spec.iconImage 
@@ -699,7 +752,7 @@ export function InlineProductEditor({
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
-                                  handleIconImageUpload(index, file);
+                                  handleIconImageUpload(spec.id, file);
                                 }
                               }}
                             />
@@ -725,13 +778,13 @@ export function InlineProductEditor({
                                   onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
-                                      handleIconImageUpload(index, file);
+                                      handleIconImageUpload(spec.id, file);
                                     }
                                   }}
                                 />
                               </label>
                               <button
-                                onClick={() => updateSpecIconImage(index, "")}
+                                onClick={() => updateSpecIconImage(spec.id, "")}
                                 className="text-red-500 hover:bg-red-50 p-1 rounded"
                               >
                                 <X className="w-4 h-4" />
@@ -741,7 +794,7 @@ export function InlineProductEditor({
                             /* Show icon library button */
                             <>
                               <button
-                                onClick={() => setShowIconPicker(showIconPicker === index ? null : index)}
+                                onClick={() => setShowIconPicker(showIconPicker === spec.id ? null : spec.id)}
                                 className="flex items-center gap-3 px-4 py-3 border-2 border-gray-300 rounded-xl hover:border-purple-500 transition-all w-full"
                               >
                                 <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -756,7 +809,7 @@ export function InlineProductEditor({
                               </button>
 
                               {/* Icon Picker Dropdown */}
-                              {showIconPicker === index && (
+                              {showIconPicker === spec.id && (
                                 <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-xl shadow-2xl border-2 border-gray-200 p-4 z-20 max-h-64 overflow-y-auto">
                                   <p className="text-sm font-bold text-gray-700 mb-3">{t("admin.content.chooseIcon")}</p>
                                   <div className="grid grid-cols-4 gap-2">
@@ -765,7 +818,7 @@ export function InlineProductEditor({
                                       return (
                                         <button
                                           key={iconItem.name}
-                                          onClick={() => updateSpecIcon(index, iconItem.name)}
+                                          onClick={() => updateSpecIcon(spec.id, iconItem.name)}
                                           className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all ${
                                             spec.icon === iconItem.name
                                               ? "bg-purple-600 text-white"
@@ -790,7 +843,7 @@ export function InlineProductEditor({
                                           <button
                                             key={iconItem.id}
                                             onClick={() => {
-                                              updateSpecIconImage(index, iconItem.iconImage || "");
+                                              updateSpecIconImage(spec.id, iconItem.iconImage || "");
                                               setShowIconPicker(null);
                                               savedSpecTitlesManager.incrementUsage(iconItem.id);
                                             }}
@@ -829,7 +882,7 @@ export function InlineProductEditor({
                             placeholder="Display"
                             value={spec.nameEn || ""}
                             maxLength={CONTENT_LIMITS.specName.max}
-                            onChange={(e) => updateSpec(index, "nameEn", e.target.value)}
+                            onChange={(e) => updateSpec(spec.id, "nameEn", e.target.value)}
                             className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                           />
                           <p className="text-xs text-gray-400 mt-1">
@@ -846,7 +899,7 @@ export function InlineProductEditor({
                             value={spec.nameAr || ""}
                             maxLength={CONTENT_LIMITS.specName.max}
                             dir="rtl"
-                            onChange={(e) => updateSpec(index, "nameAr", e.target.value)}
+                            onChange={(e) => updateSpec(spec.id, "nameAr", e.target.value)}
                             className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                           />
                           <p className="text-xs text-gray-400 mt-1">
@@ -866,7 +919,7 @@ export function InlineProductEditor({
                             placeholder="6.1 inch OLED"
                             value={spec.valueEn || ""}
                             maxLength={CONTENT_LIMITS.specValue.max}
-                            onChange={(e) => updateSpec(index, "valueEn", e.target.value)}
+                            onChange={(e) => updateSpec(spec.id, "valueEn", e.target.value)}
                             className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                           />
                           <p className="text-xs text-gray-400 mt-1">
@@ -883,7 +936,7 @@ export function InlineProductEditor({
                             value={spec.valueAr || ""}
                             maxLength={CONTENT_LIMITS.specValue.max}
                             dir="rtl"
-                            onChange={(e) => updateSpec(index, "valueAr", e.target.value)}
+                            onChange={(e) => updateSpec(spec.id, "valueAr", e.target.value)}
                             className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                           />
                           <p className="text-xs text-gray-400 mt-1">
@@ -919,11 +972,21 @@ export function InlineProductEditor({
                 <button
                   onClick={() => {
                     const rawSpecs = product.specifications || product.specs || [];
-                    const resetSpecs = rawSpecs.map((spec: any) => {
+                    const resetSpecs = rawSpecs.map((spec: any, index: number) => {
                       if (spec.nameEn || spec.nameAr) {
-                        return spec;
+                        return {
+                          ...spec,
+                          id: resolveSpecId(
+                            spec,
+                            `spec|${index}|${spec.nameEn || spec.nameAr || ""}|${spec.valueEn || spec.valueAr || ""}`,
+                          ),
+                        };
                       } else {
                         return {
+                          id: resolveSpecId(
+                            spec,
+                            `spec|${index}|${spec.title || spec.titleAr || ""}|${spec.value || spec.valueAr || ""}`,
+                          ),
                           icon: spec.icon || "Smartphone",
                           nameEn: spec.title || "",
                           nameAr: spec.title || "",

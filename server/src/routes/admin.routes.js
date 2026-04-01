@@ -1225,13 +1225,16 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
     }
   }
   if (payload.specs !== undefined) {
-    updates.specs = Array.isArray(payload.specs) ? payload.specs.map(spec => ({
-      icon: spec.iconImage ? { type: 'url', url: spec.iconImage } : { type: 'react_icon', key: spec.icon || 'Smartphone' },
-      title: spec.title || spec.nameEn || '',
-      titleAr: spec.titleAr || spec.nameAr || spec.title || '',
-      value: spec.value || spec.valueEn || '',
-      valueAr: spec.valueAr || spec.valueAr || spec.value || '',
-    })) : payload.specs;
+    updates.specs = Array.isArray(payload.specs)
+      ? payload.specs.slice(0, 14).map((spec) => ({
+          id: spec.id || spec._id || spec.key || undefined,
+          icon: spec.iconImage ? { type: 'url', url: spec.iconImage } : { type: 'react_icon', key: spec.icon || 'Smartphone' },
+          title: spec.title || spec.nameEn || '',
+          titleAr: spec.titleAr || spec.nameAr || spec.title || '',
+          value: spec.value || spec.valueEn || '',
+          valueAr: spec.valueAr || spec.valueAr || spec.value || '',
+        }))
+      : payload.specs;
   }
 
   if (Array.isArray(payload.colorVariants)) {
