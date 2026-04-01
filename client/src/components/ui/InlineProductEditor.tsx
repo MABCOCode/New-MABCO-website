@@ -118,9 +118,9 @@ export function InlineProductEditor({
           icon: spec.icon || "Smartphone",
           iconImage: spec.iconImage || "",
           nameEn: spec.title || "",
-          nameAr: spec.title || "",
+          nameAr: spec.titleAr || "",
           valueEn: spec.value || "",
-          valueAr: spec.value || "",
+          valueAr: spec.valueAr || "",
         };
       }
     });
@@ -989,9 +989,9 @@ export function InlineProductEditor({
                           ),
                           icon: spec.icon || "Smartphone",
                           nameEn: spec.title || "",
-                          nameAr: spec.title || "",
+                          nameAr: spec.titleAr || "",
                           valueEn: spec.value || "",
-                          valueAr: spec.value || "",
+                          valueAr: spec.valueAr || "",
                         };
                       }
                     });

@@ -361,9 +361,9 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
         icon,
         iconImage,
         nameEn: spec.nameEn || spec.title || "",
-        nameAr: spec.nameAr || spec.titleAr || spec.title || "",
+        nameAr: spec.nameAr || spec.titleAr || "",
         valueEn: spec.valueEn || spec.value || "",
-        valueAr: spec.valueAr || spec.value || "",
+        valueAr: spec.valueAr || "",
       };
     });
 
