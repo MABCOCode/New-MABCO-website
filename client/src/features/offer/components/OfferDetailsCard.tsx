@@ -67,7 +67,7 @@ export function OfferDetailsCard({
 
           {/* Savings Highlight */}
           <div className="bg-white rounded-xl p-4 border border-red-200">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-around mb-2">
               <span className="text-gray-600">
                 {language === "ar" ? "السعر الأصلي" : "Original Price"}
               </span>
@@ -75,7 +75,7 @@ export function OfferDetailsCard({
                 {basePrice.toLocaleString("en-US")} {label}
               </span>
             </div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-around mb-2">
               <span className="text-gray-600">
                 {language === "ar" ? "الخصم" : "Discount"}
               </span>
@@ -86,7 +86,7 @@ export function OfferDetailsCard({
               </span>
             </div>
             <div className="pt-2 border-t border-red-100">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center space-around">
                 <span className="text-lg font-bold text-gray-900">
                   {language === "ar" ? "السعر النهائي" : "Final Price"}
                 </span>

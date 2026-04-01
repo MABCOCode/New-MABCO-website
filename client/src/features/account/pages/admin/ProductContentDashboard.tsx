@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Cpu,
+  Edit3,
   Eye,
   EyeOff,
   FileText,
@@ -150,6 +151,159 @@ const mergeImageSources = (...values: any[]) => {
   return result;
 };
 
+type UnifiedImage = {
+  id: string;
+  src: string;
+  color?: string;
+  colorKey?: string;
+  source?: string;
+  variantKey?: string;
+};
+
+const normalizeColorKey = (value: any) =>
+  String(value || "").trim().toLowerCase();
+
+const createImageId = (seed: string) => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return `img_${hash.toString(36)}`;
+};
+
+const resolveImageId = (entry: any, fallbackSeed: string) => {
+  if (entry && typeof entry === "object") {
+    const id =
+      entry.id ||
+      entry._id ||
+      entry.uid ||
+      entry.imageId ||
+      entry.image_id ||
+      entry.key;
+    if (id) return String(id);
+  }
+  return createImageId(fallbackSeed);
+};
+
+const buildUnifiedImagesForEditor = (
+  product: any,
+  galleryImages: any[],
+  colors: any[],
+) => {
+  const images: UnifiedImage[] = [];
+  const seen = new Set<string>();
+  const raw = product?._raw || product;
+
+  const addImage = (
+    entry: any,
+    meta: {
+      source?: string;
+      color?: string;
+      colorKey?: string;
+      variantKey?: string;
+      index?: number;
+    },
+  ) => {
+    const src = normalizeImageEntry(entry);
+    if (!src) return;
+
+    const entryMeta = entry && typeof entry === "object" ? entry : null;
+    const entryColor =
+      entryMeta?.color ||
+      entryMeta?.colorName ||
+      entryMeta?.color_name ||
+      entryMeta?.variant ||
+      "";
+    const entryColorKey =
+      entryMeta?.colorKey ||
+      entryMeta?.color_key ||
+      entryMeta?.variantKey ||
+      entryMeta?.variant_key ||
+      "";
+
+    const color = entryColor || meta.color || "";
+    const colorKey = normalizeColorKey(entryColorKey || color || meta.colorKey);
+    const dedupeKey = `${colorKey || "product"}__${src}`;
+    if (seen.has(dedupeKey)) return;
+
+    const id = resolveImageId(
+      entry,
+      `${meta.source || "image"}|${colorKey || ""}|${meta.index ?? images.length}|${src}`,
+    );
+
+    images.push({
+      id,
+      src,
+      color: color || undefined,
+      colorKey: colorKey || undefined,
+      source: meta.source,
+      variantKey: meta.variantKey,
+    });
+    seen.add(dedupeKey);
+  };
+
+  const baseImages = raw?.images;
+  if (Array.isArray(baseImages)) {
+    baseImages.forEach((item: any, index: number) =>
+      addImage(item, { source: "product.images", index }),
+    );
+  } else if (baseImages) {
+    addImage(baseImages, { source: "product.images", index: 0 });
+  }
+
+  addImage(raw?.image, { source: "product.image", index: 0 });
+
+  (Array.isArray(galleryImages) ? galleryImages : []).forEach(
+    (item: any, index: number) =>
+      addImage(item, { source: "gallery", index }),
+  );
+
+  (Array.isArray(colors) ? colors : []).forEach(
+    (color: any, index: number) => {
+      const colorLabel =
+        color?.name || color?.nameAr || color?.color_name || "";
+      const colorKey = normalizeColorKey(color?.stkCode || colorLabel || index);
+      const variantKey = String(color?.stkCode || color?.stk_code || colorKey || index);
+      const colorImages = Array.isArray(color?.images) ? color.images : [];
+      if (colorImages.length > 0) {
+        colorImages.forEach((img: any, imgIndex: number) => {
+          addImage(img, {
+            source: "colorVariant",
+            color: colorLabel,
+            colorKey,
+            variantKey,
+            index: imgIndex,
+          });
+        });
+      } else {
+        addImage(color?.image, {
+          source: "colorVariant",
+          color: colorLabel,
+          colorKey,
+          variantKey,
+          index,
+        });
+      }
+    },
+  );
+
+  return images;
+};
+
+const serializeUnifiedImages = (images: UnifiedImage[]) =>
+  images.map((img) => ({
+    id: img.id,
+    src: img.src,
+    color: img.color,
+    colorKey: img.colorKey,
+    source: img.source,
+    variantKey: img.variantKey,
+  }));
+
+const pickPrimaryImage = (images: UnifiedImage[]) => {
+  const productLevel = images.find((img) => !img.colorKey);
+  return productLevel?.src || images[0]?.src || "";
+};
 
 export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDashboardProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -193,17 +347,33 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       };
     });
 
-    const colors = Array.isArray(product?.colorVariants)
-      ? product.colorVariants.map((color: any) => ({
+  const colors = Array.isArray(product?.colorVariants)
+    ? product.colorVariants.map((color: any, index: number) => {
+        const stkCode = String(color?.stk_code || color?.stkCode || color?.id || "");
+        const colorKey = normalizeColorKey(stkCode || index);
+        const rawImages = mergeImageSources(color?.images, color?.image);
+        const imageEntries = rawImages.map((img: any, imgIndex: number) => ({
+          id: resolveImageId(
+            img,
+            `color|${stkCode || colorKey}|${imgIndex}|${String(img || "").trim()}`,
+          ),
+          src: String(img || "").trim(),
+          colorKey,
+          source: "colorVariant",
+        }));
+
+        return {
           name: color?.name || color?.color_name || "",
           nameAr: color?.nameAr || color?.color_name_ar || color?.name || color?.color_name || "",
           code: color?.color_hex || color?.hexCode || color?.hex || "",
-          image: color?.image || (Array.isArray(color?.images) ? color.images[0] : "") || "",
-          stkCode: String(color?.stk_code || color?.stkCode || color?.id || ""),
+          image: imageEntries[0]?.src || "",
+          images: imageEntries,
+          stkCode,
           isHidden: color?.active === false,
           inStock: color?.in_stock !== false,
-        }))
-      : [];
+        };
+      })
+    : [];
 
     const whatsInBox = Array.isArray(product?.inTheBox)
       ? product.inTheBox.map((item: any, index: number) => ({
@@ -1006,12 +1176,29 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   const [colors, setColors] = useState(product.colors || []);
   
   // Gallery State
-  const [galleryImages, setGalleryImages] = useState(product.existingContent.images || []);
-  const [removedGalleryImages, setRemovedGalleryImages] = useState<string[]>([]);
+  const [unifiedImages, setUnifiedImages] = useState<UnifiedImage[]>(() =>
+    buildUnifiedImagesForEditor(
+      product,
+      product.existingContent.images || [],
+      product.colors || [],
+    ),
+  );
+  const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [editingImageId, setEditingImageId] = useState<string | null>(null);
+  const [editingImageUrl, setEditingImageUrl] = useState<string>("");
 
   useEffect(() => {
-    setRemovedGalleryImages([]);
+    setRemovedImageIds([]);
+    setUnifiedImages(
+      buildUnifiedImagesForEditor(
+        product,
+        product.existingContent.images || [],
+        product.colors || [],
+      ),
+    );
+    setEditingImageId(null);
+    setEditingImageUrl("");
   }, [product.id]);
   
   // Specs State
@@ -1044,13 +1231,12 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     };
 
     pushImage(product?.existingContent?.thumbnail);
-    (Array.isArray(galleryImages) ? galleryImages : []).forEach(pushImage);
-    (Array.isArray(colors) ? colors : []).forEach((color: any) => {
-      if (!color?.isHidden) pushImage(color?.image);
-    });
+    unifiedImages
+      .filter((img) => !removedImageIds.includes(img.id))
+      .forEach((img) => pushImage(img.src));
 
     return Array.from(imageSet);
-  }, [product, galleryImages, colors]);
+  }, [product, unifiedImages, removedImageIds]);
   const selectedCategoryOption = useMemo(
     () => editorCategories.find((category) => category.id === selectedCategory) || null,
     [editorCategories, selectedCategory],
@@ -1233,19 +1419,60 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   const getColorKey = (color: any, fallbackIndex: number) =>
     String(color?.stkCode || color?.stk_code || fallbackIndex);
 
-  const updateColorImage = (key: string, imageUrl: string) => {
+  const updateColorImage = (key: string, imageId: string | null, imageUrl: string) => {
     setColors((prev) =>
-      prev.map((color: any, idx: number) =>
-        getColorKey(color, idx) === key ? { ...color, image: imageUrl } : color,
-      ),
+      prev.map((color: any, idx: number) => {
+        if (getColorKey(color, idx) !== key) return color;
+        const currentImages = Array.isArray(color.images) ? color.images : [];
+        if (!imageUrl) {
+          return { ...color, image: "", images: [] };
+        }
+        if (imageId) {
+          const updatedImages = currentImages.map((img: any) =>
+            img.id === imageId ? { ...img, src: imageUrl } : img,
+          );
+          const nextPrimary = updatedImages[0]?.src || imageUrl;
+          return { ...color, image: nextPrimary, images: updatedImages };
+        }
+        const nextImage = {
+          id: createImageId(`color|${key}|${Date.now()}|${imageUrl}`),
+          src: imageUrl,
+          colorKey: normalizeColorKey(key),
+          source: "colorVariant",
+        };
+        const updatedImages = [...currentImages, nextImage];
+        return { ...color, image: updatedImages[0]?.src || imageUrl, images: updatedImages };
+      }),
     );
+    setUnifiedImages((prev) => {
+      const colorKey = normalizeColorKey(key);
+      const existingIndex = prev.findIndex(
+        (img) => img.id === imageId || (img.colorKey === colorKey && img.source === "colorVariant"),
+      );
+      if (!imageUrl) {
+        if (existingIndex === -1) return prev;
+        return prev.filter((img) => !(img.colorKey === colorKey && img.source === "colorVariant"));
+      }
+      if (existingIndex === -1) {
+        const nextImage: UnifiedImage = {
+          id: createImageId(`color|${colorKey}|${Date.now()}|${imageUrl}`),
+          src: imageUrl,
+          colorKey,
+          source: "colorVariant",
+        };
+        return [...prev, nextImage];
+      }
+      return prev.map((img, idx) =>
+        idx === existingIndex ? { ...img, src: imageUrl } : img,
+      );
+    });
   };
 
-  const handleColorImageUpload = (key: string, file: File | null) => {
+  const handleColorImageUpload = (key: string, file: File | null, imageId: string | null) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      updateColorImage(key, reader.result as string);
+      updateColorImage(key, imageId, reader.result as string);
     };
     reader.readAsDataURL(file);
   };
@@ -1260,6 +1487,50 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     );
   };
 
+  const activeGalleryImages = useMemo(
+    () => unifiedImages.filter((img) => !removedImageIds.includes(img.id)),
+    [unifiedImages, removedImageIds],
+  );
+  const pendingGalleryImages = useMemo(
+    () => unifiedImages.filter((img) => removedImageIds.includes(img.id)),
+    [unifiedImages, removedImageIds],
+  );
+
+  const markImageForRemoval = (id: string) => {
+    setRemovedImageIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const undoImageRemoval = (id: string) => {
+    setRemovedImageIds((prev) => prev.filter((item) => item !== id));
+  };
+
+  const updateUnifiedImage = (id: string, newUrl: string) => {
+    setUnifiedImages((prev) =>
+      prev.map((img) => (img.id === id ? { ...img, src: newUrl } : img)),
+    );
+  };
+
+  const addUnifiedImage = (newUrl: string) => {
+    setUnifiedImages((prev) => [
+      ...prev,
+      {
+        id: createImageId(`gallery|${Date.now()}|${newUrl}`),
+        src: newUrl,
+        source: "gallery",
+      },
+    ]);
+  };
+
+  const openEditImage = (entry: UnifiedImage) => {
+    setEditingImageId(entry.id);
+    setEditingImageUrl(entry.src);
+  };
+
+  const closeEditImage = () => {
+    setEditingImageId(null);
+    setEditingImageUrl("");
+  };
+
   const handleSave = async () => {
     await Promise.all(
       specs.map((spec: any) => {
@@ -1270,7 +1541,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
       }),
     );
 
-    const normalizedGalleryImages = normalizeImageList(galleryImages);
+    const finalUnifiedImages = activeGalleryImages.filter((img) =>
+      Boolean(String(img.src || "").trim()),
+    );
+    const serializedImages = serializeUnifiedImages(finalUnifiedImages);
 
     const formattedSpecs = specs.map((spec: any) => ({
       icon: spec.icon || "Smartphone",
@@ -1284,7 +1558,13 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     const formattedColors = colors.map((color: any) => ({
       stk_code: color?.stkCode || "",
       active: !color?.isHidden,
-      images: color?.isHidden ? [] : color?.image ? [color.image] : [],
+      images: color?.isHidden
+        ? []
+        : Array.isArray(color?.images)
+        ? color.images.map((img: any) => String(img?.src || "").trim()).filter(Boolean)
+        : color?.image
+        ? [color.image]
+        : [],
     }));
 
     const formattedBox = whatsInBox.map((item: any) => ({
@@ -1299,8 +1579,8 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
       nameAr,
       description: descriptionEn,
       descriptionAr,
-      image: normalizedGalleryImages[0] || "",
-      images: normalizedGalleryImages,
+      image: pickPrimaryImage(finalUnifiedImages),
+      images: serializedImages,
       specs: formattedSpecs,
       inTheBox: formattedBox,
       category: selectedCategoryOption?.nameEn || "",
@@ -1401,7 +1681,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                 <ImageIcon className="w-4 h-4" />
                 {t('admin.content.tabGallery')}
                 <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
-                  {galleryImages.length}/{CONTENT_REQUIREMENTS.maxImages}
+                  {activeGalleryImages.length}/{CONTENT_REQUIREMENTS.maxImages}
                 </span>
               </button>
             )}
@@ -1633,9 +1913,9 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             : (language === "ar" ? "إخفاء اللون من الموقع" : "Hide color from website")}
                         </button>
 
-                        {color.image ? (
+                        {color.images?.[0]?.src ? (
                           <div className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group">
-                            <img src={color.image} alt={color.name} className="w-full h-full object-cover" />
+                            <img src={color.images[0].src} alt={color.name} className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <div className="flex items-center gap-2">
                                 <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-gray-700 text-xs font-semibold cursor-pointer hover:bg-gray-100">
@@ -1645,11 +1925,23 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                     type="file"
                                     accept="image/*"
                                     className="hidden"
-                                    onChange={(e) => handleColorImageUpload(colorKey, e.target.files?.[0] || null)}
+                                    onChange={(e) =>
+                                      handleColorImageUpload(
+                                        colorKey,
+                                        e.target.files?.[0] || null,
+                                        color.images?.[0]?.id || null,
+                                      )
+                                    }
                                   />
                                 </label>
                                 <button
-                                  onClick={() => updateColorImage(colorKey, "")}
+                                  onClick={() =>
+                                    updateColorImage(
+                                      colorKey,
+                                      color.images?.[0]?.id || null,
+                                      "",
+                                    )
+                                  }
                                   className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1665,7 +1957,13 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                               type="file"
                               accept="image/*"
                               className="hidden"
-                              onChange={(e) => handleColorImageUpload(colorKey, e.target.files?.[0] || null)}
+                              onChange={(e) =>
+                                handleColorImageUpload(
+                                  colorKey,
+                                  e.target.files?.[0] || null,
+                                  null,
+                                )
+                              }
                             />
                           </label>
                         )}
@@ -1731,20 +2029,20 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
               )}
 
               {/* Existing Gallery Images */}
-              {galleryImages.length > 0 && (
+              {activeGalleryImages.length > 0 && (
                 <div>
                   <h5 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <ImageIcon className="w-5 h-5 text-blue-600" />
-                    {t('admin.content.existingImages')} ({galleryImages.length}/{CONTENT_REQUIREMENTS.maxImages})
+                    {t('admin.content.existingImages')} ({activeGalleryImages.length}/{CONTENT_REQUIREMENTS.maxImages})
                   </h5>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {galleryImages.map((img: string, i: number) => (
-                      <div key={`gallery-${i}`} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border-2 border-green-200">
+                    {activeGalleryImages.map((entry: UnifiedImage, i: number) => (
+                      <div key={`gallery-${entry.id}`} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border-2 border-green-200">
                         <img 
-                          src={img} 
+                          src={entry.src} 
                           alt={`Gallery ${i + 1}`} 
                           className="w-full h-full object-cover"
-                          onClick={() => setPreviewImage(img)}
+                          onClick={() => setPreviewImage(entry.src)}
                           onError={(e) => {
                             const img = e.target as HTMLImageElement;
                             img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3Ctext y='50' font-size='12' fill='%23999' text-anchor='middle' dy='.3em'%3EImage Error%3C/text%3E%3C/svg%3E";
@@ -1752,16 +2050,39 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                           <button
-                            onClick={() => setPreviewImage(img)}
+                            onClick={() => setPreviewImage(entry.src)}
                             className="p-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                             title={language === "ar" ? "معاينة" : "Preview"}
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => openEditImage(entry)}
+                            className="p-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                            title={language === "ar" ? "ØªØ¹Ø¯ÙŠÙ„" : "Edit"}
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <label className="p-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                            <Upload className="w-4 h-4" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  updateUnifiedImage(entry.id, String(reader.result || ""));
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                            />
+                          </label>
+                          <button
                             onClick={() => {
-                              setGalleryImages((prev) => prev.filter((_: any, idx: number) => idx !== i));
-                              setRemovedGalleryImages((prev) => [...prev, img]);
+                              markImageForRemoval(entry.id);
                             }}
                             className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                             title={t('admin.content.delete')}
@@ -1778,27 +2099,26 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                 </div>
               )}
 
-              {removedGalleryImages.length > 0 && (
+              {pendingGalleryImages.length > 0 && (
                 <div className="border-2 border-dashed border-red-200 rounded-2xl p-4">
                   <h5 className="font-bold text-red-700 mb-4 flex items-center gap-2">
                     <Trash2 className="w-5 h-5" />
                     {language === "ar" ? "صور معلقة للحذف" : "Images pending removal"}
                   </h5>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {removedGalleryImages.map((img: string, i: number) => (
-                      <div key={`removed-${i}`} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border-2 border-red-200">
-                        <img src={img} alt={`Removed ${i + 1}`} className="w-full h-full object-cover" />
+                    {pendingGalleryImages.map((entry: UnifiedImage, i: number) => (
+                      <div key={`removed-${entry.id}`} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border-2 border-red-200">
+                        <img src={entry.src} alt={`Removed ${i + 1}`} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                           <button
-                            onClick={() => setPreviewImage(img)}
+                            onClick={() => setPreviewImage(entry.src)}
                             className="p-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => {
-                              setRemovedGalleryImages((prev) => prev.filter((_, idx) => idx !== i));
-                              setGalleryImages((prev) => [...prev, img]);
+                              undoImageRemoval(entry.id);
                             }}
                             className="px-3 py-2 bg-white text-gray-700 rounded-lg text-xs font-semibold"
                           >
@@ -1817,11 +2137,11 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
               )}
 
               {/* Upload Area - Add More Images */}
-              {galleryImages.length < CONTENT_REQUIREMENTS.maxImages && (
+              {activeGalleryImages.length < CONTENT_REQUIREMENTS.maxImages && (
                 <div>
                   <h5 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <Plus className="w-5 h-5 text-blue-600" />
-                    {t('admin.content.addMoreImages')} ({CONTENT_REQUIREMENTS.maxImages - galleryImages.length} {t('admin.content.remaining')})
+                    {t('admin.content.addMoreImages')} ({CONTENT_REQUIREMENTS.maxImages - activeGalleryImages.length} {t('admin.content.remaining')})
                   </h5>
                   <label className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-[#009FE3] transition-all cursor-pointer group block">
                     <div className="flex flex-col items-center gap-4">
@@ -1843,10 +2163,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                       onChange={(e) => {
                         const files = Array.from(e.target.files || []);
                         files.forEach((file) => {
-                          if (galleryImages.length < CONTENT_REQUIREMENTS.maxImages) {
+                          if (activeGalleryImages.length < CONTENT_REQUIREMENTS.maxImages) {
                             const reader = new FileReader();
                             reader.onloadend = () => {
-                              setGalleryImages((prev) => [...prev, reader.result as string]);
+                              addUnifiedImage(String(reader.result || ""));
                             };
                             reader.readAsDataURL(file);
                           }
@@ -1858,7 +2178,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
               )}
 
               {/* Empty State */}
-              {galleryImages.length === 0 && (
+              {activeGalleryImages.length === 0 && (
                 <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-2xl">
                   <ImageIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500 font-bold mb-2">{t('admin.content.noImagesYet')}</p>
@@ -1866,7 +2186,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                 </div>
               )}
 
-              {galleryImages.length >= CONTENT_REQUIREMENTS.maxImages && (
+              {activeGalleryImages.length >= CONTENT_REQUIREMENTS.maxImages && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-green-700">{t('admin.content.maxImagesReached')}</p>
@@ -2364,6 +2684,95 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
             </button>
             <div className="w-full max-h-[75vh] flex items-center justify-center">
               <img src={previewImage} alt="Preview" className="max-h-[75vh] w-full object-contain" />
+            </div>
+          </div>
+        </div>
+      )}
+      {editingImageId && (
+        <div
+          className="fixed inset-0 z-[210] bg-black/70 flex items-center justify-center p-4"
+          onClick={closeEditImage}
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={closeEditImage}
+              className="absolute top-3 right-3 p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              aria-label="Close edit"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                {language === "ar" ? "ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„ØµÙˆØ±Ø©" : "Edit image"}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {language === "ar"
+                  ? "ÙŠØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„ØµÙˆØ±Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø© ÙÙ‚Ø·"
+                  : "Only the selected image will be updated."}
+              </p>
+            </div>
+            <div className="flex flex-col gap-4">
+              {editingImageUrl && (
+                <div className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3">
+                  <img
+                    src={editingImageUrl}
+                    alt="Editing"
+                    className="max-h-64 w-full object-contain"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  {language === "ar" ? "Ø±Ø§Ø¨Ø· Ø§Ù„ØµÙˆØ±Ø©" : "Image URL"}
+                </label>
+                <input
+                  type="text"
+                  value={editingImageUrl}
+                  onChange={(e) => setEditingImageUrl(e.target.value)}
+                  placeholder={language === "ar" ? "Ø£Ø¯Ø®Ù„ Ø±Ø§Ø¨Ø· Ø§Ù„ØµÙˆØ±Ø©" : "Paste an image URL"}
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
+                />
+              </div>
+              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold cursor-pointer hover:bg-gray-200">
+                <Upload className="w-4 h-4" />
+                {language === "ar" ? "Ø¥Ø±ÙØ¹ ØµÙˆØ±Ø©" : "Upload image"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setEditingImageUrl(String(reader.result || ""));
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={closeEditImage}
+                  className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300"
+                >
+                  {language === "ar" ? "Ø¥Ù„ØºØ§Ø¡" : "Cancel"}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!editingImageId) return;
+                    if (!editingImageUrl.trim()) return;
+                    updateUnifiedImage(editingImageId, editingImageUrl.trim());
+                    closeEditImage();
+                  }}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white font-semibold"
+                >
+                  {language === "ar" ? "Ø­ÙØ¸" : "Save"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
