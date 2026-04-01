@@ -3,7 +3,7 @@
 
 # Build outputs
 /dist/
-/build/
+build/
 /.vite/
 
 # Environment files
