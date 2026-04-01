@@ -675,7 +675,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             icon: iconImage ? { type: "url", url: iconImage } : icon,
             iconImage,
             title: spec.title || "",
-            titleAr: spec.titleAr || "",
+            titleAr: spec.titleAr || spec.nameAr || "",
             value: spec.value || "",
             valueAr: spec.valueAr || "",
             isKeyFeature: spec.isKeyFeature || false,
