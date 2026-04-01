@@ -1819,6 +1819,9 @@
   .justify-start {
     justify-content: flex-start;
   }
+   .justify-around {
+    justify-content: space-around;
+  }
 
   .gap-1 {
     gap: calc(var(--spacing) * 1);

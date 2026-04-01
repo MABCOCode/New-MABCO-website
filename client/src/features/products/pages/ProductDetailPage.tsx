@@ -121,9 +121,152 @@ const mergeImageSources = (...values: any[]) => {
   return result;
 };
 
-const normalizePreferredImages = (imagesValue: any, imageValue: any) => {
-  const normalized = normalizeImageList(imagesValue);
-  return normalized.length > 0 ? normalized : normalizeImageList(imageValue);
+type UnifiedImage = {
+  id: string;
+  src: string;
+  color?: string;
+  colorKey?: string;
+  source?: string;
+  variantKey?: string;
+};
+
+const normalizeColorKey = (value: any) =>
+  String(value || "").trim().toLowerCase();
+
+const createImageId = (seed: string) => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return `img_${hash.toString(36)}`;
+};
+
+const resolveImageId = (entry: any, fallbackSeed: string) => {
+  if (entry && typeof entry === "object") {
+    const id =
+      entry.id ||
+      entry._id ||
+      entry.uid ||
+      entry.imageId ||
+      entry.image_id ||
+      entry.key;
+    if (id) return String(id);
+  }
+  return createImageId(fallbackSeed);
+};
+
+const buildUnifiedImagesFromProduct = (product: any) => {
+  const images: UnifiedImage[] = [];
+  const seen = new Set<string>();
+
+  const addImage = (
+    entry: any,
+    meta: {
+      source?: string;
+      color?: string;
+      colorKey?: string;
+      variantKey?: string;
+      index?: number;
+    },
+  ) => {
+    const src = normalizeImageEntry(entry);
+    if (!src) return;
+
+    const entryMeta = entry && typeof entry === "object" ? entry : null;
+    const entryColor =
+      entryMeta?.color ||
+      entryMeta?.colorName ||
+      entryMeta?.color_name ||
+      entryMeta?.variant ||
+      "";
+    const entryColorKey =
+      entryMeta?.colorKey ||
+      entryMeta?.color_key ||
+      entryMeta?.variantKey ||
+      entryMeta?.variant_key ||
+      "";
+
+    const color = entryColor || meta.color || "";
+    const colorKey = normalizeColorKey(entryColorKey || color || meta.colorKey);
+    const dedupeKey = `${colorKey || "product"}__${src}`;
+    if (seen.has(dedupeKey)) return;
+
+    const id = resolveImageId(
+      entry,
+      `${meta.source || "image"}|${colorKey || ""}|${meta.index ?? images.length}|${src}`,
+    );
+
+    images.push({
+      id,
+      src,
+      color: color || undefined,
+      colorKey: colorKey || undefined,
+      source: meta.source,
+      variantKey: meta.variantKey,
+    });
+    seen.add(dedupeKey);
+  };
+
+  const baseImages = product?.images;
+  if (Array.isArray(baseImages)) {
+    baseImages.forEach((item, index) =>
+      addImage(item, { source: "product.images", index }),
+    );
+  } else if (baseImages) {
+    addImage(baseImages, { source: "product.images", index: 0 });
+  }
+
+  addImage(product?.image, { source: "product.image", index: 0 });
+
+  const variants = Array.isArray(product?.colorVariants)
+    ? product.colorVariants
+    : [];
+  variants.forEach((variant: any, variantIndex: number) => {
+    const color =
+      variant?.name ||
+      variant?.color_name ||
+      variant?.nameAr ||
+      variant?.color_name_ar ||
+      "";
+    const colorKey = normalizeColorKey(color);
+    const variantKey = String(
+      variant?.stk_code ||
+        variant?.stkCode ||
+        variant?.id ||
+        variant?.code ||
+        `${colorKey || "variant"}-${variantIndex}`,
+    ).trim();
+    const variantImages = mergeImageSources(variant?.images, variant?.image);
+    variantImages.forEach((img: string, index: number) => {
+      addImage(
+        { src: img, color, colorKey, variantKey },
+        {
+          source: "colorVariant",
+          color,
+          colorKey,
+          variantKey,
+          index,
+        },
+      );
+    });
+  });
+
+  return images;
+};
+
+const serializeUnifiedImages = (images: UnifiedImage[]) =>
+  images.map((img) => ({
+    id: img.id,
+    src: img.src,
+    color: img.color,
+    colorKey: img.colorKey,
+    source: img.source,
+    variantKey: img.variantKey,
+  }));
+
+const pickPrimaryImage = (images: UnifiedImage[]) => {
+  const productLevel = images.find((img) => !img.colorKey);
+  return productLevel?.src || images[0]?.src || "";
 };
 
 function SpecIcon({ spec, size }: { spec: any; size: "sm" | "lg" }) {
@@ -438,6 +581,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
           `${productName} at MABCO - quality, warranty, and fast delivery.`;
 
     const seoImage =
+      buildUnifiedImagesFromProduct(prod)[0]?.src ||
       mergeImageSources(prod?.images, prod?.image)[0] ||
       "https://mabcoonline.com/images/giphy.gif";
     setSeo({
@@ -499,9 +643,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     setSaveError(null);
     try {
       const hasImagePayload =
-        updated?.images !== undefined || updated?.image !== undefined;
-      const normalizedImages = hasImagePayload
-        ? normalizePreferredImages(updated?.images, updated?.image)
+        updated?.images !== undefined ||
+        updated?.image !== undefined ||
+        updated?.colorVariants !== undefined;
+      const unifiedImages = hasImagePayload
+        ? buildUnifiedImagesFromProduct({
+            ...prod,
+            ...updated,
+          })
         : [];
       const payload: Record<string, any> = {
         name: updated?.name,
@@ -536,7 +685,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         colorVariants: updated?.colorVariants,
       };
       if (hasImagePayload) {
-        payload.images = normalizedImages;
+        payload.images = serializeUnifiedImages(unifiedImages);
+        payload.image = pickPrimaryImage(unifiedImages);
       }
       const res = await fetch(`${apiBase}/admin/products/${encodeURIComponent(String(productId))}`, {
         method: "PUT",
@@ -594,6 +744,11 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const baseProductOffers = prod ? getProductOffers(prod as any) : [];
   const productOffers = baseProductOffers;
 
+  const unifiedImages = useMemo(
+    () => buildUnifiedImagesFromProduct(prod),
+    [prod],
+  );
+
   const normalizedColorVariants = useMemo(() => {
     const variants = Array.isArray(prod?.colorVariants) ? prod.colorVariants : [];
     const deduped = new Map<string, any>();
@@ -607,8 +762,23 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       return (hasImage ? 4 : 0) + (isActive ? 2 : 0) + (isAvailable && inStock ? 1 : 0);
     };
 
+    const getVariantImages = (variant: any) => {
+      const colorLabel =
+        variant?.name ||
+        variant?.color_name ||
+        variant?.nameAr ||
+        variant?.color_name_ar ||
+        "";
+      const colorKey = normalizeColorKey(colorLabel);
+      const fromUnified = unifiedImages
+        .filter((img) => img.colorKey && img.colorKey === colorKey)
+        .map((img) => img.src);
+      if (fromUnified.length > 0) return fromUnified;
+      return mergeImageSources(variant.images, variant.image);
+    };
+
     variants.forEach((variant: any) => {
-      const images = mergeImageSources(variant.images, variant.image);
+      const images = getVariantImages(variant);
       const image = images[0] || "";
       const name = variant.name || variant.color_name || "";
       const nameAr = variant.nameAr || variant.color_name_ar || name;
@@ -659,7 +829,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     });
 
     return Array.from(deduped.values());
-  }, [prod]);
+  }, [prod, unifiedImages]);
 
   const availableColorVariants = normalizedColorVariants
     .filter(
@@ -703,8 +873,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const hasAnyVariants = (prod?.colorVariants?.length || 0) > 0 || (prod?.chargeOptions?.length || 0) > 0;
   const hasValidVariants = hasColors || hasChargeOptions;
   const hasValidImage =
-    Boolean(String(prod?.image || "").trim()) ||
-    availableColorVariants.length > 0;
+    unifiedImages.length > 0 || availableColorVariants.length > 0;
   const hasValidName = Boolean(String(prod?.name || "").trim());
   const hasSpecs = Array.isArray(prod?.specs) && prod.specs.length > 0;
   const hasDescription = Boolean(String(prod?.description || prod?.descriptionAr || "").trim());
@@ -801,18 +970,25 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       });
   }, [faqLoaded, faqLoading, prod, language]);
 
-  const productImages = mergeImageSources(prod?.images, prod?.image);
-  const variantImages = currentColorVariant
-    ? mergeImageSources(currentColorVariant.images, currentColorVariant.image)
+  const displayColorKey = normalizeColorKey(displayColor);
+  const productImageEntries = unifiedImages.filter((img) => !img.colorKey);
+  const variantImageEntries = displayColorKey
+    ? unifiedImages.filter((img) => img.colorKey === displayColorKey)
     : [];
 
-  // Get images array for current color (support both single image and images array)
-  const currentImages = variantImages.length > 0 ? variantImages : productImages;
+  const currentImageEntries =
+    variantImageEntries.length > 0
+      ? variantImageEntries
+      : productImageEntries.length > 0
+      ? productImageEntries
+      : unifiedImages;
 
+  const currentImages = currentImageEntries.map((img) => img.src);
   const currentImage =
-    currentImages && currentImages.length > 0
-      ? currentImages[0]
-      : productImages[0] || prod?.image;
+    currentImageEntries[0]?.src ||
+    productImageEntries[0]?.src ||
+    unifiedImages[0]?.src ||
+    prod?.image;
 
   const showImagePagination = !hasColors && currentImages.length > 1;
 
@@ -889,7 +1065,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       ? availableColorVariants.find((v: any) => v.name === chosenColor)
       : null;
     const chosenColorHex = currentColorVar?.hexCode ?? null;
-    const chosenVariantImage = currentImage ?? productImages[0] ?? null;
+    const chosenVariantImage =
+      currentImage ?? productImageEntries[0]?.src ?? null;
 
     const selectedCharge = selectedChargeOption
       ? normalizedChargeOptions.find(
@@ -1105,6 +1282,37 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   const markImageLoaded = (key: string) => {
     setLoadedImages((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  };
+
+  const persistUnifiedImages = (nextImages: UnifiedImage[]) => {
+    if (!prod?.id) return;
+    const nextProduct = {
+      ...prod,
+      images: serializeUnifiedImages(nextImages),
+      image: pickPrimaryImage(nextImages),
+    };
+    setLocalProduct(nextProduct);
+    persistProductContent(prod.id, nextProduct);
+  };
+
+  const updateUnifiedImage = (imageId: string, newUrl: string) => {
+    const nextImages = unifiedImages.map((img) =>
+      img.id === imageId ? { ...img, src: newUrl } : img,
+    );
+    persistUnifiedImages(nextImages);
+  };
+
+  const addUnifiedImage = (newUrl: string, meta?: { colorKey?: string; color?: string }) => {
+    const colorKey = normalizeColorKey(meta?.colorKey || meta?.color || "");
+    const color = meta?.color || "";
+    const nextImage: UnifiedImage = {
+      id: createImageId(`manual|${colorKey}|${Date.now()}|${newUrl}`),
+      src: newUrl,
+      color: color || undefined,
+      colorKey: colorKey || undefined,
+      source: colorKey ? "colorVariant" : "product.images",
+    };
+    persistUnifiedImages([...unifiedImages, nextImage]);
   };
 
   useEffect(() => {
@@ -1384,80 +1592,23 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   className="w-full overflow-hidden"
                 >
                   <CarouselContent className="w-full">
-                    {currentImages && currentImages.length > 0 ? (
-                      currentImages.map((image, index) => (
+                    {currentImageEntries && currentImageEntries.length > 0 ? (
+                      currentImageEntries.map((imageEntry, index) => (
                         <CarouselItem
-                          key={`img-${prod?.id}-${displayColor}-${index}`}
+                          key={`img-${imageEntry.id}`}
                           className="w-full flex-shrink-0"
                         >
                           <div className="relative">
                             <div className="relative aspect-square rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 shadow-xl border border-gray-200">
                               {userPermissions.canEditContent ? (
                                 <EditableImage
-                                  src={image}
+                                  src={imageEntry.src}
                                   alt={`${prod?.name} - ${index + 1}`}
                                   onSave={(newImageUrl) => {
-                                    if (
-                                      hasColors &&
-                                      selectedColor &&
-                                      prod?.colorVariants
-                                    ) {
-                                      const updatedColorVariants =
-                                        prod.colorVariants.map(
-                                          (variant: any) => {
-                                            if (
-                                              variant.name === selectedColor
-                                            ) {
-                                              const baseImages =
-                                                mergeImageSources(
-                                                  variant.images,
-                                                  variant.image,
-                                                );
-                                              const updatedImages = [
-                                                ...baseImages,
-                                              ];
-                                              while (
-                                                updatedImages.length <= index
-                                              ) {
-                                                updatedImages.push("");
-                                              }
-                                              updatedImages[index] = newImageUrl;
-                                              const normalizedImages =
-                                                normalizeImageList(
-                                                  updatedImages,
-                                                );
-
-                                              return {
-                                                ...variant,
-                                                image:
-                                                  index === 0
-                                                    ? newImageUrl
-                                                    : normalizedImages[0] ||
-                                                      variant.image,
-                                                images: normalizedImages,
-                                              };
-                                            }
-                                            return variant;
-                                          },
-                                        );
-
-                                      persistProductContent(prod.id, {
-                                        ...prod,
-                                        colorVariants: updatedColorVariants,
-                                      });
-                                    } else {
-                                      const updatedImages = [...currentImages];
-                                      while (updatedImages.length <= index) {
-                                        updatedImages.push("");
-                                      }
-                                      updatedImages[index] = newImageUrl;
-                                      const normalizedImages =
-                                        normalizeImageList(updatedImages);
-                                      persistProductContent(prod.id, {
-                                        ...prod,
-                                        images: normalizedImages,
-                                      });
-                                    }
+                                    updateUnifiedImage(
+                                      imageEntry.id,
+                                      newImageUrl,
+                                    );
                                   }}
                                   className="w-full h-full object-cover rounded-2xl"
                                   language={language}
@@ -1471,7 +1622,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                     <div className="absolute inset-0 shimmer-surface rounded-2xl" />
                                   )}
                                   <img
-                                    src={image}
+                                    src={imageEntry.src}
                                     alt={`${prod?.name} - ${index + 1}`}
                                     className="w-full h-full object-cover"
                                     onLoad={() =>
@@ -1496,21 +1647,19 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                         <div className="relative">
                           <div className="aspect-square rounded-2xl bg-white shadow-xl border border-gray-200 flex items-center justify-center overflow-hidden">
                             {userPermissions.canEditContent ? (
-                              <EditableImage
-                                src={currentImage || prod?.image}
-                                alt={prod?.name}
-                                onSave={(newImageUrl) => {
-                                  const normalizedImages =
-                                    normalizeImageList([newImageUrl]);
-                                  persistProductContent(prod.id, {
-                                    ...prod,
-                                    images: normalizedImages,
+                                <EditableImage
+                                  src={currentImage || prod?.image}
+                                  alt={prod?.name}
+                                  onSave={(newImageUrl) => {
+                                  addUnifiedImage(newImageUrl, {
+                                    colorKey: hasColors ? displayColorKey : "",
+                                    color: hasColors ? displayColor : "",
                                   });
-                                }}
-                                className="w-full h-full object-cover rounded-2xl"
-                                language={language}
-                                userPermissions={userPermissions}
-                              />
+                                  }}
+                                  className="w-full h-full object-cover rounded-2xl"
+                                  language={language}
+                                  userPermissions={userPermissions}
+                                />
                             ) : (
                               <div className="relative w-full h-full">
                                 {!loadedImages["main-fallback"] && (
@@ -1551,7 +1700,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
                       {/* Dots Indicator */}
                       <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                        {currentImages.map((_, idx) => (
+                        {currentImageEntries.map((_, idx) => (
                           <button
                             key={`dot-${idx}`}
                             onClick={() => carouselApi?.scrollTo(idx)}
@@ -1627,9 +1776,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
                       {/* Thumbnail Grid */}
                       <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
-                        {currentImages.map((image, index) => (
+                        {currentImageEntries.map((imageEntry, index) => (
                           <button
-                            key={index}
+                            key={imageEntry.id}
                             onClick={() => carouselApi?.scrollTo(index)}
                             className={`aspect-square rounded-lg overflow-hidden border-2 transition-all duration-300 hover:scale-105 ${
                               currentSlide === index
@@ -1644,7 +1793,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                 <div className="absolute inset-0 shimmer-surface" />
                               )}
                               <img
-                                src={image}
+                                src={imageEntry.src}
                                 alt={`${prod?.name} - Image ${index + 1}`}
                                 className="w-full h-full object-cover"
                                 onLoad={() =>
