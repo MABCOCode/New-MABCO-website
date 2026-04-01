@@ -35,8 +35,8 @@ const CONTENT_LIMITS = {
   descriptionAr: { min: 10, max: 500, optimal: 200 },
   specName: { max: 50 },
   specValue: { max: 100 },
-  maxSpecs: 12,
-  minSpecs: 4,
+  maxSpecs: 1,
+  minSpecs: 1,
 };
 
 // Available icons for specifications

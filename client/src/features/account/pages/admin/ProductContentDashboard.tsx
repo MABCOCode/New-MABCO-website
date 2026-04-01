@@ -66,8 +66,8 @@ const CONTENT_REQUIREMENTS = {
   description: { min: 10, max: 500, optimal: 200 },
   minImages: 1,
   maxImages: 10,
-  minSpecs: 4,
-  maxSpecs: 15,
+  minSpecs: 1,
+  maxSpecs: 1,
   imageMaxSize: 2, // MB
 };
 
