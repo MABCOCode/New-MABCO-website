@@ -42,12 +42,24 @@ const extByMime = {
   "image/svg+xml": ".svg",
 };
 
+const getPublicBaseUrl = (req) => {
+  const explicit = process.env.SITE_URL;
+  if (explicit && String(explicit).trim().length > 0) return String(explicit).trim();
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const proto = forwardedProto || req.protocol || 'https';
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  if (host && String(host).trim().length > 0) {
+    return `${proto}://${host}`;
+  }
+  return 'https://mabcoonline.com';
+};
+
 router.post('/images', requireAdminKey, upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'No image uploaded' });
   }
-  const host = `${req.protocol}://${req.get('host')}`;
-  const url = `${host}/images/${encodeURIComponent(req.file.filename)}`;
+  const baseUrl = getPublicBaseUrl(req);
+  const url = `${baseUrl}/images/${encodeURIComponent(req.file.filename)}`;
   return res.json({ success: true, data: { url } });
 });
 
@@ -70,8 +82,8 @@ router.post('/images-base64', requireAdminKey, express.json({ limit: '6mb' }), (
   const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
   const fullPath = path.join(uploadRoot, filename);
   fs.writeFileSync(fullPath, buffer);
-  const host = `${req.protocol}://${req.get('host')}`;
-  const url = `${host}/images/${encodeURIComponent(filename)}`;
+  const baseUrl = getPublicBaseUrl(req);
+  const url = `${baseUrl}/images/${encodeURIComponent(filename)}`;
   return res.json({ success: true, data: { url } });
 });
 

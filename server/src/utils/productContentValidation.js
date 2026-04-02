@@ -50,6 +50,16 @@ const parseFiniteNumber = (value) => {
   return null;
 };
 
+const isSparePartsProduct = (product) => {
+  const categoryName = pickLocalizedText(product?.category, product?.categoryAr);
+  const categoryCode = pickLocalizedText(product?.cat_code, product?.category_code, product?.catCode);
+  const haystack = `${categoryName} ${categoryCode}`.toLowerCase();
+  if (haystack.includes('spare') || haystack.includes('parts')) return true;
+  if (haystack.includes('قطع غيار') || haystack.includes('قطع تبديل')) return true;
+  if (haystack.includes('سبير')) return true;
+  return false;
+};
+
 const buildVariantKey = (variant, index) =>
   String(
     variant?.stk_code ||
@@ -124,10 +134,11 @@ const validateProductContent = (product) => {
   const categoryCode = pickLocalizedText(product?.cat_code, product?.category_code, product?.catCode);
   const brandName = pickLocalizedText(product?.brand, product?.brandAr);
   const brandCode = pickLocalizedText(product?.brand_code, product?.brandCode);
+  const isSpareParts = isSparePartsProduct(product);
 
   const productMissing = {
     name: !hasText(name.en) || !hasText(name.ar),
-    description: !hasText(description.en) || !hasText(description.ar),
+    description: isSpareParts ? false : (!hasText(description.en) || !hasText(description.ar)),
     specs: false,
     galleryImages: !hasColorVariantSku && galleryImages.length === 0,
     category: !hasText(categoryName) || !hasText(categoryCode),
