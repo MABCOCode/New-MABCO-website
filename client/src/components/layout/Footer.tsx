@@ -188,7 +188,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
   const services = [
     { label: t.warranty, icon: Shield, action: onWarrantyClick },
     { label: t.maintenanceService, icon: Wrench, action: onMaintenanceClick },
-    { label: t.downloadApp, icon: Download },
+    { label: t.downloadApp, icon: Download, action: () => (window.location.href = '/apps-download') },
     { label: t.aboutCompany, icon: Building2, action: onAboutClick },
     { label: t.careers, icon: Briefcase, action: onCareerClick }
   ];

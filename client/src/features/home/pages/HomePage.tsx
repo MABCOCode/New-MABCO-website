@@ -1,5 +1,5 @@
-// features/home/pages/HomePage.tsx
-import { Flame, Star } from 'lucide-react';
+﻿// features/home/pages/HomePage.tsx
+import { Check, Flame, Star } from 'lucide-react';
 import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import HomeSkeletonShell from "../../../components/shell/HomeSkeletonShell";
@@ -382,22 +382,19 @@ const HomePage: React.FC = () => {
         className="pb-12"
       >
         {orderMessage && (
-          <div className="container mx-auto px-4 pt-6">
-            <div className="rounded-2xl border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4 flex items-start justify-between gap-4">
-              <p className="text-sm md:text-base text-green-800 font-semibold">
-                {orderMessage}
-              </p>
-              <button
-                onClick={() => setOrderMessage(null)}
-                className="text-green-700 hover:text-green-900 font-bold"
-                aria-label="Dismiss"
-              >
-                ×
-              </button>
-            </div>
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-slideDown">
+            <Check className="w-5 h-5" />
+            <span className="font-bold">{orderMessage}</span>
+            <button
+              onClick={() => setOrderMessage(null)}
+              className="ml-2 text-white/90 hover:text-white font-bold"
+              aria-label="Dismiss"
+            >
+              &times;
+            </button>
           </div>
         )}
-        {/* Hidden H1 for SEO */}
+                {/* Hidden H1 for SEO */}
         <h1 className="sr-only">
           {language === "ar"
             ? "متجر MABCO الإلكتروني - أكبر متجر للأجهزة الإلكترونية في سوريا"
@@ -642,3 +639,11 @@ const HomePage: React.FC = () => {
 };
 
 export default HomePage;
+
+
+
+
+
+
+
+

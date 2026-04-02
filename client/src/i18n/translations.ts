@@ -436,7 +436,7 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     homeAppliances: "أجهزة منزلية",
     gamingDevices: "أجهزة ألعاب",
     largestStore: "أكبر متجر إلكتروني في سوريا",
-    companyDescription: "متخصصون في بيع الأجهزة الإلكترونية والكهربائية الأصلية بضمان معتمد منذ عام 1999",
+    companyDescription:"مابكو - شريككم الموثوق في تقنية الهواتف المحمولة بالجملة منذ عام 1999",
     aboutCompany: "عن الشركة",
     careers: "الوظائف",
     address: "دمشق - البرامكة - مقابل جامع مصعب بن عمير  ",
