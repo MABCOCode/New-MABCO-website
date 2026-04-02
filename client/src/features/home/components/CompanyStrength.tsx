@@ -54,7 +54,7 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
 
     const targets = {
       years: new Date().getFullYear() - 1999, // Calculate years based on current year
-      cities: 6,
+      cities: 7,
       brands: 39 
      
     };
