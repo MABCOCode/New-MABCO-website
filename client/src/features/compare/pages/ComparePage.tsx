@@ -8,11 +8,14 @@ import { CURRENCY_LABEL } from "../../../utils/currency";
 import translations from '../../../i18n/translations';
 import { getProductRef, toSafeCode } from "../../../utils/entityRefs";
 import { useCart } from "../../../context/CartContext";
+import { useCompareStore } from "../state";
 
 export function ComparePage(props: ComparePageProps) {
   const { compareItems, onClose, onRemoveItem, onAddItem, language } = props;
   const { addToCart } = useCart();
   const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+  const cachedProducts = useCompareStore((s) => s.productCache);
+  const cacheProducts = useCompareStore((s) => s.cacheProducts);
 
   const normalizeCompareProductId = (product: any, index: number) => {
     const resolved =
@@ -36,6 +39,19 @@ export function ComparePage(props: ComparePageProps) {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isLoadingFilteredProducts, setIsLoadingFilteredProducts] = useState(false);
   const [isLoadingComparedProducts, setIsLoadingComparedProducts] = useState(false);
+
+  useEffect(() => {
+    const cached = normalizedCompareItems
+      .map((ref) => cachedProducts[ref])
+      .filter(Boolean)
+      .map((p: Product, idx: number) => normalizeCompareProductId(p, idx));
+    if (cached.length > 0) {
+      setAllProducts((current) => {
+        const merged = [...current, ...cached];
+        return Array.from(new Map(merged.map((p) => [getProductRef(p), p])).values());
+      });
+    }
+  }, [cachedProducts, normalizedCompareItems]);
 
   useEffect(() => {
     const missingRefs = normalizedCompareItems.filter(
@@ -68,6 +84,7 @@ export function ComparePage(props: ComparePageProps) {
           const merged = [...current, ...fetched.map((p: Product, idx: number) => normalizeCompareProductId(p, idx))];
           return Array.from(new Map(merged.map((p) => [getProductRef(p), p])).values());
         });
+        cacheProducts(fetched);
       } catch {}
       finally {
         setIsLoadingComparedProducts(false);
@@ -445,30 +462,46 @@ export function ComparePage(props: ComparePageProps) {
           {/* Content */}
           <div className="p-6 pb-10">
             {comparedProducts.length === 0 ? (
-              // No products to compare
-              <div className="text-center py-20">
-                <div className="text-gray-400 mb-4">
-                  <svg
-                    className="w-24 h-24 mx-auto"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                  </svg>
+              isLoadingComparedProducts || normalizedCompareItems.length > 0 ? (
+                <div className="text-center py-20">
+                  <div className="text-gray-400 mb-4">
+                    <div className="w-24 h-24 mx-auto rounded-full shimmer-surface" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    {language === "ar" ? "جارٍ تحميل منتجات المقارنة..." : "Loading compared products..."}
+                  </h2>
+                  <p className="text-gray-600 mb-8">
+                    {language === "ar"
+                      ? "يرجى الانتظار لحظة"
+                      : "Please wait a moment"}
+                  </p>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  {t.noProducts || "No Products to Compare"}
-                </h2>
-                <p className="text-gray-600 mb-8">
-                  {t.selectProducts || "Select products to compare"}
-                </p>
-              </div>
+              ) : (
+                // No products to compare
+                <div className="text-center py-20">
+                  <div className="text-gray-400 mb-4">
+                    <svg
+                      className="w-24 h-24 mx-auto"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    {t.noProducts || "No Products to Compare"}
+                  </h2>
+                  <p className="text-gray-600 mb-8">
+                    {t.selectProducts || "Select products to compare"}
+                  </p>
+                </div>
+              )
             ) : (
               // Comparison Table
               <div className="overflow-x-auto mb-8">

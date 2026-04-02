@@ -12,6 +12,8 @@ interface CompareStore extends CompareState {
   setSelectedCategory: (category: string | null) => void;
   setSelectedBrand: (brand: string | null) => void;
   clearCompare: () => void;
+  productCache: Record<string, any>;
+  cacheProducts: (products: any[]) => void;
 }
 
 export const useCompareStore = create<CompareStore>()(
@@ -21,6 +23,7 @@ export const useCompareStore = create<CompareStore>()(
       isOpen: false, // This controls the dialog visibility
       selectedCategory: null,
       selectedBrand: null,
+      productCache: {},
 
       toggleCompare: (productId) =>
         set((state) => {
@@ -58,6 +61,16 @@ export const useCompareStore = create<CompareStore>()(
       setSelectedBrand: (brand) => set({ selectedBrand: brand }),
 
       clearCompare: () => set({ items: [] }),
+
+      cacheProducts: (products) =>
+        set((state) => {
+          const next = { ...state.productCache };
+          (products || []).forEach((p: any) => {
+            const key = String(p?.stk_code || p?.id || p?.productId || "").trim();
+            if (key) next[key] = p;
+          });
+          return { productCache: next };
+        }),
     }),
     {
       name: 'compare-storage',
