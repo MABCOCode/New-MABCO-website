@@ -126,7 +126,7 @@ const AppDownloadPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50" dir={isArabic ? "rtl" : "ltr"}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="text-center mb-16">
-          <h1 className="text-4xl sm:text-5xl font-extrabold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl sm:text-5xl font-extrabold mb-4 bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
             {content.title}
           </h1>
           <p className="text-gray-600 mx-auto max-w-2xl text-base sm:text-lg">
@@ -144,7 +144,7 @@ const AppDownloadPage = () => {
             button={content.google.button}
             link={content.google.link}
             hoverGradient="bg-gradient-to-br from-green-50 to-blue-50"
-            buttonGradient="bg-gradient-to-r from-green-600 to-blue-600"
+            buttonGradient="bg-gradient-to-r from-green-500 to-blue-500"
             buttonHoverGradient="from-green-700 to-blue-700"
           />
 
@@ -156,9 +156,9 @@ const AppDownloadPage = () => {
             checks={content.apple.checks}
             button={content.apple.button}
             link={content.apple.link}
-            hoverGradient="bg-gradient-to-br from-green-50 to-purple-50"
-            buttonGradient="bg-gradient-to-r from-green-600 to-purple-600"
-            buttonHoverGradient="from-green-700 to-purple-700"
+            hoverGradient="bg-gradient-to-br from-blue-50 to-purple-50"
+            buttonGradient="bg-gradient-to-r from-blue-500 to-purple-500"
+            buttonHoverGradient="from-blue-700 to-purple-700"
           />
         </div>
 
