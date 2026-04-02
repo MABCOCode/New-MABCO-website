@@ -30,9 +30,10 @@ const SEOSection: React.FC<SEOSectionProps> = ({ language }) => {
       "Sa-Su 10:00-20:00"
     ],
     "sameAs": [
-      "https://www.facebook.com/mabco",
-      "https://www.instagram.com/mabco",
-      "https://twitter.com/mabco"
+      "https://www.facebook.com/mabcosyria",
+      "https://www.instagram.com/mabco_official_site",
+      "https://telegram.me/MABCOtelegram",
+      "https://wa.me/+963961109909"
     ]
   };
 
@@ -123,10 +124,10 @@ const SEOSection: React.FC<SEOSectionProps> = ({ language }) => {
             "url": "https://mabcoonline.com",
             "logo": "https://mabcoonline.com/images/Mabco%20100x100.jpg",
             "sameAs": [
-              "https://www.facebook.com/mabco",
-              "https://www.instagram.com/mabco",
-              "https://twitter.com/mabco",
-              "https://www.linkedin.com/company/mabco"
+              "https://www.facebook.com/mabcosyria",
+              "https://www.instagram.com/mabco_official_site",
+              "https://telegram.me/MABCOtelegram",
+              "https://wa.me/+963961109909"
             ]
           })}
         </script>
@@ -181,6 +182,41 @@ const SEOSection: React.FC<SEOSectionProps> = ({ language }) => {
         
         <h3>{language === 'ar' ? 'علامات تجارية نبيعها' : 'Brands We Sell'}</h3>
         <p>Samsung, Apple iPhone, Xiaomi, Sony, Honor, EcoFlow, Deye, Huawei, Dell, HP, Lenovo, Asus, LG, Philips, Bosch</p>
+
+        <h3>{language === 'ar' ? 'هواتف بأسعار لا تُهزم' : 'Mobile Phones at Unbeatable Prices'}</h3>
+        <p>
+          {language === 'ar'
+            ? 'تصفح أحدث الهواتف الذكية من أبرز العلامات مثل نوكيا وسامسونغ وآبل بأسعار تنافسية.'
+            : 'Explore the latest smartphones from top brands like Nokia, Samsung, and Apple - all at competitive rates.'}
+        </p>
+
+        <h3>{language === 'ar' ? 'بيع بالجملة والتجزئة' : 'MABCO Wholesale & Retail Electronics'}</h3>
+        <p>
+          {language === 'ar'
+            ? 'سواء كنت مستهلكاً أو تاجراً، نوفر أسعار جملة وحِزم منتجات مخصّصة تناسب احتياجك.'
+            : "Whether you're a consumer or business, MABCO provides bulk pricing and tailored product packages."}
+        </p>
+
+        <h3>{language === 'ar' ? 'ضمان وخدمات صيانة معتمدة' : 'Certified Warranty & Repair Services'}</h3>
+        <p>
+          {language === 'ar'
+            ? 'دعم سريع وموثوق من فنيين خبراء في مراكز صيانة معتمدة داخل سوريا.'
+            : 'Get fast, reliable support from our expert technicians at authorized service centers across Syria.'}
+        </p>
+
+        <h3>{language === 'ar' ? 'موزّع موثوق منذ 1999' : 'Trusted Mobile Distributor in Syria Since 1999'}</h3>
+        <p>
+          {language === 'ar'
+            ? 'خبرة تمتد لعقود تجعل مابكو مرجعاً للهواتف والمنتجات التقنية عالية الجودة في سوريا.'
+            : "With decades of experience, MABCO is Syria's go-to source for quality mobile and tech products."}
+        </p>
+
+        <h3>{language === 'ar' ? 'معارض في المدن السورية الكبرى' : 'Showrooms Across Major Syrian Cities'}</h3>
+        <p>
+          {language === 'ar'
+            ? 'قم بزيارة فروعنا في دمشق وحلب وحمص وطرطوس لتجربة أحدث الأجهزة على أرض الواقع.'
+            : 'Visit our branches in Damascus, Aleppo, Homs, and Tartus to shop the newest devices in person.'}
+        </p>
         
         <h3>{language === 'ar' ? 'أقسام المنتجات' : 'Product Categories'}</h3>
         <p>

@@ -61,9 +61,7 @@ router.get('/', asyncHandler(async (req, res) => {
   if (!includeHidden && req.query.hidden !== 'true') {
     query['status.isHidden'] = { $ne: true };
   }
-  if (!includeUnavailable && req.query.available !== 'false') {
-    query['availability.isAvailable'] = { $ne: false };
-  }
+  const shouldFilterAvailability = !includeUnavailable && req.query.available !== 'false';
   const search = String(req.query.search || '').trim();
   if (req.query.categoryId) query.categoryIds = new ObjectId(req.query.categoryId);
   if (req.query.brandId) query.brandId = new ObjectId(req.query.brandId);
@@ -148,6 +146,18 @@ router.get('/', asyncHandler(async (req, res) => {
   }
   if (req.query.active === 'true') query['status.isActive'] = true;
   if (req.query.hidden === 'true') query['status.isHidden'] = true;
+  if (shouldFilterAvailability) {
+    const availabilityOr = [
+      { 'availability.isAvailable': { $ne: false } },
+      { cat_code: '09', brand_code: '81' },
+    ];
+    if (query.$or) {
+      query.$and = [...(query.$and || []), { $or: query.$or }, { $or: availabilityOr }];
+      delete query.$or;
+    } else {
+      query.$or = availabilityOr;
+    }
+  }
   if (search) {
     const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     query.$or = [

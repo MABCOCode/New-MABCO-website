@@ -444,7 +444,8 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     termsOfService: "شروط الاستخدام",
     returnPolicy: "سياسة الإرجاع",
     faq: "الأسئلة الشائعة",
-    seoDescription: "متجر MABCO الإلكتروني - رقم 1 في سوريا لبيع الأجهزة الإلكترونية، الهواتف الذكية، اللابتوبات، التلفزيونات، الأجهزة المنزلية، والألعاب الإلكترونية",
+    footer_signin_benefits: "سجل الدخول للاستفادة من جميع ميزات موقع مابكو",
+    seoDescription: "مابكو - الشركة الرائدة في الإلكترونيات والموبايلات في سوريا منذ 1999 | بيع بالتجزئة | جملة",
     // Company Strength / Home section
     title: "قوة وموثوقية MABCO",
     subtitle: "أكثر من ربع قرن من التميز في خدمة العملاء",
@@ -938,7 +939,8 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     termsOfService: "Terms of Service",
     returnPolicy: "Return Policy",
     faq: "FAQ",
-    seoDescription: "MABCO Online Store - #1 in Syria for Electronics, Smartphones, Laptops, TVs, Home Appliances, and Gaming Devices",
+    footer_signin_benefits: "Sign in to benefit from all MABCO website features",
+    seoDescription: "MABCO Mobile Company – Leading mobile phones and electronics distributor in Syria since 1999 | Retail | Wholesale",
     // Company Strength / Home section
     title: "MABCO Strength & Reliability",
     subtitle: "Over a quarter century of excellence in customer service",

@@ -428,7 +428,7 @@ const HomePage: React.FC = () => {
           )}
         </section>
         {/* Categories Section */}
-        <section id="categories" className="container mx-auto px-4 py-16">
+        <section id="categories" className="container mx-auto px-4">
           {mountCategories ? (
             <Suspense fallback={<HomeSkeletonShell compact />}>
               <>

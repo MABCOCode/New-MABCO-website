@@ -418,6 +418,9 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
         : thumbnailImage
           ? [thumbnailImage]
           : [];
+    const shouldHideAvailabilityBadge =
+      String(product?.cat_code || product?.category_code || product?.catCode || "") === "09" &&
+      String(product?.brand_code || product?.brandCode || "") === "81";
 
     const missing = product._missing || {};
     const validation = product._validation || {};
@@ -472,6 +475,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       isHidden: Boolean(product?.status?.isHidden),
       hiddenReason: String(product?.availability?.hiddenReason || ""),
       isAvailable: resolvedAvailable,
+      showAvailabilityBadge: !shouldHideAvailabilityBadge,
       _raw: product,
     };
   };
@@ -977,7 +981,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                       {t("admin.content.hidden")}
                     </div>
                   )}
-                  {!product.isAvailable && (
+                  {!product.isAvailable && product.showAvailabilityBadge && (
                     <div
                       className={`absolute top-4 ${
                         language === "ar" ? "left-4" : "right-4"

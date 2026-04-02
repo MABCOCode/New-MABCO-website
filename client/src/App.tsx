@@ -28,6 +28,8 @@ const HomePage = lazy(() => import('./features/home/pages/HomePage'));
 const OfferTypeRoute = lazy(() =>
   import('./features/offer/pages/OfferTypePage').then((m) => ({ default: m.OfferTypeRoute })),
 );
+const FaqPage = lazy(() => import('./features/faq/pages/FaqPage'));
+const SitemapPage = lazy(() => import('./features/seo/pages/SitemapPage'));
 const BrandPage = lazy(() => import('./features/products/pages/BrandPage'));
 const CategoryPage = lazy(() => import('./features/products/pages/CategoryPage'));
 const ProductDetailPage = lazy(() => import('./features/products/pages/ProductDetailPage'));
@@ -302,6 +304,8 @@ const AppContent: React.FC = () => {
               <Route path="/showrooms" element={<ShowroomsPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/career" element={<CareerPage />} />
+              <Route path="/faq" element={<FaqPage />} />
+              <Route path="/sitemap" element={<SitemapPage />} />
               <Route path="/account/*" element={<AccountRoutes />} />
               <Route path="/login" element={<Navigate to="/account/login" replace />} />
               <Route path="/dashboard" element={<Navigate to="/account/dashboard" replace />} />

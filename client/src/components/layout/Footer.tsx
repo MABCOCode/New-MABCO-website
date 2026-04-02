@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { translations } from '../../i18n/translations';
+import { loadSession } from '../../utils/accountSession';
 
 interface ModernFooterProps {
   language: 'ar' | 'en';
@@ -55,6 +56,28 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
   const justifyDirection = isRTL ? 'justify-end' : 'justify-start';
   const [categoriesData, setCategoriesData] = useState<StaticCategory[]>([]);
   const [brandsData, setBrandsData] = useState<StaticBrand[]>([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean((loadSession() as any)?.user));
+
+  useEffect(() => {
+    const readSession = () => {
+      const session = loadSession() as any;
+      setIsLoggedIn(Boolean(session?.user));
+    };
+
+    readSession();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'session') {
+        readSession();
+      }
+    };
+    const onFocus = () => readSession();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -155,7 +178,11 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
     { label: t.showrooms, action: onShowroomsClick },
     { label: t.aboutUs, action: onAboutClick },
     { label: t.career, action: onCareerClick },
-    { label: t.contact, action: () => window.location.href = '/#contact' }
+    { label: t.contact, action: () => window.location.href = '/#contact' },
+    {
+      label: isLoggedIn ? t.account_dashboard_my_account : t.account_login_button,
+      action: () => window.location.href = isLoggedIn ? '/account/dashboard' : '/account/login'
+    }
   ];
 
   const services = [
@@ -202,7 +229,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
             {/* Social Media */}
             <div className={`flex gap-4 ${justifyDirection}`}>
               <a
-                href="https://www.facebook.com/mabco"
+                href="https://www.facebook.com/mabcosyria"
                 className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center hover:scale-110 transition-transform hover:bg-blue-700"
                 aria-label="Facebook"
               >
@@ -211,7 +238,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
                 </svg>
               </a>
               <a
-                href="https://www.instagram.com/mabco"
+                href="https://www.instagram.com/mabco_official_site"
                 className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform hover:from-purple-700 hover:to-pink-700"
                 aria-label="Instagram"
               >
@@ -224,7 +251,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
             </svg>
               </a>
               <a
-                href="https://wa.me/963123456"
+                href="https://wa.me/+963961109909"
                 className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center hover:scale-110 transition-transform hover:bg-green-600"
                 aria-label="WhatsApp"
               >
@@ -233,7 +260,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
                 </svg>
               </a>
               <a
-                href="https://t.me/mabco"
+                href="https://telegram.me/MABCOtelegram"
                 className="w-10 h-10 bg-[#0088cc] rounded-full flex items-center justify-center hover:scale-110 transition-transform hover:bg-[#1e89ba]"
                 aria-label="Telegram"
               >
@@ -337,6 +364,11 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
               </button>
             ))}
           </div>
+          {!isLoggedIn && (
+            <div className="mt-4 text-center text-sm text-gray-400">
+              {t.footer_signin_benefits}
+            </div>
+          )}
         </div>
 
         {/* Bottom Section */}
@@ -349,17 +381,20 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
             </div>
             
             <div className={`flex flex-wrap gap-6 ${isRTL ? 'justify-end' : 'justify-center'}`}>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
+              <a href="/#warranty-section" className="text-gray-400 hover:text-white transition-colors text-sm">
                 {t.privacyPolicy}
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
+              <a href="/#warranty-section" className="text-gray-400 hover:text-white transition-colors text-sm">
                 {t.termsOfService}
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
+              <a href="/#warranty-section" className="text-gray-400 hover:text-white transition-colors text-sm">
                 {t.returnPolicy}
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm">
+              <a href="/faq" className="text-gray-400 hover:text-white transition-colors text-sm">
                 {t.faq}
+              </a>
+              <a href="/sitemap.xml" className="text-gray-400 hover:text-white transition-colors text-sm">
+                {language === 'ar' ? 'خريطة الموقع' : 'Sitemap'}
               </a>
             </div>
           </div>

@@ -9,7 +9,7 @@ const FloatingSocialLinks: React.FC = () => {
       className={`hidden lg:flex fixed ${language === "ar" ? "left-6" : "right-6"} bottom-6 z-40 flex-col gap-3`}
     >
       <a
-        href="https://www.facebook.com/mabco"
+        href="https://www.facebook.com/mabcosyria"
         target="_blank"
         rel="noopener noreferrer"
         className="w-12 h-12 bg-[#1877F2] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-all duration-300 hover:shadow-xl"
@@ -21,7 +21,7 @@ const FloatingSocialLinks: React.FC = () => {
       </a>
 
       <a
-        href="https://wa.me/963123456"
+        href="https://wa.me/+963961109909"
         target="_blank"
         rel="noopener noreferrer"
         className="w-12 h-12 bg-[#25D366] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-all duration-300 hover:shadow-xl"
@@ -33,7 +33,7 @@ const FloatingSocialLinks: React.FC = () => {
       </a>
 
       <a
-        href="https://t.me/mabco"
+        href="https://telegram.me/MABCOtelegram"
         target="_blank"
         rel="noopener noreferrer"
         className="w-12 h-12 bg-[#0088cc] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-all duration-300 hover:shadow-xl"
@@ -45,7 +45,7 @@ const FloatingSocialLinks: React.FC = () => {
       </a>
 
       <a
-        href="https://www.instagram.com/mabco"
+        href="https://www.instagram.com/mabco_official_site"
         target="_blank"
         rel="noopener noreferrer"
         className="w-12 h-12 bg-gradient-to-br from-[#833AB4] via-[#FD1D1D] to-[#F77737] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-all duration-300 hover:shadow-xl"

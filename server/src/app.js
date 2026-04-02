@@ -8,6 +8,7 @@ const Joi = require('joi');
 const path = require('path');
 const { clientOrigins, nodeEnv } = require('./config/env');
 const apiRoutes = require('./routes');
+const sitemapRoutes = require('./routes/sitemap.routes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -64,6 +65,8 @@ app.use('/images', (req, res, next) => {
   next();
 }, express.static(path.join(__dirname, '..', 'images')));
 
+app.use('/sitemap.xml', sitemapRoutes);
+
 const isAdminRequest = (req) => {
   const adminKey = req.headers['x-admin-key'];
   const adminToken = req.headers['x-admin-token'];
@@ -90,6 +93,7 @@ const isPublicRoute = (req) => {
   const path = String(req.originalUrl || req.url || '');
   // Routes that should have higher limits or be public
   const publicRoutes = [
+    '/sitemap.xml',
     '/api/banner-slides',
     '/api/products',
     '/api/categories',
