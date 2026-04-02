@@ -37,7 +37,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../context/LanguageContext";
 import savedSpecTitlesManager from "../../../../data/savedSpecTitlesData";
-import { uploadImageFile, uploadImageDataUrl } from "../../../../services/uploads";
+import { uploadImageDataUrl, uploadImageFile } from "../../../../services/uploads";
 
 interface ProductContentDashboardProps {
   onClose: () => void;
@@ -68,7 +68,7 @@ const CONTENT_REQUIREMENTS = {
   minImages: 1,
   maxImages: 10,
   minSpecs: 0,
-  maxSpecs: 14,
+  maxSpecs: 16,
   imageMaxSize: 2, // MB
 };
 
