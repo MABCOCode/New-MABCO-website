@@ -32,7 +32,7 @@ const CONTENT_LIMITS = {
   descriptionAr: { min: 10, max: 500, optimal: 200 },
   specName: { max: 10 },
   specValue: { max: 100 },
-  maxSpecs: 12,
+  maxSpecs: 16,
   minSpecs: 4,
 };
 

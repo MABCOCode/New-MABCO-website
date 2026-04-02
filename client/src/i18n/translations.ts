@@ -454,7 +454,7 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     countries: "دول في المنطقة",
     countriesList: "سوريا، العراق، السودان",
     cities: "مدن سورية",
-    citiesList: "دمشق، حلب، طرطوس، حمص، حماة، اللاذقية",
+    citiesList: "دمشق، حلب، طرطوس، حمص، حماة، اللاذقية , جبلة",
     brandsDesc: "موزع معتمد لكبرى العلامات",
     genuine: "منتجات أصلية 100%",
     genuineDesc: "جميع منتجاتنا مستوردة من المصانع الأصلية مباشرة",
@@ -475,7 +475,7 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
       "صيانة التصنيع لمدة <strong>12 شهراً</strong> شاملة قطع الغيار والعمالة",
       "<strong>15 يوماً</strong> لاستبدال المنتج في حالة عيوب التصنيع",
       "خدمة الدعم الفني المجانية طوال فترة الضمان",
-      "مراكز خدمة معتمدة في 6 مدن سورية"
+      "مراكز خدمة معتمدة في 7 مدن سورية"
     ],
     extendedContent: [
       "حماية سوء الاستخدام لمدة <strong>100 يوم</strong>",
@@ -949,7 +949,7 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     countries: "Countries in the Region",
     countriesList: "Syria, Iraq, Sudan",
     cities: "Syrian Cities",
-    citiesList: "Damascus, Aleppo, Tartus, Homs, Hama, Latakia",
+    citiesList: "Damascus, Aleppo, Tartus, Homs, Hama, Latakia, Jableh",
     brandsGlobal: "+ Global Brands",
     brandsDesc: "Authorized distributor for major brands",
     genuine: "100% Genuine Products",
