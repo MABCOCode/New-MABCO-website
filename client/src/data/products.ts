@@ -138,7 +138,14 @@ const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
   const start = toDate((offer as any).start);
   const end = toDate((offer as any).end);
   const now = new Date();
-  if (!offer.is_active) return null;
+  const rawActive = (offer as any).is_active;
+  const isActive =
+    typeof rawActive === "boolean"
+      ? rawActive
+      : rawActive === null || rawActive === undefined
+      ? true
+      : Boolean(rawActive);
+  if (!isActive) return null;
   if (start && now < start) return null;
   if (end && now > end) return null;
 

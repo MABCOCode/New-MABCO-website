@@ -37,6 +37,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../context/LanguageContext";
 import savedSpecTitlesManager from "../../../../data/savedSpecTitlesData";
+import { uploadImageFile, uploadImageDataUrl } from "../../../../services/uploads";
 
 interface ProductContentDashboardProps {
   onClose: () => void;
@@ -1185,6 +1186,7 @@ interface ProductContentEditorProps {
 
 function ProductContentEditor({ product, onClose, onSave }: ProductContentEditorProps) {
   const [activeTab, setActiveTab] = useState<"basic" | "colors" | "gallery" | "specs" | "whatsInBox" | "category">("basic");
+  const [isPublishing, setIsPublishing] = useState(false);
   
   // Basic Info State
   const [nameEn, setNameEn] = useState(product.nameEn || "");
@@ -1437,14 +1439,43 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     );
   };
 
+  const uploadImage = async (file: File): Promise<string> => {
+    try {
+      return await uploadImageFile(file);
+    } catch (err) {
+      console.error("[ProductContentDashboard] upload failed", err);
+      return "";
+    }
+  };
+
+  const uploadBase64Image = async (dataUrl: string): Promise<string> => {
+    try {
+      return await uploadImageDataUrl(dataUrl);
+    } catch (err) {
+      console.error("[ProductContentDashboard] base64 upload failed", err);
+      return "";
+    }
+  };
+
+  const isBase64Image = (value: string) => String(value || "").startsWith("data:image/");
+  const dedupeUnifiedImages = (images: UnifiedImage[]) => {
+    const seen = new Set<string>();
+    const result: UnifiedImage[] = [];
+    images.forEach((img) => {
+      const key = `${img.colorKey || ""}__${img.src}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      result.push(img);
+    });
+    return result;
+  };
+
   const handleIconImageUpload = (specId: string, file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const imageUrl = reader.result as string;
+    uploadImage(file).then(async (imageUrl) => {
+      if (!imageUrl) return;
       await savedSpecTitlesManager.addCustomIcon(imageUrl);
       updateSpecIconImage(specId, imageUrl);
-    };
-    reader.readAsDataURL(file);
+    });
   };
 
   const addBoxItem = () => {
@@ -1472,20 +1503,43 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
         if (!imageUrl) {
           return { ...color, image: "", images: [] };
         }
+        const replaceBase64 =
+          !isBase64Image(imageUrl) &&
+          currentImages.some((img: any) => isBase64Image(String(img?.src || "")));
         if (imageId) {
-          const updatedImages = currentImages.map((img: any) =>
+          let updatedImages = currentImages.map((img: any) =>
             img.id === imageId ? { ...img, src: imageUrl } : img,
           );
+          if (replaceBase64) {
+            const oldSrc = currentImages.find((img: any) => img.id === imageId)?.src || "";
+            if (isBase64Image(String(oldSrc))) {
+              updatedImages = updatedImages.map((img: any) =>
+                img.src === oldSrc ? { ...img, src: imageUrl } : img,
+              );
+            }
+          }
           const nextPrimary = updatedImages[0]?.src || imageUrl;
           return { ...color, image: nextPrimary, images: updatedImages };
         }
-        const nextImage = {
-          id: createImageId(`color|${key}|${Date.now()}|${imageUrl}`),
-          src: imageUrl,
-          colorKey: normalizeColorKey(key),
-          source: "colorVariant",
-        };
-        const updatedImages = [...currentImages, nextImage];
+        let updatedImages = currentImages;
+        if (replaceBase64) {
+          const base64Index = currentImages.findIndex((img: any) =>
+            isBase64Image(String(img?.src || "")),
+          );
+          if (base64Index >= 0) {
+            updatedImages = currentImages.map((img: any, idx2: number) =>
+              idx2 === base64Index ? { ...img, src: imageUrl } : img,
+            );
+          }
+        } else {
+          const nextImage = {
+            id: createImageId(`color|${key}|${Date.now()}|${imageUrl}`),
+            src: imageUrl,
+            colorKey: normalizeColorKey(key),
+            source: "colorVariant",
+          };
+          updatedImages = [...currentImages, nextImage];
+        }
         return { ...color, image: updatedImages[0]?.src || imageUrl, images: updatedImages };
       }),
     );
@@ -1499,27 +1553,44 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
         return prev.filter((img) => !(img.colorKey === colorKey && img.source === "colorVariant"));
       }
       if (existingIndex === -1) {
+        const base64Index = prev.findIndex(
+          (img) =>
+            img.colorKey === colorKey &&
+            img.source === "colorVariant" &&
+            isBase64Image(String(img.src || "")) &&
+            !isBase64Image(imageUrl),
+        );
+        if (base64Index >= 0) {
+          const next = prev.map((img, idx2) =>
+            idx2 === base64Index ? { ...img, src: imageUrl } : img,
+          );
+          return dedupeUnifiedImages(next);
+        }
         const nextImage: UnifiedImage = {
           id: createImageId(`color|${colorKey}|${Date.now()}|${imageUrl}`),
           src: imageUrl,
           colorKey,
           source: "colorVariant",
         };
-        return [...prev, nextImage];
+        return dedupeUnifiedImages([...prev, nextImage]);
       }
-      return prev.map((img, idx) =>
+      const oldSrc = prev[existingIndex]?.src || "";
+      let next = prev.map((img, idx) =>
         idx === existingIndex ? { ...img, src: imageUrl } : img,
       );
+      if (isBase64Image(String(oldSrc)) && !isBase64Image(imageUrl)) {
+        next = next.map((img) => (img.src === oldSrc ? { ...img, src: imageUrl } : img));
+      }
+      return dedupeUnifiedImages(next);
     });
   };
 
   const handleColorImageUpload = (key: string, file: File | null, imageId: string | null) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      updateColorImage(key, imageId, reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    uploadImage(file).then((imageUrl) => {
+      if (!imageUrl) return;
+      updateColorImage(key, imageId, imageUrl);
+    });
   };
 
   const toggleColorVisibility = (key: string) => {
@@ -1550,20 +1621,39 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   };
 
   const updateUnifiedImage = (id: string, newUrl: string) => {
-    setUnifiedImages((prev) =>
-      prev.map((img) => (img.id === id ? { ...img, src: newUrl } : img)),
-    );
+    setUnifiedImages((prev) => {
+      const target = prev.find((img) => img.id === id);
+      const oldSrc = target?.src || "";
+      let next = prev.map((img) => (img.id === id ? { ...img, src: newUrl } : img));
+      if (isBase64Image(String(oldSrc)) && !isBase64Image(newUrl)) {
+        next = next.map((img) => (img.src === oldSrc ? { ...img, src: newUrl } : img));
+      }
+      return dedupeUnifiedImages(next);
+    });
   };
 
   const addUnifiedImage = (newUrl: string) => {
-    setUnifiedImages((prev) => [
-      ...prev,
-      {
-        id: createImageId(`gallery|${Date.now()}|${newUrl}`),
-        src: newUrl,
-        source: "gallery",
-      },
-    ]);
+    setUnifiedImages((prev) => {
+      if (!isBase64Image(newUrl)) {
+        const base64Index = prev.findIndex(
+          (img) => img.source === "gallery" && isBase64Image(String(img.src || "")),
+        );
+        if (base64Index >= 0) {
+          const next = prev.map((img, idx) =>
+            idx === base64Index ? { ...img, src: newUrl } : img,
+          );
+          return dedupeUnifiedImages(next);
+        }
+      }
+      return dedupeUnifiedImages([
+        ...prev,
+        {
+          id: createImageId(`gallery|${Date.now()}|${newUrl}`),
+          src: newUrl,
+          source: "gallery",
+        },
+      ]);
+    });
   };
 
   const openEditImage = (entry: UnifiedImage) => {
@@ -1577,68 +1667,78 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   };
 
   const handleSave = async () => {
-    await Promise.all(
-      specs.map((spec: any) => {
-        if (spec.nameEn && spec.nameAr) {
-          return savedSpecTitlesManager.addOrUpdateTitle(spec.nameEn, spec.nameAr, spec.icon, spec.iconImage);
-        }
-        return Promise.resolve(null);
-      }),
-    );
+    if (isPublishing) return;
+    setIsPublishing(true);
+    try {
+      await Promise.all(
+        specs.map((spec: any) => {
+          if (spec.nameEn && spec.nameAr) {
+            return savedSpecTitlesManager.addOrUpdateTitle(spec.nameEn, spec.nameAr, spec.icon, spec.iconImage);
+          }
+          return Promise.resolve(null);
+        }),
+      );
 
-    const finalUnifiedImages = activeGalleryImages.filter((img) =>
-      Boolean(String(img.src || "").trim()),
-    );
-    const serializedImages = serializeUnifiedImages(finalUnifiedImages);
+      const finalUnifiedImages = activeGalleryImages.filter((img) =>
+        Boolean(String(img.src || "").trim()),
+      );
+      const serializedImages = serializeUnifiedImages(finalUnifiedImages);
 
-    const formattedSpecs = specs.map((spec: any) => ({
-      id: spec.id,
-      icon: spec.icon || "Smartphone",
-      iconImage: spec.iconImage || "",
-      title: spec.nameEn || "",
-      titleAr: spec.nameAr || "",
-      value: spec.valueEn || "",
-      valueAr: spec.valueAr || "",
-    }));
+      const formattedSpecs = specs.map((spec: any) => ({
+        id: spec.id,
+        icon: spec.icon || "Smartphone",
+        iconImage: spec.iconImage || "",
+        title: spec.nameEn || "",
+        titleAr: spec.nameAr || "",
+        value: spec.valueEn || "",
+        valueAr: spec.valueAr || "",
+      }));
 
-    const formattedColors = colors.map((color: any) => ({
-      stk_code: color?.stkCode || "",
-      active: !color?.isHidden,
-      images: color?.isHidden
-        ? []
-        : Array.isArray(color?.images)
-        ? color.images.map((img: any) => String(img?.src || "").trim()).filter(Boolean)
-        : color?.image
-        ? [color.image]
-        : [],
-    }));
+      const formattedColors = colors.map((color: any) => ({
+        stk_code: color?.stkCode || "",
+        active: !color?.isHidden,
+        images: color?.isHidden
+          ? []
+          : Array.isArray(color?.images)
+          ? color.images.map((img: any) => String(img?.src || "").trim()).filter(Boolean)
+          : color?.image
+          ? [color.image]
+          : [],
+      }));
 
-    const formattedBox = whatsInBox.map((item: any) => ({
-      nameEn: item.itemEn || "",
-      nameAr: item.itemAr || "",
-      valueEn: String(item.quantity ?? 1),
-      valueAr: String(item.quantity ?? 1),
-    }));
+      const formattedBox = whatsInBox.map((item: any) => ({
+        nameEn: item.itemEn || "",
+        nameAr: item.itemAr || "",
+        valueEn: String(item.quantity ?? 1),
+        valueAr: String(item.quantity ?? 1),
+      }));
 
-    const updatePayload = {
-      name: nameEn,
-      nameAr,
-      description: descriptionEn,
-      descriptionAr,
-      image: pickPrimaryImage(finalUnifiedImages),
-      images: serializedImages,
-      specs: formattedSpecs,
-      inTheBox: formattedBox,
-      category: selectedCategoryOption?.nameEn || "",
-      categoryAr: selectedCategoryOption?.nameAr || "",
-      cat_code: selectedCategory,
-      brand: selectedBrandOption?.nameEn || "",
-      brandAr: selectedBrandOption?.nameAr || "",
-      brand_code: selectedBrand,
-      colorVariants: formattedColors,
-    };
+      const updatePayload: any = {
+        name: nameEn,
+        nameAr,
+        description: descriptionEn,
+        descriptionAr,
+        specs: formattedSpecs,
+        inTheBox: formattedBox,
+        category: selectedCategoryOption?.nameEn || "",
+        categoryAr: selectedCategoryOption?.nameAr || "",
+        cat_code: selectedCategory,
+        brand: selectedBrandOption?.nameEn || "",
+        brandAr: selectedBrandOption?.nameAr || "",
+        brand_code: selectedBrand,
+        colorVariants: formattedColors,
+      };
 
-    onSave({ id: product.id, updatePayload });
+      const hasVariantColors = Array.isArray(formattedColors) && formattedColors.length > 0;
+      if (!hasVariantColors) {
+        updatePayload.image = pickPrimaryImage(finalUnifiedImages);
+        updatePayload.images = serializedImages;
+      }
+
+      await Promise.resolve(onSave({ id: product.id, updatePayload }));
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   return (
@@ -1980,6 +2080,20 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                     }
                                   />
                                 </label>
+                                {isBase64Image(color.images?.[0]?.src || "") && (
+                                  <button
+                                    onClick={() => {
+                                      const src = String(color.images?.[0]?.src || "");
+                                      uploadBase64Image(src).then((url) => {
+                                        if (!url) return;
+                                        updateColorImage(colorKey, color.images?.[0]?.id || null, url);
+                                      });
+                                    }}
+                                    className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-semibold"
+                                  >
+                                    {language === "ar" ? "تثبيت" : "Install"}
+                                  </button>
+                                )}
                                 <button
                                   onClick={() =>
                                     updateColorImage(
@@ -2109,6 +2223,20 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
+                          {isBase64Image(entry.src) && (
+                            <button
+                              onClick={() => {
+                                uploadBase64Image(entry.src).then((url) => {
+                                  if (!url) return;
+                                  updateUnifiedImage(entry.id, url);
+                                });
+                              }}
+                              className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-semibold"
+                              title={language === "ar" ? "\u062a\u062b\u0628\u064a\u062a" : "Install"}
+                            >
+                              {language === "ar" ? "\u062a\u062b\u0628\u064a\u062a" : "Install"}
+                            </button>
+                          )}
                           <label className="p-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                             <Upload className="w-4 h-4" />
                             <input
@@ -2118,11 +2246,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  updateUnifiedImage(entry.id, String(reader.result || ""));
-                                };
-                                reader.readAsDataURL(file);
+                                uploadImage(file).then((imageUrl) => {
+                                  if (!imageUrl) return;
+                                  updateUnifiedImage(entry.id, imageUrl);
+                                });
                               }}
                             />
                           </label>
@@ -2210,11 +2337,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                         const files = Array.from(e.target.files || []);
                         files.forEach((file) => {
                           if (activeGalleryImages.length < CONTENT_REQUIREMENTS.maxImages) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              addUnifiedImage(String(reader.result || ""));
-                            };
-                            reader.readAsDataURL(file);
+                            uploadImage(file).then((imageUrl) => {
+                              if (!imageUrl) return;
+                              addUnifiedImage(imageUrl);
+                            });
                           }
                         });
                       }}
@@ -2337,6 +2463,20 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             <span className="text-gray-700 font-medium flex-1">
                               {t("admin.content.customImage")}
                             </span>
+                            {isBase64Image(spec.iconImage) && (
+                              <button
+                                onClick={() => {
+                                  uploadBase64Image(spec.iconImage).then((url) => {
+                                    if (!url) return;
+                                    updateSpecIconImage(spec.id, url);
+                                  });
+                                }}
+                                className="text-blue-600 hover:bg-blue-50 p-1 rounded text-xs font-semibold"
+                                title={language === "ar" ? "تثبيت" : "Install"}
+                              >
+                                {language === "ar" ? "تثبيت" : "Install"}
+                              </button>
+                            )}
                             <label className="text-blue-600 hover:bg-blue-50 p-1 rounded cursor-pointer">
                               <Upload className="w-4 h-4" />
                               <input
@@ -2674,7 +2814,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
         </div>
 
         {/* Footer Actions */}
-        <div className="border-t border-gray-200 p-6 flex items-center justify-between bg-gray-50 rounded-b-3xl">
+        <div className="sticky bottom-0 border-t border-gray-200 p-6 flex items-center justify-between bg-gray-50 rounded-b-3xl">
           <button
             onClick={onClose}
             className="px-6 py-3 border-2 border-gray-300 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition-all"
@@ -2692,10 +2832,17 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
             </button> */}
             <button
               onClick={handleSave}
-              className="px-6 py-3 bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
+              disabled={isPublishing}
+              className={`px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${
+                isPublishing
+                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                  : "bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white hover:shadow-lg"
+              }`}
             >
               <CheckCircle2 className="w-5 h-5" />
-              {t('admin.content.publish')}
+              {isPublishing
+                ? (language === "ar" ? "جارٍ النشر..." : "Publishing...")
+                : t('admin.content.publish')}
             </button>
           </div>
         </div>
@@ -2780,11 +2927,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                      setEditingImageUrl(String(reader.result || ""));
-                    };
-                    reader.readAsDataURL(file);
+                    uploadImage(file).then((imageUrl) => {
+                      if (!imageUrl) return;
+                      setEditingImageUrl(imageUrl);
+                    });
                   }}
                 />
               </label>

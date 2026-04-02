@@ -1,5 +1,6 @@
 import { Upload, Edit3, X, Check, Image as ImageIcon } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { uploadImageFile, uploadImageDataUrl } from "../../services/uploads";
 
 interface EditableImageProps {
   src: string;
@@ -25,6 +26,8 @@ export function EditableImage({
   const [previewFailed, setPreviewFailed] = useState(false);
   const [imageReady, setImageReady] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasSourceImage = Boolean(String(src || "").trim());
   const hasPreviewImage = Boolean(String(previewUrl || "").trim());
@@ -62,14 +65,24 @@ export function EditableImage({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Create preview URL from local file
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setPreviewUrl(result);
-        setTempUrl(result);
-      };
-      reader.readAsDataURL(file);
+      const localUrl = URL.createObjectURL(file);
+      setPreviewUrl(localUrl);
+      setUploadError(null);
+      setIsUploading(true);
+      uploadImageFile(file)
+        .then((url) => {
+          if (url) {
+            setTempUrl(url);
+            setPreviewUrl(url);
+          }
+        })
+        .catch((err: any) => {
+          setUploadError(err?.message || "Failed to upload image");
+        })
+        .finally(() => {
+          setIsUploading(false);
+          URL.revokeObjectURL(localUrl);
+        });
     }
   };
 
@@ -79,9 +92,32 @@ export function EditableImage({
   };
 
   const handleSave = () => {
+    if (isUploading) return;
     if (tempUrl.trim()) {
       onSave(tempUrl);
       setIsEditing(false);
+    }
+  };
+
+  const isBase64 = (value: string) =>
+    value.startsWith("data:image/");
+
+  const handleInstallBase64 = async () => {
+    if (!isBase64(tempUrl)) return;
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      const url = await uploadImageDataUrl(tempUrl);
+      if (url) {
+        setTempUrl(url);
+        setPreviewUrl(url);
+        onSave(url);
+        setIsEditing(false);
+      }
+    } catch (err: any) {
+      setUploadError(err?.message || "Failed to install image");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -177,22 +213,42 @@ export function EditableImage({
             />
             <button
               onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
               className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm font-bold"
             >
               <Upload className="w-4 h-4" />
-              {language === "ar" ? "أو ارفع صورة" : "Or Upload Image"}
+              {isUploading
+                ? language === "ar"
+                  ? "جاري رفع الصورة..."
+                  : "Uploading image..."
+                : language === "ar"
+                ? "أو ارفع صورة"
+                : "Or Upload Image"}
             </button>
+            {uploadError && (
+              <p className="mt-2 text-xs text-red-600">{uploadError}</p>
+            )}
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-2">
             <button
               onClick={handleSave}
+              disabled={isUploading}
               className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2 font-bold"
             >
               <Check className="w-4 h-4" />
               {language === "ar" ? "حفظ" : "Save"}
             </button>
+            {isBase64(tempUrl) && (
+              <button
+                onClick={handleInstallBase64}
+                disabled={isUploading}
+                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 font-bold"
+              >
+                {language === "ar" ? "تثبيت" : "Install"}
+              </button>
+            )}
             <button
               onClick={handleCancel}
               className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors flex items-center justify-center gap-2 font-bold"
@@ -200,6 +256,9 @@ export function EditableImage({
               <X className="w-4 h-4" />
               {language === "ar" ? "إلغاء" : "Cancel"}
             </button>
+            {uploadError && (
+              <p className="mt-2 text-xs text-red-600">{uploadError}</p>
+            )}
           </div>
         </div>
       </div>

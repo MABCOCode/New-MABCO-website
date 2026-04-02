@@ -1,4 +1,6 @@
 import {
+    ArrowLeft,
+    ArrowRight,
     Battery,
     Camera,
     CheckCircle2,
@@ -139,6 +141,45 @@ const createImageId = (seed: string) => {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
   return `img_${hash.toString(36)}`;
+};
+
+const isBase64Image = (value: string) =>
+  String(value || "").startsWith("data:image/");
+
+const dedupeUnifiedImages = (images: UnifiedImage[]) => {
+  const seen = new Set<string>();
+  const result: UnifiedImage[] = [];
+  images.forEach((img) => {
+    const key = `${img.colorKey || ""}__${img.src}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(img);
+  });
+  return result;
+};
+
+const reorderImagesInGroup = (
+  images: UnifiedImage[],
+  imageId: string,
+  direction: -1 | 1,
+) => {
+  const target = images.find((img) => img.id === imageId);
+  if (!target) return images;
+  const key = target.colorKey || "";
+  const group = images.filter((img) => (img.colorKey || "") === key);
+  const index = group.findIndex((img) => img.id === imageId);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= group.length) return images;
+
+  const reordered = [...group];
+  const [moved] = reordered.splice(index, 1);
+  reordered.splice(nextIndex, 0, moved);
+
+  const queue = [...reordered];
+  return images.map((img) => {
+    if ((img.colorKey || "") !== key) return img;
+    return queue.shift() as UnifiedImage;
+  });
 };
 
 const resolveImageId = (entry: any, fallbackSeed: string) => {
@@ -686,7 +727,41 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         brand: updated?.brand,
         colorVariants: updated?.colorVariants,
       };
-      if (hasImagePayload) {
+      const baseVariants = Array.isArray(updated?.colorVariants)
+        ? updated.colorVariants
+        : Array.isArray(prod?.colorVariants)
+        ? prod.colorVariants
+        : [];
+      const hasVariantImages = baseVariants.length > 0;
+
+      if (hasImagePayload && hasVariantImages) {
+        const toVariantKey = (variant: any) =>
+          String(
+            variant?.stk_code ||
+              variant?.stkCode ||
+              variant?.id ||
+              variant?.code ||
+              "",
+          ).trim();
+        const nextColorVariants = baseVariants.map((variant: any) => {
+          const key = toVariantKey(variant);
+          if (!key) return variant;
+          const variantImages = unifiedImages
+            .filter(
+              (img) =>
+                img.source === "colorVariant" &&
+                String(img.variantKey || "") === key,
+            )
+            .map((img) => img.src);
+          if (variantImages.length === 0) return variant;
+          return {
+            ...variant,
+            images: variantImages,
+            image: variantImages[0] || variant.image,
+          };
+        });
+        payload.colorVariants = nextColorVariants;
+      } else if (hasImagePayload) {
         payload.images = serializeUnifiedImages(unifiedImages);
         payload.image = pickPrimaryImage(unifiedImages);
       }
@@ -1298,15 +1373,45 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   };
 
   const updateUnifiedImage = (imageId: string, newUrl: string) => {
-    const nextImages = unifiedImages.map((img) =>
+    const target = unifiedImages.find((img) => img.id === imageId);
+    const oldSrc = target?.src || "";
+    let nextImages = unifiedImages.map((img) =>
       img.id === imageId ? { ...img, src: newUrl } : img,
     );
-    persistUnifiedImages(nextImages);
+
+    if (oldSrc && isBase64Image(oldSrc) && !isBase64Image(newUrl)) {
+      nextImages = nextImages.map((img) =>
+        img.src === oldSrc ? { ...img, src: newUrl } : img,
+      );
+    }
+
+    persistUnifiedImages(dedupeUnifiedImages(nextImages));
+  };
+
+  const moveImage = (imageId: string, direction: -1 | 1) => {
+    const next = reorderImagesInGroup(unifiedImages, imageId, direction);
+    if (next === unifiedImages) return;
+    persistUnifiedImages(dedupeUnifiedImages(next));
   };
 
   const addUnifiedImage = (newUrl: string, meta?: { colorKey?: string; color?: string }) => {
     const colorKey = normalizeColorKey(meta?.colorKey || meta?.color || "");
     const color = meta?.color || "";
+    if (!isBase64Image(newUrl)) {
+      const existingBase64Index = unifiedImages.findIndex(
+        (img) =>
+          Boolean(img.src) &&
+          isBase64Image(img.src) &&
+          String(img.colorKey || "") === String(colorKey || ""),
+      );
+      if (existingBase64Index >= 0) {
+        const nextImages = unifiedImages.map((img, idx) =>
+          idx === existingBase64Index ? { ...img, src: newUrl } : img,
+        );
+        persistUnifiedImages(dedupeUnifiedImages(nextImages));
+        return;
+      }
+    }
     const nextImage: UnifiedImage = {
       id: createImageId(`manual|${colorKey}|${Date.now()}|${newUrl}`),
       src: newUrl,
@@ -1314,7 +1419,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       colorKey: colorKey || undefined,
       source: colorKey ? "colorVariant" : "product.images",
     };
-    persistUnifiedImages([...unifiedImages, nextImage]);
+    persistUnifiedImages(dedupeUnifiedImages([...unifiedImages, nextImage]));
   };
 
   useEffect(() => {
@@ -1597,7 +1702,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     {currentImageEntries && currentImageEntries.length > 0 ? (
                       currentImageEntries.map((imageEntry, index) => (
                         <CarouselItem
-                          key={`img-${imageEntry.id}`}
+                          key={`img-${imageEntry.id}-${index}`}
                           className="w-full flex-shrink-0"
                         >
                           <div className="relative">
@@ -1780,7 +1885,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                       <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
                         {currentImageEntries.map((imageEntry, index) => (
                           <button
-                            key={imageEntry.id}
+                            key={`thumb-${imageEntry.id}-${index}`}
                             onClick={() => carouselApi?.scrollTo(index)}
                             className={`aspect-square rounded-lg overflow-hidden border-2 transition-all duration-300 hover:scale-105 ${
                               currentSlide === index
@@ -1809,6 +1914,32 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                   )
                                 }
                               />
+                              {userPermissions.canEditContent && (
+                                <div className="absolute top-1 right-1 flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveImage(imageEntry.id, -1);
+                                    }}
+                                    className="p-1 rounded bg-white/90 hover:bg-white text-gray-700 shadow"
+                                    title={language === "ar" ? "تحريك لليسار" : "Move left"}
+                                  >
+                                    <ArrowLeft className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveImage(imageEntry.id, 1);
+                                    }}
+                                    className="p-1 rounded bg-white/90 hover:bg-white text-gray-700 shadow"
+                                    title={language === "ar" ? "تحريك لليمين" : "Move right"}
+                                  >
+                                    <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </button>
                         ))}
@@ -2426,7 +2557,24 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   />
                 )}
 
-                {populatedSpecs.length > 0 ? (
+                {isLoadingProduct ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <div
+                        key={`spec-loading-${index}`}
+                        className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-5 border border-gray-200"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-xl shimmer-surface" />
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="h-4 w-1/2 shimmer-surface rounded" />
+                            <div className="h-5 w-3/4 shimmer-surface rounded" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : populatedSpecs.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {populatedSpecs.map((spec: any, index: number) => {
                       return (

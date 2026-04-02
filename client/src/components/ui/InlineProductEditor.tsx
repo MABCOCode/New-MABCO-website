@@ -28,6 +28,7 @@ import {
 import { useEffect, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import savedSpecTitlesManager from "../../data/savedSpecTitlesData";
+import { uploadImageFile, uploadImageDataUrl } from "../../services/uploads";
 
 // Content Guidelines & Limits
 const CONTENT_LIMITS = {
@@ -388,14 +389,27 @@ export function InlineProductEditor({
   };
 
   const handleIconImageUpload = (specId: string, file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const imageUrl = reader.result as string;
-      await savedSpecTitlesManager.addCustomIcon(imageUrl);
-      updateSpecIconImage(specId, imageUrl);
-    };
-    reader.readAsDataURL(file);
+    uploadImageFile(file)
+      .then(async (imageUrl) => {
+        if (!imageUrl) return;
+        await savedSpecTitlesManager.addCustomIcon(imageUrl);
+        updateSpecIconImage(specId, imageUrl);
+      })
+      .catch((err) => {
+        console.error("[InlineProductEditor] upload spec icon failed", err);
+      });
   };
+
+  const uploadBase64Image = async (dataUrl: string): Promise<string> => {
+    try {
+      return await uploadImageDataUrl(dataUrl);
+    } catch (err) {
+      console.error("[InlineProductEditor] base64 upload failed", err);
+      return "";
+    }
+  };
+
+  const isBase64Image = (value: string) => String(value || "").startsWith("data:image/");
 
   if (!userPermissions.canEditContent) {
     return null; // Don't show edit buttons if user doesn't have permission
@@ -769,6 +783,19 @@ export function InlineProductEditor({
                               <span className="text-gray-700 font-medium flex-1">
                                 {t("admin.content.customImage")}
                               </span>
+                              {isBase64Image(spec.iconImage) && (
+                                <button
+                                  onClick={() => {
+                                    uploadBase64Image(spec.iconImage).then((url) => {
+                                      if (!url) return;
+                                      updateSpecIconImage(spec.id, url);
+                                    });
+                                  }}
+                                  className="text-blue-600 hover:bg-blue-50 p-1 rounded text-xs font-semibold"
+                                >
+                                  {language === "ar" ? "تثبيت" : "Install"}
+                                </button>
+                              )}
                               <label className="text-purple-600 hover:bg-purple-50 p-1 rounded cursor-pointer">
                                 <Upload className="w-4 h-4" />
                                 <input

@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 const MongoStore = require('rate-limit-mongo');
 const requestIp = require('request-ip');
 const Joi = require('joi');
+const path = require('path');
 const { clientOrigins, nodeEnv } = require('./config/env');
 const apiRoutes = require('./routes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
@@ -46,7 +47,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
     },
   },
   hsts: {
@@ -58,6 +59,10 @@ app.use(helmet({
 app.use(requestIp.mw());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/images', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(path.join(__dirname, '..', 'images')));
 
 const isAdminRequest = (req) => {
   const adminKey = req.headers['x-admin-key'];

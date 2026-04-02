@@ -35,6 +35,7 @@ export function ComparePage(props: ComparePageProps) {
   const [staticCategories, setStaticCategories] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isLoadingFilteredProducts, setIsLoadingFilteredProducts] = useState(false);
+  const [isLoadingComparedProducts, setIsLoadingComparedProducts] = useState(false);
 
   useEffect(() => {
     const missingRefs = normalizedCompareItems.filter(
@@ -53,7 +54,9 @@ export function ComparePage(props: ComparePageProps) {
     params.set("ids", missingRefs.join(","));
     params.set("limit", String(Math.max(200, missingRefs.length)));
     params.set("lite", "1");
+    params.set("include_missing", "1");
 
+    setIsLoadingComparedProducts(true);
     (async () => {
       try {
         const res = await fetch(`${apiBase}/products?${params.toString()}`);
@@ -66,6 +69,9 @@ export function ComparePage(props: ComparePageProps) {
           return Array.from(new Map(merged.map((p) => [getProductRef(p), p])).values());
         });
       } catch {}
+      finally {
+        setIsLoadingComparedProducts(false);
+      }
     })();
   }, [compareItems, allProducts]);
 
@@ -133,6 +139,7 @@ export function ComparePage(props: ComparePageProps) {
     if (selectedBrand) params.set("brand_code", selectedBrand);
     params.set("limit", "200");
     params.set("lite", "1");
+    params.set("include_missing", "1");
 
     (async () => {
       try {
@@ -550,6 +557,22 @@ export function ComparePage(props: ComparePageProps) {
                         <td className="p-4 border-b"></td>
                       )}
                     </tr>
+
+                    {isLoadingComparedProducts && visibleSpecKeys.length === 0 && (
+                      <tr className="bg-white">
+                        <td className="sticky left-0 bg-gray-50 p-4 font-semibold text-gray-700 border-b">
+                          {t.specifications || "Specifications"}
+                        </td>
+                        {comparedProducts.map((product) => (
+                          <td key={product.id} className="p-4 border-b">
+                            <div className="h-4 w-3/4 shimmer-surface rounded" />
+                          </td>
+                        ))}
+                        {comparedProducts.length < 4 && (
+                          <td className="p-4 border-b"></td>
+                        )}
+                      </tr>
+                    )}
 
                     {/* Specifications Rows */}
                     {visibleSpecKeys.map((specKey) => {

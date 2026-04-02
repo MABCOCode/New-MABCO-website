@@ -186,8 +186,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
         }),
     [safeChargeOptions],
   );
+  const preferredOfferColor = React.useMemo(() => {
+    const withOffers = visibleColorVariants.find((variant: any) => {
+      const offers = Array.isArray(variant?.offers) ? variant.offers : [];
+      return offers.length > 0;
+    });
+    return withOffers?.name || "";
+  }, [visibleColorVariants]);
   const [selectedColor, setSelectedColor] = useState(
-    visibleColorVariants[0]?.name || "",
+    preferredOfferColor || visibleColorVariants[0]?.name || "",
   );
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [selectedChargeOption, setSelectedChargeOption] = useState(
@@ -455,9 +462,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
     if (!hasColors) return;
     const exists = visibleColorVariants.some((v: any) => v.name === selectedColor);
     if (!exists) {
-      setSelectedColor(visibleColorVariants[0]?.name || "");
+      setSelectedColor(preferredOfferColor || visibleColorVariants[0]?.name || "");
+      return;
     }
-  }, [hasColors, visibleColorVariants, selectedColor]);
+    if (preferredOfferColor && selectedColor !== preferredOfferColor) {
+      const current = visibleColorVariants.find((v: any) => v.name === selectedColor);
+      const currentOffers = Array.isArray(current?.offers) ? current.offers : [];
+      if (currentOffers.length === 0) {
+        setSelectedColor(preferredOfferColor);
+      }
+    }
+  }, [hasColors, visibleColorVariants, selectedColor, preferredOfferColor]);
 
   const colorPriceValue = currentColorVariant ? parseNumericPrice(currentColorVariant.price) : 0;
   const selectedSourcePrice = currentChargeOption
@@ -530,28 +545,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const oldPriceNum = offerPricing.originalPrice;
   const hasOldPrice = hasDirectDiscount && offerPricing.hasDiscount;
   const hasDiscount = hasDirectDiscount && offerPricing.hasDiscount;
-  const offerBadgeText = (() => {
-    const coupon = displayOffers.find((o: any) => o?.type === "coupon");
-    if (coupon) {
-      const value =
-        (coupon as any).couponValue ??
-        (coupon as any).coupon_value ??
-        (coupon as any).discount ??
-        (coupon as any).value ??
-        0;
-      const numValue = parseOfferNumber(value);
-      if (numValue <= 0) return language === "ar" ? "كوبون" : "COUPON";
-    }
-    return getOfferBadgeText(offerPricing.offers, language);
-  })();
+  const offerBadgeText = displayOffers.length > 0
+    ? getOfferBadgeText(displayOffers, language)
+    : "";
   const offerBadgeInfo = (() => {
     if (!offerBadgeText) return null;
     const priority = ["direct_discount", "coupon", "free_product", "bundle_discount"] as const;
     const currentOffer =
-      offerPricing.offers.find((o: any) => o.type === priority[0]) ||
-      offerPricing.offers.find((o: any) => o.type === priority[1]) ||
-      offerPricing.offers.find((o: any) => o.type === priority[2]) ||
-      offerPricing.offers.find((o: any) => o.type === priority[3]);
+      displayOffers.find((o: any) => o.type === priority[0]) ||
+      displayOffers.find((o: any) => o.type === priority[1]) ||
+      displayOffers.find((o: any) => o.type === priority[2]) ||
+      displayOffers.find((o: any) => o.type === priority[3]);
     if (!currentOffer) return null;
     const offerType = currentOffer.type;
     switch (offerType) {
@@ -969,3 +973,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
 };
 
 export default ProductCard;
+
+
+
