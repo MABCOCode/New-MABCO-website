@@ -235,24 +235,67 @@ function pickJsonField(row) {
   );
 }
 
-function parseJsonPayload(raw) {
-  if (typeof raw !== 'string') return null;
+function parseJsonPayload(raw, stkCode = 'unknown', logger = console) {
+  if (typeof raw !== 'string') {
+    logger.warn(`[parseJsonPayload] Raw is not a string for ${stkCode}:`, typeof raw, raw);
+    return null;
+  }
+  
   const trimmed = raw.trim();
-  if (!trimmed) return null;
+  if (!trimmed) {
+    logger.warn(`[parseJsonPayload] Empty string for ${stkCode}`);
+    return null;
+  }
+  
+  logger.debug(`[parseJsonPayload] Attempting to parse for ${stkCode}, length: ${trimmed.length}, preview: ${trimmed.substring(0, 100)}`);
+  
+  // Check if it looks like multiple JSON objects
+  if (trimmed.startsWith('{') && trimmed.includes('}{')) {
+    logger.warn(`[parseJsonPayload] Detected multiple JSON objects for ${stkCode}`);
+  }
+  
+  // Try parsing as is first
   try {
-    return JSON.parse(trimmed);
-  } catch {
-    const first = trimmed.indexOf('{');
-    const last = trimmed.lastIndexOf('}');
-    if (first !== -1 && last !== -1 && last > first) {
-      const slice = trimmed.slice(first, last + 1);
-      try {
-        return JSON.parse(slice);
-      } catch {
-        return null;
+    const parsed = JSON.parse(trimmed);
+    logger.debug(`[parseJsonPayload] Successfully parsed single JSON for ${stkCode}`);
+    return parsed;
+  } catch (e) {
+    logger.warn(`[parseJsonPayload] First parse attempt failed for ${stkCode}:`, e.message);
+    
+    // Try to extract valid JSON by counting braces
+    let depth = 0;
+    let start = -1;
+    let end = -1;
+    
+    for (let i = 0; i < trimmed.length; i++) {
+      if (trimmed[i] === '{') {
+        if (depth === 0) start = i;
+        depth++;
+      } else if (trimmed[i] === '}') {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          end = i;
+          break; // Take the first complete JSON object
+        }
       }
     }
+    
+    if (start !== -1 && end !== -1) {
+      const extracted = trimmed.substring(start, end + 1);
+      logger.debug(`[parseJsonPayload] Extracted JSON substring for ${stkCode}, length: ${extracted.length}`);
+      try {
+        const parsed = JSON.parse(extracted);
+        logger.debug(`[parseJsonPayload] Successfully parsed extracted JSON for ${stkCode}`);
+        return parsed;
+      } catch (e2) {
+        logger.error(`[parseJsonPayload] Failed to parse extracted JSON for ${stkCode}:`, e2.message);
+        logger.error(`[parseJsonPayload] Extracted preview: ${extracted.substring(0, 200)}`);
+      }
+    } else {
+      logger.error(`[parseJsonPayload] Could not find valid JSON structure for ${stkCode}`);
+    }
   }
+  
   return null;
 }
 
@@ -270,7 +313,7 @@ async function fetchPosRows(connString) {
     },
   });
 
-  const result = await pool.request().query('select * from mabco_Website.dbo.GetAllProductsJson()');
+  const result = await pool.request().query("select * from mabco_Website.dbo.GetAllProductsJson() ");
   return result?.recordset || [];
 }
 
@@ -281,35 +324,94 @@ async function syncPosProducts({ connString, db, logger = console }) {
   let parsedCount = 0;
   let skipped = 0;
   const errors = [];
+  const skipReasons = {
+    noStkCode: 0,
+    noJsonString: 0,
+    jsonParseFailed: 0,
+    normalizeFailed: 0,
+    other: 0
+  };
 
-  for (const row of rows) {
+  logger.log('[POS Sync] Starting sync, total rows from query:', rows.length);
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    
+    // Log sample of first few rows to see structure
+    if (i < 3) {
+      logger.log(`[POS Sync] Sample row ${i}:`, {
+        keys: Object.keys(row),
+        stk_code_sample: row.stk_code || row.STK_CODE || row.stock_code,
+        hasJson: !!(row.json || row.JSON || row.data || row.product_json)
+      });
+    }
+
     const stkCode = String(
       row.stk_code || row.STK_CODE || row.stock_code || row.StockCode || ''
     ).trim();
+    
     if (!stkCode) {
       skipped += 1;
+      skipReasons.noStkCode += 1;
+      logger.warn('[POS Sync] Skipped - No stk_code found', { 
+        rowIndex: i,
+        rowKeys: Object.keys(row),
+        availableCodes: {
+          stk_code: row.stk_code,
+          STK_CODE: row.STK_CODE,
+          stock_code: row.stock_code,
+          StockCode: row.StockCode
+        }
+      });
       continue;
     }
 
     const jsonString = pickJsonField(row);
     if (!jsonString) {
       skipped += 1;
+      skipReasons.noJsonString += 1;
+      logger.warn('[POS Sync] Skipped - No JSON field found', { 
+        stkCode,
+        rowIndex: i,
+        availableFields: Object.keys(row).filter(k => 
+          ['json', 'JSON', 'data', 'DATA', 'payload', 'PAYLOAD', 'product_json', 'PRODUCT_JSON'].includes(k)
+        ),
+        allFieldNames: Object.keys(row)
+      });
+      continue;
+    }
+
+    logger.debug(`[POS Sync] JSON string length for ${stkCode}:`, jsonString.length);
+    
+    const parsed = parseJsonPayload(jsonString);
+    if (!parsed) {
+      skipped += 1;
+      skipReasons.jsonParseFailed += 1;
+      logger.warn('[POS Sync] Skipped - JSON parse failed', { 
+        stkCode,
+        rowIndex: i,
+        jsonPreview: jsonString.substring(0, 200),
+        jsonLength: jsonString.length
+      });
+      continue;
+    }
+
+    const updates = normalizeProductDoc(parsed, stkCode, now);
+    if (!updates) {
+      skipped += 1;
+      skipReasons.normalizeFailed += 1;
+      logger.warn('[POS Sync] Skipped - normalizeProductDoc returned null', { 
+        stkCode,
+        rowIndex: i,
+        parsedKeys: Object.keys(parsed),
+        parsedPreview: JSON.stringify(parsed).substring(0, 200)
+      });
       continue;
     }
 
     try {
-      const parsed = parseJsonPayload(jsonString);
-      if (!parsed) {
-        skipped += 1;
-        continue;
-      }
-      const updates = normalizeProductDoc(parsed, stkCode, now);
-      if (!updates) {
-        skipped += 1;
-        continue;
-      }
-
       const existing = await db.collection('products').findOne({ stk_code: stkCode });
+      
       if (!existing) {
         if (!updates.name) updates.name = `${stkCode}`;
         if (!updates.nameAr) updates.nameAr = `${stkCode}`;
@@ -318,10 +420,18 @@ async function syncPosProducts({ connString, db, logger = console }) {
           errors.push({
             stk_code: stkCode,
             error: 'Missing required fields for insert',
+            missingFields: {
+              name: !updates.name,
+              nameAr: !updates.nameAr,
+              price: !updates.price
+            }
           });
-          logger.error('[POS Sync] error', {
+          logger.error('[POS Sync] Insert failed - missing required fields', {
             stk_code: stkCode,
-            error: 'Missing required fields for insert',
+            hasName: !!updates.name,
+            hasNameAr: !!updates.nameAr,
+            hasPrice: !!updates.price,
+            updatesKeys: Object.keys(updates)
           });
           continue;
         }
@@ -381,7 +491,7 @@ async function syncPosProducts({ connString, db, logger = console }) {
       );
 
       parsedCount += 1;
-      logger.log('[POS Sync] upsert', {
+      logger.log('[POS Sync] Upsert successful', {
         stk_code: stkCode,
         matchedCount: result.matchedCount,
         modifiedCount: result.modifiedCount,
@@ -389,21 +499,32 @@ async function syncPosProducts({ connString, db, logger = console }) {
       });
     } catch (error) {
       errors.push({ stk_code: stkCode, error: error.message });
-      logger.error('[POS Sync] error', { stk_code: stkCode, error: error.message });
+      logger.error('[POS Sync] Error processing row', { 
+        stk_code: stkCode, 
+        error: error.message,
+        stack: error.stack
+      });
     }
   }
 
-  logger.log('[POS Sync] summary', {
+  logger.log('[POS Sync] Final Summary', {
     totalRows: rows.length,
     parsedCount,
     skipped,
+    skipReasons,
     errorCount: errors.length,
+    successRate: `${((parsedCount / rows.length) * 100).toFixed(2)}%`
   });
+
+  if (errors.length > 0) {
+    logger.log('[POS Sync] Error details:', errors.slice(0, 10)); // Log first 10 errors
+  }
 
   return {
     totalRows: rows.length,
     parsedCount,
     skipped,
+    skipReasons,
     errors,
   };
 }
