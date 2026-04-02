@@ -10,6 +10,7 @@ const { clientOrigins, nodeEnv } = require('./config/env');
 const apiRoutes = require('./routes');
 const sitemapRoutes = require('./routes/sitemap.routes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const { replaceLocalhostImagesMiddleware } = require('./middleware/replaceLocalhostImages');
 
 const app = express();
 app.disable("x-powered-by");
@@ -60,6 +61,7 @@ app.use(helmet({
 app.use(requestIp.mw());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(replaceLocalhostImagesMiddleware);
 app.use('/images', (req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   next();
