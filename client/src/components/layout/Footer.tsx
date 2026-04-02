@@ -295,7 +295,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
           </div>
 
           {/* Brands */}
-          <div className={textAlign} style={{ direction: 'ltr' }}>
+          <div className={textAlign} >
             <h4 className="text-xl font-bold text-white mb-6 pb-3 border-b border-gray-700">
               {t.brands}
             </h4>
