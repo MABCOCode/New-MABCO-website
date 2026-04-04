@@ -50,9 +50,14 @@ const parseFiniteNumber = (value) => {
   return null;
 };
 
+const getCategoryCode = (product) =>
+  pickLocalizedText(product?.cat_code, product?.category_code, product?.catCode);
+
+const shouldIgnoreDescriptionAndSpecsValidation = (product) => getCategoryCode(product) === '02';
+
 const isSparePartsProduct = (product) => {
   const categoryName = pickLocalizedText(product?.category, product?.categoryAr);
-  const categoryCode = pickLocalizedText(product?.cat_code, product?.category_code, product?.catCode);
+  const categoryCode = getCategoryCode(product);
   const haystack = `${categoryName} ${categoryCode}`.toLowerCase();
   if (haystack.includes('spare') || haystack.includes('parts')) return true;
   if (haystack.includes('قطع غيار') || haystack.includes('قطع تبديل')) return true;
@@ -131,16 +136,17 @@ const validateProductContent = (product) => {
   const hasColorVariantSku = colorVariants.some((variant) => hasText(variant?.stk_code || variant?.stkCode));
   const mainImage = pickLocalizedText(product?.image, galleryImages[0]);
   const categoryName = pickLocalizedText(product?.category, product?.categoryAr);
-  const categoryCode = pickLocalizedText(product?.cat_code, product?.category_code, product?.catCode);
+  const categoryCode = getCategoryCode(product);
   const brandName = pickLocalizedText(product?.brand, product?.brandAr);
   const brandCode = pickLocalizedText(product?.brand_code, product?.brandCode);
   const isSpareParts = isSparePartsProduct(product);
+  const shouldIgnoreContentValidation = shouldIgnoreDescriptionAndSpecsValidation(product);
 
   const productMissing = {
     name: !hasText(name.en) || !hasText(name.ar),
-    description: isSpareParts ? false : (!hasText(description.en) || !hasText(description.ar)),
+    description: isSpareParts || shouldIgnoreContentValidation ? false : (!hasText(description.en) || !hasText(description.ar)),
     specs: false,
-    galleryImages: !hasColorVariantSku && galleryImages.length === 0,
+    galleryImages: !hasColorVariantSku && galleryImages.length === 0 && !hasText(mainImage),
     category: !hasText(categoryName) || !hasText(categoryCode),
     brand: !hasText(brandName) || !hasText(brandCode),
     image: !hasVariantDrivenImage && !hasText(mainImage),

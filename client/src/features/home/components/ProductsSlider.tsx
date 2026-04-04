@@ -49,6 +49,9 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
     return 0;
   };
 
+  const shouldIgnoreDescriptionAndSpecsValidation = (product: any): boolean =>
+    String(product?.cat_code || product?.category_code || product?.catCode || "").trim() === "02";
+
   // Filter products to exclude those with missing critical data
   const validProducts = React.useMemo(() => {
     if (loading) return products;
@@ -71,7 +74,12 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
       // Check if has details
       const hasDescription = Boolean(String(product?.description || product?.descriptionAr || "").trim());
       const hasSpecs = Array.isArray(product?.specs) && product.specs.length > 0;
-      const hasDetails = hasDescription || hasSpecs || hasColorVariants || hasChargeOptions;
+      const hasDetails =
+        shouldIgnoreDescriptionAndSpecsValidation(product) ||
+        hasDescription ||
+        hasSpecs ||
+        hasColorVariants ||
+        hasChargeOptions;
       if (!hasDetails) return false;
 
       return true;

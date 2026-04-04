@@ -34,8 +34,8 @@ import { uploadImageFile, uploadImageDataUrl } from "../../services/uploads";
 const CONTENT_LIMITS = {
   descriptionEn: { min: 10, max: 500, optimal: 200 },
   descriptionAr: { min: 10, max: 500, optimal: 200 },
-  specName: { max: 50 },
-  specValue: { max: 100 },
+  specName: { max: 60 },
+  specValue: { max: 60 },
   maxSpecs: 14,
   minSpecs: 0,
 };

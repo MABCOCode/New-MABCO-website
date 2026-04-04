@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../../context/LanguageContext';
 import { setSeo } from '../../../services/seo';
 import { getProductRef } from "../../../utils/entityRefs";
+import { getCachedStaticCatalogData, loadStaticCatalogData } from '../../../utils/staticCatalogData';
 import { useCompareStore } from '../../compare/state';
 import ProductCard from "../components/ProductCard";
 
@@ -18,11 +19,13 @@ const CategoryPage: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
+    const cached = getCachedStaticCatalogData();
+    if (cached) {
+      setStaticCategories(cached.categories);
+    }
     (async () => {
       try {
-        const res = await fetch('/static/categories.json');
-        if (!res.ok) return;
-        const json = await res.json();
+        const { categories: json } = await loadStaticCatalogData();
         if (mounted && Array.isArray(json)) {
           setStaticCategories(json);
         }
@@ -34,7 +37,7 @@ const CategoryPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
+    const controller = new AbortController();
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5000/api';
     const params = new URLSearchParams();
     if (term) params.set('cat_code', term);
@@ -44,23 +47,20 @@ const CategoryPage: React.FC = () => {
 
     (async () => {
       try {
-        const res = await fetch(`${apiBase}/products?${params.toString()}`);
+        const res = await fetch(`${apiBase}/products?${params.toString()}`, { signal: controller.signal });
         if (!res.ok) throw new Error('Failed to load products');
         const json = await res.json();
-        if (mounted) {
-          setApiProducts(Array.isArray(json?.data) ? json.data : []);
-          setIsLoadingProducts(false);
-        }
-      } catch {
-        if (mounted) {
-          setApiProducts([]);
-          setIsLoadingProducts(false);
-        }
+        setApiProducts(Array.isArray(json?.data) ? json.data : []);
+        setIsLoadingProducts(false);
+      } catch (error: any) {
+        if (error?.name === 'AbortError') return;
+        setApiProducts([]);
+        setIsLoadingProducts(false);
       }
     })();
 
     return () => {
-      mounted = false;
+      controller.abort();
     };
   }, [term]);
 

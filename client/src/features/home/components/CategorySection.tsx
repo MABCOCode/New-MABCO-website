@@ -2,6 +2,7 @@
 import { ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { iconsMap } from '../../../utils/iconMap';
+import { loadStaticCatalogData } from '../../../utils/staticCatalogData';
 
 // We'll fetch categories from the public static JSON at runtime. This keeps
 // low-change data in static files and avoids bundling large testdata.
@@ -43,19 +44,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const load = async () => {
       try {
-        const [categoriesRes, brandsRes] = await Promise.all([
-          fetch('/static/categories.json'),
-          fetch('/static/brands.json'),
-        ]);
-        if (!categoriesRes.ok) {
-          // Keep shimmer visible and retry on transient/static-server failures.
-          if (mounted) {
-            retryTimer = setTimeout(load, 3000);
-          }
-          return;
-        }
-        const categoriesJson = await categoriesRes.json();
-        const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
+        const { categories: categoriesJson, brands: brandsJson } = await loadStaticCatalogData();
         if (!mounted) return;
         const brandsByCode = new Map<string, any>();
         const brandsByName = new Map<string, any>();

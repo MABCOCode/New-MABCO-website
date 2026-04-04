@@ -62,6 +62,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
     return 0;
   };
+  const shouldIgnoreDescriptionAndSpecsValidation =
+    String((product as any)?.cat_code || (product as any)?.category_code || (product as any)?.catCode || "").trim() === "02";
 
   const safeColorVariants = React.useMemo(
     () => (Array.isArray(product.colorVariants) ? product.colorVariants : []),
@@ -227,7 +229,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const hasDescription = Boolean(
     String((product as any).description || (product as any).descriptionAr || "").trim(),
   );
-  const hasDetails = hasDescription || hasSpecs || safeColorVariants.length > 0 || safeChargeOptions.length > 0;
+  const hasDetails =
+    shouldIgnoreDescriptionAndSpecsValidation ||
+    hasDescription ||
+    hasSpecs ||
+    safeColorVariants.length > 0 ||
+    safeChargeOptions.length > 0;
   const hasPrice = parseNumericPrice((product as any).price) > 0;
   const hasColorVariants = Array.isArray((product as any).colorVariants) && (product as any).colorVariants.length > 0;
   
@@ -239,7 +246,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
     hasValidName &&
     hasValidImage &&
     hasPrice &&
-    (hasDescription || hasSpecs || safeColorVariants.length > 0 || safeChargeOptions.length > 0);
+    hasDetails;
   
   if (hasAnyVariants && !hasValidVariants) {
     return null;

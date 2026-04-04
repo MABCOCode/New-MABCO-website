@@ -233,32 +233,32 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     if (!mountProducts) return;
-    let mounted = true;
+    const controller = new AbortController();
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
 
     (async () => {
       try {
         setMostSoldLoading(true);
         setNewBestLoading(true);
-        const res = await fetch(`${apiBase}/products/home-sliders?limit=24`);
+        const res = await fetch(`${apiBase}/products/home-sliders?limit=24`, {
+          signal: controller.signal,
+        });
         
         if (!res.ok) {
           throw new Error(`Failed to load home sliders: ${res.status} ${res.statusText}`);
         }
         
         const json = await res.json();
-        
-        if (!mounted) return;
         const payload = json?.data || {};
         setMostSoldProducts(Array.isArray(payload.mostSold) ? payload.mostSold : []);
         setNewBestProducts(Array.isArray(payload.newHot) ? payload.newHot : []);
-      } catch (err) {
-        if (!mounted) return;
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
         console.error('[HomePage] Error loading home-sliders:', err);
         setMostSoldProducts([]);
         setNewBestProducts([]);
       } finally {
-        if (mounted) {
+        if (!controller.signal.aborted) {
           setMostSoldLoading(false);
           setNewBestLoading(false);
         }
@@ -266,7 +266,7 @@ const HomePage: React.FC = () => {
     })();
 
     return () => {
-      mounted = false;
+      controller.abort();
     };
   }, [mountProducts]);
 

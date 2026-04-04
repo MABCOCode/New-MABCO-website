@@ -30,8 +30,8 @@ import { useState } from "react";
 const CONTENT_LIMITS = {
   descriptionEn: { min: 10, max: 500, optimal: 200 },
   descriptionAr: { min: 10, max: 500, optimal: 200 },
-  specName: { max: 10 },
-  specValue: { max: 100 },
+  specName: { max: 60 },
+  specValue: { max: 60 },
   maxSpecs: 16,
   minSpecs: 4,
 };

@@ -72,6 +72,8 @@ const CONTENT_REQUIREMENTS = {
   imageMaxSize: 2, // MB
 };
 
+const SPEC_INPUT_MAX_LENGTH = 60;
+
 // Available icons for specifications
 const AVAILABLE_ICONS = [
   { name: "Smartphone", icon: Smartphone, labelAr: "هاتف", labelEn: "Phone" },
@@ -2600,6 +2602,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           <input
                             type="text"
                             value={spec.nameEn}
+                            maxLength={SPEC_INPUT_MAX_LENGTH}
                             onChange={(e) => {
                               updateSpecField(spec.id, "nameEn", e.target.value);
                             }}
@@ -2614,6 +2617,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           <input
                             type="text"
                             value={spec.nameAr}
+                            maxLength={SPEC_INPUT_MAX_LENGTH}
                             onChange={(e) => {
                               updateSpecField(spec.id, "nameAr", e.target.value);
                             }}
@@ -2631,6 +2635,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           <input
                             type="text"
                             value={spec.valueEn}
+                            maxLength={SPEC_INPUT_MAX_LENGTH}
                             onChange={(e) => {
                               updateSpecField(spec.id, "valueEn", e.target.value);
                             }}
@@ -2643,6 +2648,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           <input
                             type="text"
                             value={spec.valueAr}
+                            maxLength={SPEC_INPUT_MAX_LENGTH}
                             onChange={(e) => {
                               updateSpecField(spec.id, "valueAr", e.target.value);
                             }}

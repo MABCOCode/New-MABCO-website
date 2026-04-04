@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../../context/LanguageContext';
 import { setSeo } from '../../../services/seo';
 import { getProductRef } from '../../../utils/entityRefs';
+import { getCachedStaticCatalogData, loadStaticCatalogData } from '../../../utils/staticCatalogData';
 import { useCompareStore } from '../../compare/state';
 import ProductCard from "../components/ProductCard";
 
@@ -23,14 +24,14 @@ const BrandPage: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
+    const cached = getCachedStaticCatalogData();
+    if (cached) {
+      setStaticCategories(cached.categories);
+      setStaticBrands(cached.brands);
+    }
     (async () => {
       try {
-        const [categoriesRes, brandsRes] = await Promise.all([
-          fetch('/static/categories.json'),
-          fetch('/static/brands.json'),
-        ]);
-        const categoriesJson = categoriesRes.ok ? await categoriesRes.json() : [];
-        const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
+        const { categories: categoriesJson, brands: brandsJson } = await loadStaticCatalogData();
         if (!mounted) return;
         setStaticCategories(Array.isArray(categoriesJson) ? categoriesJson : []);
         setStaticBrands(Array.isArray(brandsJson) ? brandsJson : []);
@@ -42,7 +43,7 @@ const BrandPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
+    const controller = new AbortController();
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5000/api';
     const params = new URLSearchParams();
     if (term) params.set('brand_code', term);
@@ -61,25 +62,22 @@ const BrandPage: React.FC = () => {
 
     (async () => {
       try {
-        const res = await fetch(cacheKey);
+        const res = await fetch(cacheKey, { signal: controller.signal });
         if (!res.ok) throw new Error('Failed to load products');
         const json = await res.json();
-        if (mounted) {
-          const items = Array.isArray(json?.data) ? json.data : [];
-          brandProductsCache.set(cacheKey, items);
-          setApiProducts(items);
-          setIsLoadingProducts(false);
-        }
-      } catch {
-        if (mounted) {
-          setApiProducts([]);
-          setIsLoadingProducts(false);
-        }
+        const items = Array.isArray(json?.data) ? json.data : [];
+        brandProductsCache.set(cacheKey, items);
+        setApiProducts(items);
+        setIsLoadingProducts(false);
+      } catch (error: any) {
+        if (error?.name === 'AbortError') return;
+        setApiProducts([]);
+        setIsLoadingProducts(false);
       }
     })();
 
     return () => {
-      mounted = false;
+      controller.abort();
     };
   }, [term, categoryParam]);
 

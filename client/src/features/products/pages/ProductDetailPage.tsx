@@ -54,6 +54,7 @@ import {
 import { setSeo } from "../../../services/seo";
 import { CURRENCY_LABEL } from "../../../utils/currency";
 import { getProductRef } from "../../../utils/entityRefs";
+import { getCachedStaticCatalogData, loadStaticCatalogData } from "../../../utils/staticCatalogData";
 import { useCompareStore } from "../../compare/state";
 import { OfferDetailsCard } from "../../offer/components/OfferDetailsCard";
 import { RelatedProductsWithDiscount } from "../../offer/components/RelatedProductsWithDiscount";
@@ -514,7 +515,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   useEffect(() => {
     if (!id) return;
-    let mounted = true;
+    const controller = new AbortController();
     const apiBase =
       (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
     setIsLoadingProduct(true);
@@ -522,26 +523,22 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
     (async () => {
       try {
-        const res = await fetch(`${apiBase}/products/${encodeURIComponent(id)}`);
+        const res = await fetch(`${apiBase}/products/${encodeURIComponent(id)}`, { signal: controller.signal });
         if (!res.ok) {
           throw new Error(`Failed to load product: ${res.status}`);
         }
         const json = await res.json();
-        if (mounted) {
-          setLocalProduct(json?.data ?? null);
-          setIsLoadingProduct(false);
-        }
+        setLocalProduct(json?.data ?? null);
+        setIsLoadingProduct(false);
       } catch (err: any) {
-
-        if (mounted) {
-          setProductError(err?.message || "Failed to load product");
-          setIsLoadingProduct(false);
-        }
+        if (err?.name === "AbortError") return;
+        setProductError(err?.message || "Failed to load product");
+        setIsLoadingProduct(false);
       }
     })();
 
     return () => {
-      mounted = false;
+      controller.abort();
     };
   }, [id]);
 
@@ -550,14 +547,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   useEffect(() => {
     let mounted = true;
+    const cached = getCachedStaticCatalogData();
+    if (cached) {
+      setStaticCategories(cached.categories);
+      setStaticBrands(cached.brands);
+    }
     const loadStatics = async () => {
       try {
-        const [categoriesRes, brandsRes] = await Promise.all([
-          fetch("/static/categories.json"),
-          fetch("/static/brands.json"),
-        ]);
-        const categoriesJson = categoriesRes.ok ? await categoriesRes.json() : [];
-        const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
+        const { categories: categoriesJson, brands: brandsJson } = await loadStaticCatalogData();
         if (!mounted) return;
         setStaticCategories(Array.isArray(categoriesJson) ? categoriesJson : []);
         setStaticBrands(Array.isArray(brandsJson) ? brandsJson : []);
