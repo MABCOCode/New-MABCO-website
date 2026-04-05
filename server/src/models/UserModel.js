@@ -1,7 +1,7 @@
 const BaseModel = require('./BaseModel');
 
 class UserModel extends BaseModel {
-  static props = ['_id', 'email', 'phone', 'name', 'role', 'adminMeta', 'preferences', 'stats', 'createdAt', 'updatedAt'];
+  static props = ['_id', 'email', 'phone', 'name', 'username', 'role', 'adminMeta', 'preferences', 'stats', 'createdAt', 'updatedAt'];
 
   constructor(data = {}) {
     super(data, UserModel.props);

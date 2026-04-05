@@ -17,6 +17,7 @@ const PURPOSES = {
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,30}$/;
 
 const normalizePhone = (raw) => {
   if (!raw) return null;
@@ -104,13 +105,32 @@ const upsertOtpRecord = async (db, phone, purpose, updates) => {
 router.post('/signup/request-otp', asyncHandler(async (req, res) => {
   const db = getDb();
   const phone = normalizePhone(req.body?.phone);
+  const username = String(req.body?.username || '').trim();
+  const usernameLower = username.toLowerCase();
   if (!phone) {
     return res.status(400).json({ success: false, message: 'Invalid phone number' });
+  }
+  if (!username) {
+    return res.status(400).json(buildValidationError('Invalid signup payload', {
+      username: 'Username is required',
+    }));
+  }
+  if (!USERNAME_REGEX.test(username)) {
+    return res.status(400).json(buildValidationError('Invalid signup payload', {
+      username: 'Username must be 3-30 characters and use only letters, numbers, dots, underscores, or hyphens',
+    }));
   }
 
   const existingUser = await db.collection('users').findOne({ phone });
   if (existingUser) {
     return res.status(409).json({ success: false, message: 'Phone number is already registered' });
+  }
+
+  const existingUsername = await db.collection('users').findOne({ usernameLower });
+  if (existingUsername) {
+    return res.status(409).json(buildValidationError('Username already registered', {
+      username: 'Username is already registered',
+    }));
   }
 
   const now = new Date();
@@ -162,11 +182,15 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
   const phone = normalizePhone(req.body?.phone);
   const code = String(req.body?.code || '').trim();
   const name = String(req.body?.name || '').trim();
+  const username = String(req.body?.username || '').trim();
+  const usernameLower = username.toLowerCase();
   const email = req.body?.email ? String(req.body.email).trim().toLowerCase() : '';
   const password = String(req.body?.password || '');
 
   const fieldErrors = {};
   if (!name) fieldErrors.name = 'Full name is required';
+  if (!username) fieldErrors.username = 'Username is required';
+  else if (!USERNAME_REGEX.test(username)) fieldErrors.username = 'Username must be 3-30 characters and use only letters, numbers, dots, underscores, or hyphens';
   if (!phone) fieldErrors.phone = 'Invalid phone number';
   if (code.length !== OTP_LENGTH) fieldErrors.code = 'Verification code must be 6 digits';
   if (!password) fieldErrors.password = 'Password is required';
@@ -200,12 +224,21 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
     }));
   }
 
+  const existingUsername = await db.collection('users').findOne({ usernameLower });
+  if (existingUsername) {
+    return res.status(409).json(buildValidationError('Username already registered', {
+      username: 'Username is already registered',
+    }));
+  }
+
   const salt = crypto.randomBytes(16).toString('hex');
   const passwordHash = hashPassword(password, salt);
   const user = {
     phone,
     name,
     nameAr: name,
+    username,
+    usernameLower,
     role: 'customer',
     passwordHash,
     passwordSalt: salt,
@@ -234,6 +267,11 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
           email: 'Email address is already registered',
         }));
       }
+      if (duplicateKey === 'usernameLower') {
+        return res.status(409).json(buildValidationError('Username already registered', {
+          username: 'Username is already registered',
+        }));
+      }
     }
     throw error;
   }
@@ -246,6 +284,7 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
       phone: user.phone,
       email: user.email || null,
       name: user.name,
+      username: user.username,
       role: user.role,
     },
   });
@@ -260,7 +299,14 @@ router.post('/login', asyncHandler(async (req, res) => {
   }
 
   const phone = normalizePhone(identifier);
-  const query = phone ? { phone } : { email: identifier.toLowerCase() };
+  const query = phone
+    ? { phone }
+    : {
+      $or: [
+        { email: identifier.toLowerCase() },
+        { usernameLower: identifier.toLowerCase() },
+      ],
+    };
   const user = await db.collection('users').findOne(query);
   if (!user || !user.passwordHash || !user.passwordSalt) {
     return res.status(401).json({ success: false, message: 'Invalid credentials' });
@@ -277,6 +323,7 @@ router.post('/login', asyncHandler(async (req, res) => {
       phone: user.phone,
       email: user.email || null,
       name: user.name,
+      username: user.username || null,
       role: user.role,
     },
   });

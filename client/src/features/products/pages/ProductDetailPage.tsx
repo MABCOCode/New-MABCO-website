@@ -1,41 +1,40 @@
 import {
-    ArrowLeft,
-    ArrowRight,
-    Battery,
-    Camera,
-    CheckCircle2,
-    ChevronDown,
-    ChevronRight,
-    CreditCard,
-    Edit3,
-    FileText,
-    GitCompare,
-    Headphones,
-    HelpCircle,
-    Laptop,
-    Minus,
-    PackageCheck,
-    Plus,
-    Settings,
-    Shield,
-    ShoppingCart,
-    Smartphone,
-    Sparkles,
-    Star,
-    Tag,
-    TrendingUp,
-    Watch,
-    X
+  ArrowLeft,
+  ArrowRight,
+  Battery,
+  Camera,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  CreditCard,
+  Edit3,
+  FileText,
+  GitCompare,
+  Headphones,
+  HelpCircle,
+  Laptop,
+  Minus,
+  PackageCheck,
+  Plus,
+  Settings,
+  Shield,
+  ShoppingCart,
+  Smartphone,
+  Sparkles,
+  Tag,
+  TrendingUp,
+  Watch,
+  X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-    Carousel,
-    CarouselContent,
-    CarouselItem,
-    CarouselNext,
-    CarouselPrevious,
-    type CarouselApi,
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
 } from "../../../components/ui/carousel";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ColorSwatch } from "../../../components/ui/ColorSwatch";
@@ -46,10 +45,10 @@ import { KeyFeaturesEditor } from "../../../components/ui/KeyFeaturesEditor";
 import { useCart } from "../../../context/CartContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import {
-    calculateDiscountedPrice,
-    getOfferBadgeText,
-    getOfferPricing,
-    getProductOffers,
+  calculateDiscountedPrice,
+  getOfferBadgeText,
+  getOfferPricing,
+  getProductOffers,
 } from "../../../data/products";
 import { setSeo } from "../../../services/seo";
 import { CURRENCY_LABEL } from "../../../utils/currency";
@@ -1577,7 +1576,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     );
   }
 
-  if (userPermissions.canEditContent && (!hasValidImage || !hasValidName || !hasDetails)) {
+  if (userPermissions.canEditContent && (!hasValidImage || !hasValidName || !hasDetails) && (  (prod?.cat_code || prod?.category_code || prod?.catCode || "") !=="02")) {
     return (
       <section className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">

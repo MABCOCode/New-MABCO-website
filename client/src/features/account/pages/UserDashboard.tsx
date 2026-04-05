@@ -1,17 +1,18 @@
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Package,
+  Settings,
+  Shield,
+  ShoppingBag,
+  Smartphone,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ShoppingBag,
-  Package,
-  Smartphone,
-  Shield,
-  FileText,
-  Settings,
-  ChevronRight,
-  ChevronLeft,
-} from "lucide-react";
-import { AccountNavBar } from "../components/AccountNavBar";
 import translations from "../../../i18n/translations";
+import { CURRENCY_LABEL } from "../../../utils/currency";
+import { AccountNavBar } from "../components/AccountNavBar";
 import { loadSession } from "../storage";
 
 interface UserDashboardProps {
@@ -22,6 +23,66 @@ interface UserDashboardProps {
   onLogout: () => void;
 }
 
+interface DashboardInvoice {
+  invoiceNumber: string;
+  date: string;
+  branch: string;
+  amount: number;
+  discount: number;
+}
+
+const normalizePhone = (raw: string) => {
+  if (!raw) return "";
+  let digits = String(raw).replace(/\D/g, "");
+  if (digits.startsWith("963")) {
+    digits = digits.slice(3);
+  }
+  if (digits.startsWith("9") && digits.length === 9) {
+    digits = `0${digits}`;
+  }
+  if (digits.startsWith("09") && digits.length === 10) {
+    return digits;
+  }
+  if (digits.length >= 8) {
+    return `09${digits.slice(-8)}`;
+  }
+  return "";
+};
+
+const getUserPhone = (user: any) => {
+  const session = loadSession() as any;
+  return normalizePhone(
+    user?.phone ||
+      user?.mobile ||
+      user?.phoneNumber ||
+      session?.user?.phone ||
+      session?.user?.mobile ||
+      session?.user?.phoneNumber ||
+      "",
+  );
+};
+
+const parseInvoiceAmount = (value: unknown) => {
+  const numeric = Number.parseFloat(String(value ?? "0").replace(/,/g, ""));
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const formatInvoiceDate = (value: string, language: "ar" | "en") => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString(language === "ar" ? "ar-SY" : "en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const formatInvoiceAmountLabel = (value: number) =>
+  `${value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  })} ${CURRENCY_LABEL}`;
 
 export function UserDashboard({
   language,
@@ -35,34 +96,20 @@ export function UserDashboard({
   const [orders, setOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
-
-  const normalizePhone = (raw: string) => {
-    if (!raw) return "";
-    let digits = String(raw).replace(/\D/g, "");
-    if (digits.startsWith("963")) {
-      digits = digits.slice(3);
-    }
-    if (digits.startsWith("9") && digits.length === 9) {
-      digits = `0${digits}`;
-    }
-    if (digits.startsWith("09") && digits.length === 10) {
-      return digits;
-    }
-    if (digits.length >= 8) {
-      return `09${digits.slice(-8)}`;
-    }
-    return "";
-  };
+  const [invoices, setInvoices] = useState<DashboardInvoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(true);
+  const [invoicesError, setInvoicesError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    const session = loadSession() as any;
-    const phone = normalizePhone(session?.user?.phone || "");
+    const phone = getUserPhone(user);
     if (!phone) {
       setOrders([]);
       setOrdersLoading(false);
       setOrdersError(
-        language === "ar" ? "رقم الهاتف غير صالح لعرض الطلبات." : "Phone number is invalid for loading orders."
+        language === "ar"
+          ? "رقم الهاتف غير صالح لعرض الطلبات."
+          : "Phone number is invalid for loading orders.",
       );
       return;
     }
@@ -91,18 +138,79 @@ export function UserDashboard({
     return () => {
       mounted = false;
     };
-  }, [language]);
+  }, [language, user]);
+
+  useEffect(() => {
+    let mounted = true;
+    const phone = getUserPhone(user);
+    if (!phone) {
+      setInvoices([]);
+      setInvoicesLoading(false);
+      setInvoicesError(
+        language === "ar"
+          ? "رقم الهاتف غير صالح لعرض الفواتير."
+          : "Phone number is invalid for loading invoices.",
+      );
+      return;
+    }
+
+    setInvoicesLoading(true);
+    setInvoicesError(null);
+
+    fetch(`https://showman2.mabcoonline.com:444/Service1.svc/getInvoiceHdr/${encodeURIComponent(phone)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load invoices");
+        const json = await res.json();
+        if (!mounted) return;
+        const rows = Array.isArray(json?.GetInvoiceHdrResult)
+          ? json.GetInvoiceHdrResult
+          : json?.GetInvoiceHdrResult
+            ? [json.GetInvoiceHdrResult]
+            : [];
+
+        const nextInvoices = rows
+          .map((row: any) => ({
+            invoiceNumber: String(row?.inv_no || row?.invoice_no || row?.invoiceNo || "").trim(),
+            date: String(row?.trn_dt || row?.date || ""),
+            branch: String(row?.loc_name || row?.loc_nameAr || row?.branch || "").trim(),
+            amount: parseInvoiceAmount(row?.total_final_price ?? row?.total_price),
+            discount: parseInvoiceAmount(row?.offer_discount),
+          }))
+          .filter((row: DashboardInvoice) => row.invoiceNumber)
+          .sort((a: DashboardInvoice, b: DashboardInvoice) => {
+            const timeA = new Date(a.date).getTime();
+            const timeB = new Date(b.date).getTime();
+            return (Number.isFinite(timeB) ? timeB : 0) - (Number.isFinite(timeA) ? timeA : 0);
+          });
+
+        setInvoices(nextInvoices);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setInvoices([]);
+        setInvoicesError(language === "ar" ? "تعذر تحميل الفواتير." : "Failed to load invoices.");
+      })
+      .finally(() => {
+        if (mounted) setInvoicesLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [language, user]);
 
   const stats = useMemo(() => {
     const totalOrders = orders.length;
-    const activeOrders = orders.filter((o) => !["delivered", "cancelled", "returned"].includes(o?.status)).length;
+    const activeOrders = orders.filter(
+      (o) => !["delivered", "cancelled", "returned"].includes(o?.status),
+    ).length;
     return {
       totalOrders,
       activeOrders,
-      devices: 0,
+      invoices: invoices.length,
       activeWarranties: 0,
     };
-  }, [orders]);
+  }, [orders, invoices]);
 
   const quickLinks = [
     {
@@ -117,7 +225,7 @@ export function UserDashboard({
     {
       id: "devices",
       icon: Smartphone,
-      titleAr: "أجهزةي",
+      titleAr: "أجهزتي",
       titleEn: "My Devices",
       descAr: "الأجهزة المشتراة والضمانات",
       descEn: "Purchased devices and warranties",
@@ -145,7 +253,6 @@ export function UserDashboard({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Account Navigation Bar */}
       <AccountNavBar
         language={language}
         userName={language === "ar" ? user.name : user.nameEn}
@@ -153,7 +260,6 @@ export function UserDashboard({
         onLogout={onLogout}
       />
 
-      {/* Header - Below navbar */}
       <div className="bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className={language === "ar" ? "text-right" : "text-left"}>
@@ -165,9 +271,7 @@ export function UserDashboard({
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
         <div className="mb-8">
           <h2
             className={`text-xl font-bold text-gray-900 mb-4 ${
@@ -219,11 +323,11 @@ export function UserDashboard({
             >
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Smartphone className="w-5 h-5 text-purple-600" />
+                  <FileText className="w-5 h-5 text-purple-600" />
                 </div>
                 <div className={language === "ar" ? "text-right" : "text-left"}>
-                  <p className="text-sm text-gray-600">{t.account_dashboard_my_devices}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.devices}</p>
+                  <p className="text-sm text-gray-600">{t.account_dashboard_invoices}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.invoices}</p>
                 </div>
               </div>
             </motion.div>
@@ -245,9 +349,21 @@ export function UserDashboard({
               </div>
             </motion.div>
           </div>
+
+          {(ordersLoading || ordersError) && (
+            <div className={`mt-4 text-sm ${language === "ar" ? "text-right" : "text-left"}`}>
+              {ordersLoading && (
+                <p className="text-gray-600">
+                  {language === "ar" ? "جاري تحميل الطلبات..." : "Loading orders..."}
+                </p>
+              )}
+              {!ordersLoading && ordersError && <p className="text-red-600">{ordersError}</p>}
+            </div>
+          )}
         </div>
 
-        {/* Quick Actions */}
+      
+
         <div>
           <h2
             className={`text-xl font-bold text-gray-900 mb-4 ${
@@ -276,9 +392,7 @@ export function UserDashboard({
                   >
                     <link.icon className="w-7 h-7 text-white" />
                   </div>
-                  <div
-                    className={`flex-1 ${language === "ar" ? "text-right" : "text-left"}`}
-                  >
+                  <div className={`flex-1 ${language === "ar" ? "text-right" : "text-left"}`}>
                     <h3 className="font-bold text-gray-900 mb-1">
                       {language === "ar" ? link.titleAr : link.titleEn}
                     </h3>

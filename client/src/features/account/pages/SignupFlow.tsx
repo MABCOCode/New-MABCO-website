@@ -21,6 +21,7 @@ export function SignupFlow({
 
   // Step 1 fields
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,6 +49,7 @@ export function SignupFlow({
 
     const nextErrors: Record<string, string> = {};
     if (fieldErrors.name) nextErrors.fullName = fieldErrors.name;
+    if (fieldErrors.username) nextErrors.username = fieldErrors.username;
     if (fieldErrors.phone) nextErrors.phoneNumber = fieldErrors.phone;
     if (fieldErrors.password) nextErrors.password = fieldErrors.password;
     if (fieldErrors.email) nextErrors.email = fieldErrors.email;
@@ -70,6 +72,9 @@ export function SignupFlow({
     if (normalized.includes("email already registered")) {
       return language === "ar" ? "البريد الإلكتروني مسجل بالفعل" : "Email address is already registered";
     }
+    if (normalized.includes("username already registered")) return t.account_error_username_registered;
+    if (normalized.includes("username is required")) return t.account_signup_username_required;
+    if (normalized.includes("username must be")) return t.account_signup_username_invalid;
     if (
       normalized.includes("phone already registered") ||
       normalized.includes("phone number is already registered") ||
@@ -96,6 +101,12 @@ export function SignupFlow({
 
     if (!fullName.trim()) {
       newErrors.fullName = t.account_signup_name_required;
+    }
+
+    if (!username.trim()) {
+      newErrors.username = t.account_signup_username_required;
+    } else if (!/^[a-zA-Z0-9._-]{3,30}$/.test(username.trim())) {
+      newErrors.username = t.account_signup_username_invalid;
     }
 
     if (!phoneNumber.trim()) {
@@ -144,7 +155,7 @@ export function SignupFlow({
         const res = await fetch(`${API_BASE}/auth/signup/request-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: phoneNumber }),
+          body: JSON.stringify({ phone: phoneNumber, username: username.trim() }),
         });
         const json = await res.json().catch(() => ({}));
         if (res.status === 409) {
@@ -189,6 +200,7 @@ export function SignupFlow({
             phone: phoneNumber,
             code: verificationCode.join(""),
             name: fullName,
+            username: username.trim(),
             email: email || null,
             password,
           }),
@@ -240,7 +252,7 @@ export function SignupFlow({
         const res = await fetch(`${API_BASE}/auth/signup/request-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: phoneNumber }),
+          body: JSON.stringify({ phone: phoneNumber, username: username.trim() }),
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -379,6 +391,38 @@ export function SignupFlow({
                       }`}
                     >
                       {errors.fullName}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    className={`block text-sm font-medium text-gray-700 mb-2 ${
+                      language === "ar" ? "text-right" : "text-left"
+                    }`}
+                  >
+                    {t.account_signup_username}
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      setErrors({ ...errors, username: "" });
+                    }}
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] transition-all ${
+                      errors.username ? "border-red-500" : "border-gray-300"
+                    } ${language === "ar" ? "text-right" : "text-left"}`}
+                    dir="ltr"
+                    placeholder={t.account_signup_username_placeholder}
+                  />
+                  {errors.username && (
+                    <p
+                      className={`text-red-500 text-sm mt-1 ${
+                        language === "ar" ? "text-right" : "text-left"
+                      }`}
+                    >
+                      {errors.username}
                     </p>
                   )}
                 </div>

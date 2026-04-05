@@ -8,9 +8,21 @@ async function ensureUserIndexes(database) {
   const users = database.collection('users');
   const indexes = await users.indexes();
   const emailIndex = indexes.find((index) => index.name === 'email_1');
+  const usernameIndex = indexes.find((index) => index.name === 'usernameLower_1');
 
   if (emailIndex?.unique) {
     await users.dropIndex('email_1');
+  }
+
+  if (
+    usernameIndex &&
+    (
+      !usernameIndex.unique ||
+      !usernameIndex.sparse ||
+      JSON.stringify(usernameIndex.key || {}) !== JSON.stringify({ usernameLower: 1 })
+    )
+  ) {
+    await users.dropIndex('usernameLower_1');
   }
 
   await users.createIndex(
@@ -18,6 +30,16 @@ async function ensureUserIndexes(database) {
     {
       name: 'email_1',
       background: true,
+    },
+  );
+
+  await users.createIndex(
+    { usernameLower: 1 },
+    {
+      name: 'usernameLower_1',
+      background: true,
+      unique: true,
+      sparse: true,
     },
   );
 }
