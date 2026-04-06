@@ -1,4 +1,5 @@
 const sql = require('mssql');
+const POS_SYNC_TIMEOUT_MS = 3 * 60 * 1000;
 
 function parseConnString(value) {
   const parts = String(value || '')
@@ -307,6 +308,8 @@ async function fetchPosRows(connString) {
     user: parsed['user id'] || parsed['user'],
     password: parsed['password'],
     port: parsed['port'] ? Number(parsed['port']) : 1433,
+    connectionTimeout: POS_SYNC_TIMEOUT_MS,
+    requestTimeout: POS_SYNC_TIMEOUT_MS,
     options: {
       encrypt: true,
       trustServerCertificate: true,

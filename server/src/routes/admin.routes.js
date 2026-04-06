@@ -12,6 +12,7 @@ const { normalizePhone } = require('../utils/phone');
 const { validateProductContent } = require('../utils/productContentValidation');
 
 const router = express.Router();
+const POS_SYNC_TIMEOUT_MS = 3 * 60 * 1000;
 
 const DEFAULT_SAVED_SPEC_TITLES = [
   { id: 'processor', nameEn: 'Processor', nameAr: 'المعالج', icon: 'Cpu', usageCount: 50, category: 'performance' },
@@ -798,6 +799,12 @@ router.get('/actions', asyncHandler(async (req, res) => {
 }));
 
 router.post('/pos/sync-products', requirePosSyncToken, asyncHandler(async (req, res) => {
+  req.setTimeout(POS_SYNC_TIMEOUT_MS);
+  res.setTimeout(POS_SYNC_TIMEOUT_MS);
+  if (req.socket) {
+    req.socket.setTimeout(POS_SYNC_TIMEOUT_MS);
+  }
+
   const db = getDb();
   const connString = posSyncConnString || req.body?.connString;
 
