@@ -1,17 +1,17 @@
 import {
-  Printer,
-  Gamepad2,
-  Zap,
-  Wrench,
-  CreditCard,
-  Shield,
   ArrowRight,
+  CreditCard,
+  Gamepad2,
+  MapPin,
+  Printer,
+  Shield,
   Sparkles,
   Star,
-  MapPin,
+  Wrench,
+  Zap,
 } from "lucide-react";
-import { servicesData } from "../../../data/servicesData";
 import { useLanguage } from "../../../context/LanguageContext";
+import { servicesData } from "../../../data/servicesData";
 
 interface ServicesGridProps {
   language?: "ar" | "en";
@@ -150,7 +150,7 @@ export function ServicesGrid({ language, onServiceClick }: ServicesGridProps) {
           </li>
           <li>
             <a 
-              href="#showrooms" 
+              href="/showrooms" 
               className="text-[#009FE3] hover:text-[#007BC7] hover:underline transition-colors inline-flex items-center gap-1"
             >
               <MapPin className="w-4 h-4" aria-hidden="true" />

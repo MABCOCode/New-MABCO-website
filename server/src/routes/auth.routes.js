@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const { ObjectId } = require('mongodb');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { smsUser, smsPass, smsFrom, smsLang, otpSecret } = require('../config/env');
@@ -18,6 +19,16 @@ const PURPOSES = {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,30}$/;
+
+const toPublicUser = (user) => ({
+  id: user._id,
+  phone: user.phone,
+  email: user.email || null,
+  name: user.name,
+  nameAr: user.nameAr || user.name,
+  username: user.username || null,
+  role: user.role,
+});
 
 const normalizePhone = (raw) => {
   if (!raw) return null;
@@ -279,14 +290,7 @@ router.post('/signup/verify-otp', asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: {
-      id: result.insertedId,
-      phone: user.phone,
-      email: user.email || null,
-      name: user.name,
-      username: user.username,
-      role: user.role,
-    },
+    data: toPublicUser({ ...user, _id: result.insertedId }),
   });
 }));
 
@@ -305,6 +309,9 @@ router.post('/login', asyncHandler(async (req, res) => {
       $or: [
         { email: identifier.toLowerCase() },
         { usernameLower: identifier.toLowerCase() },
+        { username: identifier },
+        { name: identifier },
+        { nameAr: identifier },
       ],
     };
   const user = await db.collection('users').findOne(query);
@@ -318,14 +325,105 @@ router.post('/login', asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: {
-      id: user._id,
-      phone: user.phone,
-      email: user.email || null,
-      name: user.name,
-      username: user.username || null,
-      role: user.role,
-    },
+    data: toPublicUser(user),
+  });
+}));
+
+router.put('/profile', asyncHandler(async (req, res) => {
+  const db = getDb();
+  const userIdRaw = String(req.body?.userId || '').trim();
+  const currentPhone = normalizePhone(req.body?.currentPhone || req.body?.phone);
+  const nextPhone = normalizePhone(req.body?.phone);
+  const name = String(req.body?.name || '').trim();
+  const emailRaw = String(req.body?.email || '').trim().toLowerCase();
+
+  const fieldErrors = {};
+  if (!userIdRaw && !currentPhone) fieldErrors.userId = 'User id or phone is required';
+  if (!name) fieldErrors.name = 'Full name is required';
+  if (!nextPhone) fieldErrors.phone = 'Invalid phone number';
+  if (emailRaw && !EMAIL_REGEX.test(emailRaw)) fieldErrors.email = 'Invalid email address';
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return res.status(400).json(buildValidationError('Invalid profile payload', fieldErrors));
+  }
+
+  const query = {};
+  if (userIdRaw) {
+    if (!ObjectId.isValid(userIdRaw)) {
+      return res.status(400).json(buildValidationError('Invalid profile payload', {
+        userId: 'Invalid user id',
+      }));
+    }
+    query._id = new ObjectId(userIdRaw);
+  }
+  if (currentPhone) {
+    query.phone = currentPhone;
+  }
+
+  const existingUser = await db.collection('users').findOne(query);
+  if (!existingUser) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
+
+  if (emailRaw) {
+    const duplicateEmailUser = await db.collection('users').findOne({
+      email: emailRaw,
+      _id: { $ne: existingUser._id },
+    });
+    if (duplicateEmailUser) {
+      return res.status(409).json(buildValidationError('Email already registered', {
+        email: 'Email address is already registered',
+      }));
+    }
+  }
+
+  const duplicatePhoneUser = await db.collection('users').findOne({
+    phone: nextPhone,
+    _id: { $ne: existingUser._id },
+  });
+  if (duplicatePhoneUser) {
+    return res.status(409).json(buildValidationError('Phone already registered', {
+      phone: 'Phone number is already registered',
+    }));
+  }
+
+  const updates = {
+    phone: nextPhone,
+    name,
+    nameAr: name,
+    updatedAt: new Date(),
+    email: emailRaw || null,
+  };
+
+  let updatedUser;
+  try {
+    updatedUser = await db.collection('users').findOneAndUpdate(
+      { _id: existingUser._id },
+      { $set: updates },
+      {
+        returnDocument: 'after',
+        projection: {
+          phone: 1,
+          email: 1,
+          name: 1,
+          nameAr: 1,
+          username: 1,
+          role: 1,
+        },
+      },
+    );
+  } catch (error) {
+    if (error?.code === 11000 && Object.keys(error.keyPattern || {})[0] === 'email') {
+      return res.status(409).json(buildValidationError('Email already registered', {
+        email: 'Email address is already registered',
+      }));
+    }
+    throw error;
+  }
+
+  res.json({
+    success: true,
+    data: toPublicUser({ ...(updatedUser?.value || updatedUser), _id: existingUser._id }),
   });
 }));
 

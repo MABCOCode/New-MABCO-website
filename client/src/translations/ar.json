@@ -90,6 +90,7 @@
   "admin.content.specs": "المواصفات",
   "admin.content.category": "الفئة",
   "admin.content.brand": "العلامة التجارية",
+  "admin.content.noBrandSelected": "بدون علامة تجارية",
   "admin.content.closeBtn": "إغلاق",
   "admin.content.hasColors": "يحتوي على ألوان متعددة",
   "admin.content.noColors": "لون واحد",

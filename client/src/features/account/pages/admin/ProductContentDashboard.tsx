@@ -62,6 +62,8 @@ interface FilterBrandOption {
   categoryIds: string[];
 }
 
+const NO_BRAND_FILTER_VALUE = "__NO_BRAND__";
+
 // Content Requirements for synced products
 const CONTENT_REQUIREMENTS = {
   description: { min: 10, max: 500, optimal: 200 },
@@ -505,7 +507,8 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
       if (missingFilter === "missing") params.set("missing", "1");
       if (missingFilter === "complete") params.set("missing", "0");
       if (selectedCategoryFilter) params.set("cat_code", selectedCategoryFilter);
-      if (selectedBrandFilter) params.set("brand_code", selectedBrandFilter);
+      if (selectedBrandFilter === NO_BRAND_FILTER_VALUE) params.set("brand_missing", "1");
+      else if (selectedBrandFilter) params.set("brand_code", selectedBrandFilter);
       const res = await fetch(`${API_BASE}/admin/products?${params.toString()}`, { headers });
       if (!res.ok) throw new Error("Failed to load products");
       const json = await res.json();
@@ -809,13 +812,21 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
         : missingFilter === "complete"
           ? !product.requiredMissing
           : product.requiredMissing;
+    const matchesCategoryFilter =
+      !selectedCategoryFilter ||
+      inferredCategoryCode === selectedCategoryFilter;
+    const matchesBrandFilter =
+      !selectedBrandFilter ||
+      (selectedBrandFilter === NO_BRAND_FILTER_VALUE
+        ? brandMissing
+        : inferredBrandCode === selectedBrandFilter);
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch =
       !q ||
       product.sku.toLowerCase().includes(q) ||
       product.nameEn.toLowerCase().includes(q) ||
       product.nameAr.toLowerCase().includes(q);
-    return matchesScope && matchesSearch;
+    return matchesScope && matchesCategoryFilter && matchesBrandFilter && matchesSearch;
   });
 
   const sortedProducts = filteredProducts
@@ -902,6 +913,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
                 className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009FE3] bg-white cursor-pointer"
               >
                 <option value="">{language === "ar" ? "كل العلامات التجارية" : "All Brands"}</option>
+                <option value={NO_BRAND_FILTER_VALUE}>{t("admin.content.noBrandSelected")}</option>
                 {availableBrandFilters.map((brand) => (
                   <option key={brand.id} value={brand.id}>
                     {language === "ar"
@@ -2463,7 +2475,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                         {spec.iconImage ? (
                           /* Show image if using icon image */
                           <div className="flex items-center gap-3 px-4 py-3 border-2 border-[#009FE3] rounded-xl bg-blue-50">
-                            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden border-2 border-gray-200">
+                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center overflow-hidden border-2 border-blue-200">
                               <img src={spec.iconImage} alt="Icon" className="w-full h-full object-contain" />
                             </div>
                             <span className="text-gray-700 font-medium flex-1">
@@ -2567,7 +2579,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                               : "bg-gray-50 hover:bg-gray-100 text-gray-700"
                                           }`}
                                         >
-                                          <div className="w-8 h-8 bg-white rounded flex items-center justify-center overflow-hidden border border-gray-200">
+                                          <div className="w-8 h-8 bg-blue-50 rounded flex items-center justify-center overflow-hidden border border-blue-200">
                                             <img src={iconItem.iconImage} alt={iconItem.nameEn} className="w-full h-full object-contain" />
                                           </div>
                                           <span className="text-xs font-medium text-center">

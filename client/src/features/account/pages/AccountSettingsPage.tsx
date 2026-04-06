@@ -1,21 +1,21 @@
 import {
-    ArrowLeft,
-    ArrowRight,
-    Eye,
-    EyeOff,
-    Lock,
-    Save,
-    User
+  ArrowLeft,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Lock,
+  Save,
+  User
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import translations from "../../../i18n/translations";
 
 interface AccountSettingsPageProps {
   language: "ar" | "en";
   user: any;
   onBack: () => void;
-  onSave: (updatedUser: any) => void;
+  onSave: (updatedUser: any) => Promise<void> | void;
 }
 
 
@@ -49,6 +49,12 @@ export function AccountSettingsPage({
   const t = translations[language];
   const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
 
+  useEffect(() => {
+    setFullName(user?.name || "");
+    setPhoneNumber(user?.phone || "");
+    setEmail(user?.email || "");
+  }, [user]);
+
   const mapAuthError = (message?: string) => {
     const normalized = (message || "").toLowerCase();
     if (normalized.includes("invalid phone")) return t.account_error_invalid_phone;
@@ -59,6 +65,8 @@ export function AccountSettingsPage({
     if (normalized.includes("invalid otp")) return t.account_error_otp_invalid;
     if (normalized.includes("user not found")) return t.account_error_user_not_found;
     if (normalized.includes("invalid payload")) return t.account_error_invalid_payload;
+    if (normalized.includes("phone already")) return t.account_error_invalid_phone;
+    if (normalized.includes("email already")) return t.account_settings_email_invalid;
     return t.account_error_generic;
   };
 
@@ -100,22 +108,49 @@ export function AccountSettingsPage({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSavePersonalInfo = () => {
+  const handleSavePersonalInfo = async () => {
     if (!validatePersonalInfo()) return;
 
     setIsLoading(true);
-    setTimeout(() => {
+    setApiError(null);
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user?.id || user?._id,
+          currentPhone: user?.phone,
+          phone: phoneNumber.trim(),
+          name: fullName.trim(),
+          email: email.trim(),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (json?.fieldErrors) {
+          setErrors((prev: any) => ({
+            ...prev,
+            fullName: json.fieldErrors?.name ? t.account_settings_name_required : prev.fullName,
+            phoneNumber: json.fieldErrors?.phone ? t.account_settings_phone_invalid : prev.phoneNumber,
+            email: json.fieldErrors?.email ? t.account_settings_email_invalid : prev.email,
+          }));
+        }
+        throw new Error(json?.message || "");
+      }
+
       const updatedUser = {
         ...user,
-        name: fullName,
-        nameEn: fullName,
-        phone: phoneNumber,
-        email: email || null,
+        ...json?.data,
+        nameEn: json?.data?.name || fullName.trim(),
       };
-      onSave(updatedUser);
-      setIsLoading(false);
+      await Promise.resolve(onSave(updatedUser));
       alert(t.account_settings_update_success);
-    }, 1000);
+    } catch (err: any) {
+      setApiError(mapAuthError(err?.message));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChangePassword = () => {
@@ -222,6 +257,11 @@ export function AccountSettingsPage({
           </h2>
 
           <div className="space-y-4">
+            {apiError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
+                {apiError}
+              </div>
+            )}
             {/* Full Name */}
             <div>
               <label

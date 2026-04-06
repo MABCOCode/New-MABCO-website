@@ -816,19 +816,33 @@ router.get('/products', asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
   const onlyMissing = req.query.missing === '1' || req.query.missing === 'true';
   const onlyComplete = req.query.missing === '0' || req.query.missing === 'false';
+  const onlyMissingBrand = req.query.brand_missing === '1' || req.query.brand_missing === 'true';
   const search = String(req.query.search || '').trim().toLowerCase();
 
   const query = {};
   if (req.query.cat_code) query.cat_code = String(req.query.cat_code);
-  if (req.query.brand_code) query.brand_code = String(req.query.brand_code);
-  if (search) {
+  if (req.query.brand_code && !onlyMissingBrand) query.brand_code = String(req.query.brand_code);
+  if (onlyMissingBrand) {
     query.$or = [
+      { brand_code: { $exists: false } },
+      { brand_code: null },
+      { brand_code: '' },
+    ];
+  }
+  if (search) {
+    const searchConditions = [
       { stk_code: { $regex: search, $options: 'i' } },
       { name: { $regex: search, $options: 'i' } },
       { nameAr: { $regex: search, $options: 'i' } },
       { brand: { $regex: search, $options: 'i' } },
       { category: { $regex: search, $options: 'i' } },
     ];
+    if (query.$or) {
+      query.$and = [{ $or: query.$or }, { $or: searchConditions }];
+      delete query.$or;
+    } else {
+      query.$or = searchConditions;
+    }
   }
 
   const items = await db

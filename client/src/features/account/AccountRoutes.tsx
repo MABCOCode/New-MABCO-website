@@ -313,7 +313,7 @@ export const AccountRoutes = () => {
               language={language}
               user={user}
               onBack={() => navigate("/account/dashboard")}
-              onSave={(updatedUser) => updateUser(updatedUser)}
+              onSave={async (updatedUser) => updateUser(updatedUser)}
             />
           ) : (
             <Navigate to="/account/login" replace />

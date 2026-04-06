@@ -1,16 +1,15 @@
 // components/ServicesSection.tsx
-import React from 'react';
 import {
+  Banknote,
+  CreditCard,
+  Download,
+  MapPin,
   Settings,
   Shield,
-  Wrench,
-  Download,
-  CreditCard,
-  Banknote,
-  MapPin,
   Star,
-  Building2
+  Wrench
 } from 'lucide-react';
+import React from 'react';
 import translations from '../../../i18n/translations';
 
 interface ServicesSectionProps {
@@ -134,7 +133,7 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({ language }) => {
           </li>
           <li>
             <a 
-              href="#showrooms" 
+              href="/showrooms" 
               className="text-[#009FE3] hover:text-[#007BC7] hover:underline transition-colors inline-flex items-center gap-1"
             >
               <MapPin className="w-4 h-4" aria-hidden="true" />

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { Home, LogOut, X, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Home, LogOut, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
 import translations from "../../../i18n/translations";
 
 interface AccountNavBarProps {
@@ -106,7 +106,7 @@ export function AccountNavBar({
               {/* Content */}
               <div className="p-6">
                 <p className="text-gray-600 text-center mb-6">
-                  {t.account_navbar_logoutConfirmMessage}
+                  {t.account_navbar_logout_confirm_message}
                 </p>
 
                 {/* Actions */}

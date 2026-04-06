@@ -777,7 +777,7 @@ export function InlineProductEditor({
                           {spec.iconImage ? (
                             /* Show image if using icon image */
                             <div className="flex items-center gap-3 px-4 py-3 border-2 border-purple-300 rounded-xl bg-purple-50">
-                              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden border-2 border-gray-200">
+                              <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center overflow-hidden border-2 border-blue-200">
                                 <img src={spec.iconImage} alt="Icon" className="w-full h-full object-contain" />
                               </div>
                               <span className="text-gray-700 font-medium flex-1">
@@ -880,7 +880,7 @@ export function InlineProductEditor({
                                                 : "bg-gray-50 hover:bg-gray-100 text-gray-700"
                                             }`}
                                           >
-                                            <div className="w-8 h-8 bg-white rounded flex items-center justify-center overflow-hidden border border-gray-200">
+                                            <div className="w-8 h-8 bg-blue-50 rounded flex items-center justify-center overflow-hidden border border-blue-200">
                                               <img src={iconItem.iconImage} alt={iconItem.nameEn} className="w-full h-full object-contain" />
                                             </div>
                                             <span className="text-xs font-medium text-center leading-tight">

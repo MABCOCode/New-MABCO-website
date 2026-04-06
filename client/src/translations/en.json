@@ -91,6 +91,7 @@
   "admin.content.specs": "Specifications",
   "admin.content.category": "Category",
   "admin.content.brand": "Brand",
+  "admin.content.noBrandSelected": "No Brand Selected",
   "admin.content.closeBtn": "Close",
   "admin.content.hasColors": "Has Multiple Colors",
   "admin.content.noColors": "Single Color",
