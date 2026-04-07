@@ -93,6 +93,8 @@ export interface DirectDiscountOffer {
 export interface CouponOffer {
   type: "coupon";
   couponValue: number;
+  discountType?: "value" | "percentage";
+  discountValue?: number;
   titleEn: string;
   titleAr: string;
   descriptionEn: string;
@@ -112,7 +114,9 @@ export interface FreeProductOffer {
 
 export interface BundleDiscountOffer {
   type: "bundle_discount";
-  discountPercentage: number;
+  discountType?: "value" | "percentage";
+  discountValue?: number;
+  discountPercentage?: number;
   relatedProductIds: number[];
   titleEn: string;
   titleAr: string;

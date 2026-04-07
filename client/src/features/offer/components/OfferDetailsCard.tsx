@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { ProductOffer } from "../../../types/product";
 import { CURRENCY_LABEL } from "../../../utils/currency";
+import { formatOfferDiscountLabel } from "../../../utils/offerPricing";
 
 interface OfferDetailsCardProps {
   offers: ProductOffer[];
@@ -30,24 +31,6 @@ export function OfferDetailsCard({
 }: OfferDetailsCardProps) {
   if (offers.length === 0) return null;
   const label = currencyLabel || CURRENCY_LABEL;
-  const resolveDiscountType = (offer: any): "percentage" | "value" => {
-    if (offer?.discountType === "percentage" || offer?.discountType === "value") {
-      return offer.discountType;
-    }
-    const raw = String(offer?.discount_type || "").toLowerCase();
-    return raw === "p" || raw === "percentage" ? "percentage" : "value";
-  };
-
-  const resolveDiscountValue = (offer: any): number => {
-    const value = offer?.discountValue ?? offer?.discount ?? offer?.couponValue ?? 0;
-    return Number(value) || 0;
-  };
-
-  const resolveCouponValue = (offer: any): number => {
-    const value = offer?.couponValue ?? offer?.discount ?? offer?.discountValue ?? 0;
-    return Number(value) || 0;
-  };
-
   const renderDirectDiscount = (offer: any) => (
     <div
       key="direct-discount"
@@ -80,9 +63,7 @@ export function OfferDetailsCard({
                 {language === "ar" ? "الخصم" : "Discount"}
               </span>
               <span className="text-red-600 font-bold">
-                {resolveDiscountType(offer) === "percentage"
-                  ? `${resolveDiscountValue(offer)}%`
-                  : `${resolveDiscountValue(offer).toLocaleString("en-US")} ${label}`}
+                {formatOfferDiscountLabel(offer, language, label)}
               </span>
             </div>
             <div className="pt-2 border-t border-red-100">
@@ -150,8 +131,7 @@ export function OfferDetailsCard({
                   {language === "ar" ? "احصل على كوبون بقيمة" : "Receive coupon worth"}
                 </p>
                 <p className="text-xl font-bold text-blue-600">
-                  {resolveCouponValue(offer).toLocaleString("en-US")}{" "}
-                  {label}
+                  {formatOfferDiscountLabel(offer, language, label)}
                 </p>
               </div>
             </div>
@@ -273,7 +253,9 @@ export function OfferDetailsCard({
               <p className="text-sm text-gray-600 mb-1">
                 {language === "ar" ? "خصم على المنتجات المرتبطة" : "Discount on Related Products"}
               </p>
-              <p className="text-4xl font-bold text-purple-600">{offer.discountPercentage}%</p>
+              <p className="text-4xl font-bold text-purple-600">
+                {formatOfferDiscountLabel(offer, language, label)}
+              </p>
             </div>
 
             <div className="bg-purple-50 rounded-lg p-3">

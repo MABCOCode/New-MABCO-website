@@ -118,6 +118,66 @@ const pickLocalizedStaticName = (value: any, fallback = "") => {
   return fallback;
 };
 
+const normalizeStaticCategories = (categoriesJson: any): FilterCategoryOption[] =>
+  (Array.isArray(categoriesJson) ? categoriesJson : [])
+    .map((category: any) => ({
+      id: String(category.cat_code || category._id || ""),
+      nameEn: pickLocalizedStaticName(
+        category.nameEn || category.name?.en || category.name || category.name_en || category.name_ar,
+        "",
+      ),
+      nameAr: pickLocalizedStaticName(
+        category.nameAr || category.name?.ar || category.name || category.name_ar || category.name_en,
+        "",
+      ),
+    }))
+    .filter((category) => category.id);
+
+const normalizeStaticBrands = (brandsJson: any, categoriesJson: any): FilterBrandOption[] => {
+  const brandsById = new Map<string, FilterBrandOption>();
+
+  const upsertBrand = (rawBrand: any, categoryIds: string[]) => {
+    const id = String(rawBrand?.brand_code || rawBrand?._id || "");
+    if (!id) return;
+
+    const existing = brandsById.get(id);
+    const mergedCategoryIds = new Set(existing?.categoryIds || []);
+    categoryIds.map(String).filter(Boolean).forEach((categoryId) => mergedCategoryIds.add(categoryId));
+
+    brandsById.set(id, {
+      id,
+      nameEn:
+        pickLocalizedStaticName(
+          rawBrand?.englishName || rawBrand?.nameEn || rawBrand?.name?.en || rawBrand?.name || rawBrand?.name_en || rawBrand?.name_ar,
+          existing?.nameEn || "",
+        ) || existing?.nameEn || "",
+      nameAr:
+        pickLocalizedStaticName(
+          rawBrand?.nameAr || rawBrand?.name?.ar || rawBrand?.name || rawBrand?.name_ar || rawBrand?.name_en,
+          existing?.nameAr || "",
+        ) || existing?.nameAr || "",
+      categoryIds: Array.from(mergedCategoryIds),
+    });
+  };
+
+  (Array.isArray(brandsJson) ? brandsJson : []).forEach((brand: any) => {
+    const categoryIds = Array.isArray(brand.categoryIds)
+      ? brand.categoryIds.map(String)
+      : Array.isArray(brand.cat_codes)
+      ? brand.cat_codes.map(String)
+      : [String(brand.category_code || brand.cat_code || brand.categoryCode || brand.catCode || "")].filter(Boolean);
+    upsertBrand(brand, categoryIds);
+  });
+
+  (Array.isArray(categoriesJson) ? categoriesJson : []).forEach((category: any) => {
+    const categoryId = String(category.cat_code || category._id || "");
+    if (!categoryId || !Array.isArray(category.brands)) return;
+    category.brands.forEach((brand: any) => upsertBrand(brand, [categoryId]));
+  });
+
+  return Array.from(brandsById.values());
+};
+
 const normalizeImageEntry = (value: any) => {
   if (typeof value === "string") return value.trim();
   if (value && typeof value === "object") {
@@ -575,38 +635,8 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
         const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
         if (!mounted) return;
 
-        const normalizedCategories = (Array.isArray(categoriesJson) ? categoriesJson : [])
-          .map((category: any) => ({
-            id: String(category.cat_code || category._id || ""),
-            nameEn: pickLocalizedStaticName(
-              category.nameEn || category.name?.en || category.name || category.name_en || category.name_ar,
-              "",
-            ),
-            nameAr: pickLocalizedStaticName(
-              category.nameAr || category.name?.ar || category.name || category.name_ar || category.name_en,
-              "",
-            ),
-          }))
-          .filter((category) => category.id);
-
-        const normalizedBrands = (Array.isArray(brandsJson) ? brandsJson : [])
-          .map((brand: any) => ({
-            id: String(brand.brand_code || brand._id || ""),
-            nameEn: pickLocalizedStaticName(
-              brand.englishName || brand.nameEn || brand.name?.en || brand.name || brand.name_en || brand.name_ar,
-              "",
-            ),
-            nameAr: pickLocalizedStaticName(
-              brand.nameAr || brand.name?.ar || brand.name || brand.name_ar || brand.name_en,
-              "",
-            ),
-            categoryIds: Array.isArray(brand.categoryIds)
-              ? brand.categoryIds.map(String)
-              : Array.isArray(brand.cat_codes)
-              ? brand.cat_codes.map(String)
-              : [String(brand.category_code || brand.cat_code || brand.categoryCode || brand.catCode || "")].filter(Boolean),
-          }))
-          .filter((brand) => brand.id);
+        const normalizedCategories = normalizeStaticCategories(categoriesJson);
+        const normalizedBrands = normalizeStaticBrands(brandsJson, categoriesJson);
 
         setFilterCategories(normalizedCategories);
         setFilterBrands(normalizedBrands);
@@ -1290,7 +1320,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     [availableEditorBrands, selectedBrand],
   );
   const hasManyColors = Array.isArray(colors) && colors.length > 0;
-  const needsCategoryBrand = !["00"].includes(selectedCategory);
+  const needsCategoryBrand = true;
   const selectedCategoryLabel =
     (language === "ar"
       ? selectedCategoryOption?.nameAr || selectedCategoryOption?.nameEn
@@ -1313,36 +1343,8 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
         const brandsJson = brandsRes.ok ? await brandsRes.json() : [];
         if (!mounted) return;
 
-        const normalizedCategories = (Array.isArray(categoriesJson) ? categoriesJson : [])
-          .map((category: any) => ({
-            id: String(category.cat_code || category._id || ""),
-            nameEn: pickLocalizedStaticName(
-              category.nameEn || category.name?.en || category.name || category.name_en || category.name_ar,
-              "",
-            ),
-            nameAr: pickLocalizedStaticName(
-              category.nameAr || category.name?.ar || category.name || category.name_ar || category.name_en,
-              "",
-            ),
-          }))
-          .filter((category) => category.id);
-
-        const normalizedBrands = (Array.isArray(brandsJson) ? brandsJson : [])
-          .map((brand: any) => ({
-            id: String(brand.brand_code || brand._id || ""),
-            nameEn: pickLocalizedStaticName(
-              brand.englishName || brand.nameEn || brand.name?.en || brand.name || brand.name_en || brand.name_ar,
-              "",
-            ),
-            nameAr: pickLocalizedStaticName(
-              brand.nameAr || brand.name?.ar || brand.name || brand.name_ar || brand.name_en,
-              "",
-            ),
-            categoryIds: Array.isArray(brand.categoryIds)
-              ? brand.categoryIds.map(String)
-              : [String(brand.category_code || brand.cat_code || "")].filter(Boolean),
-          }))
-          .filter((brand) => brand.id);
+        const normalizedCategories = normalizeStaticCategories(categoriesJson);
+        const normalizedBrands = normalizeStaticBrands(brandsJson, categoriesJson);
 
         setEditorCategories(normalizedCategories);
         setEditorBrands(normalizedBrands);
@@ -2579,7 +2581,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                               : "bg-gray-50 hover:bg-gray-100 text-gray-700"
                                           }`}
                                         >
-                                          <div className="w-8 h-8 bg-blue-50 rounded flex items-center justify-center overflow-hidden border border-blue-200">
+                                          <div className="bg-gradient-to-br from-[#009FE3] to-[#007BC7] p-3 rounded-xl shadow-md flex-shrink-0">
                                             <img src={iconItem.iconImage} alt={iconItem.nameEn} className="w-full h-full object-contain" />
                                           </div>
                                           <span className="text-xs font-medium text-center">

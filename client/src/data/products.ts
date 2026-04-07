@@ -1,5 +1,6 @@
 import { DirectDiscountOffer, Product, ProductOffer } from "../types/product";
 import { CURRENCY_LABEL } from "../utils/currency";
+import { applyOfferDiscount, formatOfferDiscountLabel, resolveOfferDiscountValue } from "../utils/offerPricing";
 
 export interface ProductWithOffers extends Product { offers?: ProductOffer[]; }
 export interface ProductOfferEntry { productId: number | string; offers: ProductOffer[]; }
@@ -173,9 +174,15 @@ const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
   }
 
   if (offer.offer_type === "coupon") {
+    const discountType = offer.discount_type === "p" ? "percentage" : "value";
+    const rawDiscount = Number(offer.discount ?? 0);
+    const discountValue =
+      discountType === "percentage" && rawDiscount > 0 && rawDiscount <= 1 ? rawDiscount * 100 : rawDiscount;
     return {
       type: "coupon",
-      couponValue: Number(offer.discount ?? 0),
+      couponValue: discountValue,
+      discountType,
+      discountValue,
       titleEn,
       titleAr,
       descriptionEn,
@@ -200,9 +207,15 @@ const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
   }
 
   if (offer.offer_type === "bundle_discount") {
+    const discountType = offer.discount_type === "p" ? "percentage" : "value";
+    const rawDiscount = Number(offer.discount ?? 0);
+    const discountValue =
+      discountType === "percentage" && rawDiscount > 0 && rawDiscount <= 1 ? rawDiscount * 100 : rawDiscount;
     return {
       type: "bundle_discount",
-      discountPercentage: Number(offer.discount ?? 0),
+      discountType,
+      discountValue,
+      discountPercentage: discountType === "percentage" ? discountValue : undefined,
       relatedProductIds: [],
       titleEn,
       titleAr,
@@ -274,36 +287,20 @@ export const getOfferBadgeText = (offers: ProductOffer[], language: "ar" | "en")
   const coupon = offers.find((o) => o.type === "coupon");
   const bundle = offers.find((o) => o.type === "bundle_discount");
   if (directDiscount) {
-    const rawType = (directDiscount as any).discountType || (directDiscount as any).discount_type;
-    const isPercent = rawType === "percentage" || rawType === "p";
-    const value =
-      (directDiscount as any).discountValue ??
-      (directDiscount as any).discount ??
-      (directDiscount as any).value ??
-      0;
-    const numValue = parseOfferNumber(value);
-    if (isPercent) {
-      return `${numValue}% ${language === "ar" ? "خصم" : "OFF"}`;
-    }
-    return `${numValue} ${CURRENCY_LABEL} ${language === "ar" ? "خصم" : "OFF"}`;
+    return formatOfferDiscountLabel(directDiscount, language, CURRENCY_LABEL, language === "ar" ? "خصم" : "OFF");
   }
   if (freeProduct) return language === "ar" ? "هدية مجانية" : "FREE GIFT";
   if (coupon) {
-    const value =
-      (coupon as any).couponValue ??
-      (coupon as any).coupon_value ??
-      (coupon as any).discount ??
-      (coupon as any).value ??
-      0;
-    const numValue = parseOfferNumber(value);
+    const numValue = resolveOfferDiscountValue(coupon);
     if (numValue <= 0) {
       return language === "ar" ? "كوبون" : "COUPON";
     }
-    return `${numValue} ${CURRENCY_LABEL} ${language === "ar" ? "كوبون" : "COUPON"}`;
+    return formatOfferDiscountLabel(coupon, language, CURRENCY_LABEL, language === "ar" ? "كوبون" : "COUPON");
   }
   if (bundle) {
-    if ("discountPercentage" in bundle && typeof bundle.discountPercentage === "number") {
-      return `${bundle.discountPercentage}% ${language === "ar" ? "خصم" : "OFF"}`;
+    const numValue = resolveOfferDiscountValue(bundle);
+    if (numValue > 0) {
+      return formatOfferDiscountLabel(bundle, language, CURRENCY_LABEL, language === "ar" ? "خصم" : "OFF");
     }
     return language === "ar" ? "عرض حزمة" : "BUNDLE";
   }
@@ -314,19 +311,7 @@ export const calculateDiscountedPrice = (basePrice: number, offers: ProductOffer
   let finalPrice = basePrice;
   const directDiscount = offers.find((o) => o.type === "direct_discount") as DirectDiscountOffer | undefined;
   if (directDiscount) {
-    const rawType = (directDiscount as any).discountType || (directDiscount as any).discount_type;
-    const isPercent = rawType === "percentage" || rawType === "p";
-    const value =
-      (directDiscount as any).discountValue ??
-      (directDiscount as any).discount ??
-      (directDiscount as any).value ??
-      0;
-    const numValue = parseOfferNumber(value);
-    if (isPercent) {
-      finalPrice = basePrice * (1 - numValue / 100);
-    } else {
-      finalPrice = basePrice - numValue;
-    }
+    finalPrice = applyOfferDiscount(basePrice, directDiscount);
   }
   return Math.max(0, finalPrice);
 };

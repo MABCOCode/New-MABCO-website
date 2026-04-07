@@ -5,6 +5,7 @@ import translations from "../../../i18n/translations";
 import { CartOfferDisplay } from "../../offer/components/CartOfferDisplay";
 import { getProductOffers } from "../../../data/products";
 import { useCart } from "../../../context/CartContext";
+import { applyOfferDiscount, formatOfferDiscountLabel, resolveOfferDiscountType, resolveOfferDiscountValue } from "../../../utils/offerPricing";
 
 interface CartItem {
   id: number | string;
@@ -30,6 +31,7 @@ interface CartItem {
   isFreeGift?: boolean;
   isBundleItem?: boolean;
   bundleDiscount?: number;
+  bundleDiscountType?: "value" | "percentage" | null;
 }
 
 interface ShoppingCartProps {
@@ -94,6 +96,36 @@ export function ShoppingCart({
   const asText = (value: string | string[]) => {
     return Array.isArray(value) ? value.join(" ") : value;
   };
+  const getItemDiscountBadge = (item: CartItem) => {
+    if (item.isBundleItem && item.bundleDiscount) {
+      return formatOfferDiscountLabel(
+        { type: "bundle_discount", discountValue: item.bundleDiscount, discountType: item.bundleDiscountType ?? "percentage" },
+        language,
+        t.currency,
+        isArabic ? "خصم" : "Off",
+      );
+    }
+    const offer = (item.appliedOffers || []).find((entry: any) =>
+      entry?.type === "direct_discount" || entry?.type === "coupon",
+    );
+    if (offer) {
+      return formatOfferDiscountLabel(
+        offer,
+        language,
+        t.currency,
+        isArabic ? "خصم" : "Off",
+      );
+    }
+    if (item.oldPrice) {
+      const oldPrice = parsePrice(item.oldPrice);
+      const currentPrice = parsePrice(item.price);
+      const saved = Math.max(0, oldPrice - currentPrice);
+      if (saved > 0) {
+        return `${saved.toLocaleString()} ${t.currency} ${isArabic ? "خصم" : "Off"}`;
+      }
+    }
+    return "";
+  };
 
   const handleRemove = (id: number | string) => {
     if (window.confirm(asText(t.confirmRemove))) {
@@ -135,10 +167,7 @@ export function ShoppingCart({
     if (!bundleProduct) return;
 
     const basePrice = parsePrice(bundleProduct.price);
-    const discountedPrice = Math.max(
-      0,
-      Math.round(basePrice * (1 - bundleOffer.discountPercentage / 100)),
-    );
+    const discountedPrice = Math.round(applyOfferDiscount(basePrice, bundleOffer));
 
     addToCart(bundleProduct, {
       customId: `bundle-${productId}-${bundleItemId}`,
@@ -147,7 +176,8 @@ export function ShoppingCart({
       overrideOldPrice: basePrice,
       isBundleItem: true,
       linkedToProductId: productId,
-      bundleDiscount: bundleOffer.discountPercentage,
+      bundleDiscount: resolveOfferDiscountValue(bundleOffer),
+      bundleDiscountType: resolveOfferDiscountType(bundleOffer),
     });
   };
 
@@ -242,7 +272,12 @@ export function ShoppingCart({
                       {item.isBundleItem && item.bundleDiscount && (
                         <div className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs font-bold mb-1">
                           <Sparkles className="w-3 h-3" />
-                          {item.bundleDiscount}% {isArabic ? "خصم" : "Off"}
+                          {formatOfferDiscountLabel(
+                            { type: "bundle_discount", discountValue: item.bundleDiscount, discountType: item.bundleDiscountType ?? "percentage" },
+                            language,
+                            t.currency,
+                            isArabic ? "خصم" : "Off",
+                          )}
                         </div>
                       )}
                       
@@ -289,9 +324,11 @@ export function ShoppingCart({
                                 <span className="text-sm text-gray-400 line-through">
                                   {formatPrice(parsePrice(item.oldPrice))} {t.currency}
                                 </span>
-                                <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
-                                  {Math.round((1 - parsePrice(item.price) / parsePrice(item.oldPrice)) * 100)}% خصم
-                                </span>
+                                {getItemDiscountBadge(item) && (
+                                  <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
+                                    {getItemDiscountBadge(item)}
+                                  </span>
+                                )}
                               </div>
                             )}
                             <p className="text-lg font-bold text-[#009FE3]">

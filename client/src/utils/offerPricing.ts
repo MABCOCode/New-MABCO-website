@@ -8,7 +8,7 @@ import {
 } from "../types/product";
 import { CURRENCY_LABEL } from "./currency";
 
-const parsePriceValue = (value: unknown): number => {
+export const parsePriceValue = (value: unknown): number => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
     const cleaned = value.replace(/,/g, "").trim();
@@ -35,6 +35,58 @@ const toDate = (value: any): Date | null => {
 const isLegacyOffer = (offer: any): offer is LegacyOffer => {
   return offer && typeof offer === "object" && "offer_type" in offer;
 };
+
+export const resolveOfferDiscountType = (offer: any): "percentage" | "value" => {
+  if (offer?.discountType === "percentage" || offer?.discountType === "value") {
+    return offer.discountType;
+  }
+  const raw = String(offer?.discount_type || "").toLowerCase();
+  return raw === "p" || raw === "percentage" ? "percentage" : "value";
+};
+
+export const resolveOfferDiscountValue = (offer: any): number => {
+  const rawValue =
+    offer?.discountValue ??
+    offer?.discount ??
+    offer?.couponValue ??
+    offer?.coupon_value ??
+    offer?.discountPercentage ??
+    offer?.value ??
+    0;
+  const parsed = Number(rawValue) || 0;
+  if (resolveOfferDiscountType(offer) === "percentage" && parsed > 0 && parsed <= 1) {
+    return parsed * 100;
+  }
+  return parsed;
+};
+
+export const formatOfferDiscountLabel = (
+  offer: any,
+  language: "ar" | "en",
+  currencyLabel = CURRENCY_LABEL,
+  suffix?: string,
+): string => {
+  const value = resolveOfferDiscountValue(offer);
+  const base =
+    resolveOfferDiscountType(offer) === "percentage"
+      ? `${value}%`
+      : `${value.toLocaleString("en-US")} ${currencyLabel}`;
+  return suffix ? `${base} ${suffix}` : base;
+};
+
+export const applyOfferDiscount = (basePrice: number, offer: any): number => {
+  const safeBasePrice = Number.isFinite(basePrice) ? basePrice : 0;
+  if (!offer) return safeBasePrice;
+  if (offer.type === "free_product") return 0;
+  const value = resolveOfferDiscountValue(offer);
+  if (resolveOfferDiscountType(offer) === "percentage") {
+    return Math.max(0, safeBasePrice * (1 - value / 100));
+  }
+  return Math.max(0, safeBasePrice - value);
+};
+
+export const getOfferSavings = (basePrice: number, offer: any): number =>
+  Math.max(0, basePrice - applyOfferDiscount(basePrice, offer));
 
 const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
   const start = toDate((offer as any).start);
@@ -66,9 +118,13 @@ const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
   }
 
   if (offer.offer_type === "coupon") {
+    const discountType = offer.discount_type === "p" ? "percentage" : "value";
+    const discountValue = resolveOfferDiscountValue(offer);
     return {
       type: "coupon",
-      couponValue: Number(offer.discount ?? 0),
+      couponValue: discountValue,
+      discountType,
+      discountValue,
       titleEn,
       titleAr,
       descriptionEn,
@@ -95,9 +151,13 @@ const normalizeLegacyOffer = (offer: LegacyOffer): ProductOffer | null => {
   }
 
   if (offer.offer_type === "bundle_discount") {
+    const discountType = offer.discount_type === "p" ? "percentage" : "value";
+    const discountValue = resolveOfferDiscountValue(offer);
     return {
       type: "bundle_discount",
-      discountPercentage: Number(offer.discount ?? 0),
+      discountType,
+      discountValue,
+      discountPercentage: discountType === "percentage" ? discountValue : undefined,
       relatedProductIds: [],
       titleEn,
       titleAr,

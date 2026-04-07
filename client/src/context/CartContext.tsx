@@ -26,6 +26,7 @@ type CartItem = {
   isBundleItem?: boolean;
   linkedToProductId?: number | string;
   bundleDiscount?: number;
+  bundleDiscountType?: "value" | "percentage" | null;
 };
 
 type AddToCartFn = (
@@ -51,6 +52,7 @@ type AddToCartFn = (
     isBundleItem?: boolean;
     linkedToProductId?: number | string;
     bundleDiscount?: number;
+    bundleDiscountType?: "value" | "percentage" | null;
   },
 ) => void;
 
@@ -261,6 +263,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           isBundleItem: options?.isBundleItem,
           linkedToProductId: options?.linkedToProductId,
           bundleDiscount: options?.bundleDiscount,
+          bundleDiscountType: options?.bundleDiscountType ?? null,
         },
       ]);
     }

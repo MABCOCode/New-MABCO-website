@@ -1,6 +1,7 @@
 import React from "react";
 import { Sparkles, ShoppingCart, Tag } from "lucide-react";
 import { CURRENCY_LABEL } from "../../../utils/currency";
+import { applyOfferDiscount, formatOfferDiscountLabel } from "../../../utils/offerPricing";
 
 interface RelatedProduct {
   id: number;
@@ -8,7 +9,8 @@ interface RelatedProduct {
   nameAr?: string;
   image: string;
   originalPrice: number;
-  discountPercentage: number;
+  discountValue: number;
+  discountType?: "value" | "percentage";
 }
 
 interface RelatedProductsWithDiscountProps {
@@ -37,9 +39,7 @@ export function RelatedProductsWithDiscount({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {products.map((product) => {
-          const discounted = Math.round(
-            product.originalPrice * (1 - product.discountPercentage / 100),
-          );
+          const discounted = Math.round(applyOfferDiscount(product.originalPrice, product));
 
           return (
             <div
@@ -54,7 +54,7 @@ export function RelatedProductsWithDiscount({
                 />
                 <div className="absolute top-3 left-3 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <Tag className="w-3 h-3" />
-                  {product.discountPercentage}%
+                  {formatOfferDiscountLabel(product, language, CURRENCY_LABEL)}
                 </div>
               </div>
 

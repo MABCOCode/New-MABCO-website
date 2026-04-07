@@ -17,4 +17,5 @@ module.exports = {
   adminTokenSecret: process.env.ADMIN_TOKEN_SECRET || process.env.OTP_SECRET || 'admin-token-secret',
   posSyncToken: process.env.POS_SYNC_TOKEN || '',
   posSyncConnString: process.env.POS_SYNC_CONN_STRING || '',
+  posSyncTimeoutMs: Math.max(Number(process.env.POS_SYNC_TIMEOUT_MS || 15 * 60 * 1000), 60 * 1000),
 };

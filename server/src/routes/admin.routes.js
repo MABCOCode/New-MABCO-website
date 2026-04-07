@@ -5,14 +5,14 @@ const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
 const { hydrateCollection, hydrateDocument } = require('../models');
 const { requireAdminToken } = require('../middleware/adminTokenAuth');
-const { posSyncToken, posSyncConnString } = require('../config/env');
+const { posSyncToken, posSyncConnString, posSyncTimeoutMs } = require('../config/env');
 const { syncPosProducts } = require('../services/posProductsSync.service');
 const { sendToTokens } = require('../services/fcm');
 const { normalizePhone } = require('../utils/phone');
 const { validateProductContent } = require('../utils/productContentValidation');
 
 const router = express.Router();
-const POS_SYNC_TIMEOUT_MS = 3 * 60 * 1000;
+const POS_SYNC_TIMEOUT_MS = posSyncTimeoutMs;
 
 const DEFAULT_SAVED_SPEC_TITLES = [
   { id: 'processor', nameEn: 'Processor', nameAr: 'المعالج', icon: 'Cpu', usageCount: 50, category: 'performance' },

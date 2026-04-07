@@ -53,6 +53,7 @@ import {
 import { setSeo } from "../../../services/seo";
 import { CURRENCY_LABEL } from "../../../utils/currency";
 import { getProductRef } from "../../../utils/entityRefs";
+import { applyOfferDiscount, resolveOfferDiscountType, resolveOfferDiscountValue } from "../../../utils/offerPricing";
 import { getCachedStaticCatalogData, loadStaticCatalogData } from "../../../utils/staticCatalogData";
 import { useCompareStore } from "../../compare/state";
 import { OfferDetailsCard } from "../../offer/components/OfferDetailsCard";
@@ -821,6 +822,20 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     () => buildUnifiedImagesFromProduct(prod),
     [prod],
   );
+  const normalizeHex = (value: string | undefined) => {
+    if (!value) return "#999999";
+    const raw = value.trim();
+    const hex = raw.startsWith("#") ? raw : `#${raw}`;
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
+    return "#999999";
+  };
+  const buildColorGroupKey = (variant: any, name: string, nameAr: string, hexCode: string) => {
+    if (hexCode && hexCode !== "#999999") return `hex:${hexCode.toLowerCase()}`;
+    const label = String(name || nameAr || variant?.stk_code || variant?.stkCode || "")
+      .trim()
+      .toLowerCase();
+    return label ? `name:${label}` : "";
+  };
 
   const normalizedColorVariants = useMemo(() => {
     const variants = Array.isArray(prod?.colorVariants) ? prod.colorVariants : [];
@@ -855,7 +870,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       const image = images[0] || "";
       const name = variant.name || variant.color_name || "";
       const nameAr = variant.nameAr || variant.color_name_ar || name;
-      const hexCode = variant.hexCode || variant.color_hex || variant.hex || "";
+      const hexCode = normalizeHex(variant.hexCode || variant.color_hex || variant.hex);
       const inStock =
         typeof variant.inStock === "boolean"
           ? variant.inStock
@@ -887,13 +902,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         isAvailable,
       };
 
-      const key = String(
-        variant.stk_code ||
-          variant.stkCode ||
-          `${name}|${nameAr}|${hexCode}`,
-      )
-        .trim()
-        .toLowerCase();
+      const key = buildColorGroupKey(variant, name, nameAr, hexCode);
+      if (!key) return;
 
       const existing = deduped.get(key);
       if (!existing || scoreVariant(normalized) > scoreVariant(existing)) {
@@ -1230,11 +1240,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     const base = typeof pendingCartOptions?.basePrice === "number"
       ? pendingCartOptions.basePrice
       : numericPrice(prod?.price);
-    const discountValue = offer.discountValue ?? offer.discount ?? 0;
-    const discounted =
-      offer.discountType === "percentage"
-        ? Math.max(0, Math.round(base * (1 - discountValue / 100)))
-        : Math.max(0, Math.round(base - discountValue));
+    const discounted = Math.round(applyOfferDiscount(base, offer));
     addPrimaryWithOffer(offer, { price: discounted, oldPrice: base });
     closeOfferDialog();
   };
@@ -1257,7 +1263,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       isBundleItem: meta.type === "bundle",
       isFreeGift: meta.type === "free",
       linkedToProductId: String(prod.id ?? prod.stk_code ?? prod.id),
-      bundleDiscount: meta.type === "bundle" ? offer.discountPercentage : undefined,
+      bundleDiscount: meta.type === "bundle" ? resolveOfferDiscountValue(offer) : undefined,
+      bundleDiscountType: meta.type === "bundle" ? resolveOfferDiscountType(offer) : undefined,
     });
     closeOfferDialog();
   };
@@ -2322,8 +2329,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                     parseFloat(
                                       String(rel.price || "0").replace(/,/g, ""),
                                     ),
-                                  discountPercentage:
-                                    bundleOffer.discountPercentage,
+                                  discountValue: resolveOfferDiscountValue(bundleOffer),
+                                  discountType: resolveOfferDiscountType(bundleOffer),
                                 };
                               })
                               .filter(Boolean);
@@ -2354,13 +2361,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                               if (!bundleOffer) return;
 
                             const base = numericPrice(rel.price);
-                            const discounted = Math.max(
-                              0,
-                              Math.round(
-                                base *
-                                  (1 - bundleOffer.discountPercentage / 100),
-                              ),
-                            );
+                            const discounted = Math.round(applyOfferDiscount(base, bundleOffer));
 
                             cart.addToCart(rel, {
                               customId: `bundle-${prod.id}-${productId}`,
@@ -2369,7 +2370,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                               overrideOldPrice: base,
                               isBundleItem: true,
       linkedToProductId: String(prod.id ?? prod.stk_code ?? prod.id),
-                              bundleDiscount: bundleOffer.discountPercentage,
+                              bundleDiscount: resolveOfferDiscountValue(bundleOffer),
+                              bundleDiscountType: resolveOfferDiscountType(bundleOffer),
                             });
                           }}
                         />
@@ -2787,21 +2789,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                       let metaType: "coupon" | "bundle" | "free" = "coupon";
                       if (selectedOffer.type === "bundle_discount") {
                         metaType = "bundle";
-                        discounted = Math.max(
-                          0,
-                          Math.round(base * (1 - (selectedOffer.discountPercentage || 0) / 100)),
-                        );
+                        discounted = Math.round(applyOfferDiscount(base, selectedOffer));
                       } else if (selectedOffer.type === "free_product") {
                         metaType = "free";
                         discounted = 0;
                       } else {
                         metaType = "coupon";
-                        const value =
-                          selectedOffer.couponValue ??
-                          selectedOffer.discountValue ??
-                          selectedOffer.discount ??
-                          0;
-                        discounted = base > value ? base - value : 0;
+                        discounted = Math.round(applyOfferDiscount(base, selectedOffer));
                       }
 
                       return (

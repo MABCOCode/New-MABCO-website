@@ -8,6 +8,7 @@ import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { getProductRef } from "../../../utils/entityRefs";
+import { applyOfferDiscount, resolveOfferDiscountType, resolveOfferDiscountValue } from "../../../utils/offerPricing";
 import { getOfferPricing, getOfferBadgeText, getProductOffers } from "../../../data/products";
 import { OfferDetailsCard } from "../../offer/components/OfferDetailsCard";
 
@@ -76,6 +77,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
     if (/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
     return "#999999";
   };
+  const buildColorGroupKey = (variant: any, name: string, nameAr: string, hexCode: string) => {
+    if (hexCode && hexCode !== "#999999") return `hex:${hexCode.toLowerCase()}`;
+    const label = String(name || nameAr || variant?.stk_code || variant?.stkCode || "")
+      .trim()
+      .toLowerCase();
+    return label ? `name:${label}` : "";
+  };
   const normalizedColorVariants = React.useMemo(() => {
     const deduped = new Map<string, any>();
     const scoreVariant = (variant: any) => {
@@ -127,13 +135,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
         isAvailable,
       };
 
-      const key = String(
-        variant.stk_code ||
-          variant.stkCode ||
-          `${name}|${nameAr}|${hexCode}`,
-      )
-        .trim()
-        .toLowerCase();
+      const key = buildColorGroupKey(variant, name, nameAr, hexCode);
+      if (!key) return;
 
       const existing = deduped.get(key);
       if (!existing || scoreVariant(normalized) > scoreVariant(existing)) {
@@ -362,11 +365,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       typeof pendingCartOptions?.basePrice === "number"
         ? pendingCartOptions.basePrice
         : parseNumericPrice(product.price);
-    const discountValue = offer.discountValue ?? offer.discount ?? 0;
-    const discounted =
-      offer.discountType === "percentage"
-        ? Math.max(0, Math.round(base * (1 - discountValue / 100)))
-        : Math.max(0, Math.round(base - discountValue));
+    const discounted = Math.round(applyOfferDiscount(base, offer));
     addPrimaryWithOffer(offer, { price: discounted, oldPrice: base });
     closeOfferDialog();
   };
@@ -389,7 +388,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
       isBundleItem: meta.type === "bundle",
       isFreeGift: meta.type === "free",
       linkedToProductId: String(resolvedProductId ?? product.id ?? productRef ?? ""),
-      bundleDiscount: meta.type === "bundle" ? offer.discountPercentage : undefined,
+      bundleDiscount: meta.type === "bundle" ? resolveOfferDiscountValue(offer) : undefined,
+      bundleDiscountType: meta.type === "bundle" ? resolveOfferDiscountType(offer) : undefined,
     });
     closeOfferDialog();
   };
@@ -910,21 +910,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
                       let metaType: "coupon" | "bundle" | "free" = "coupon";
                       if (selectedOffer.type === "bundle_discount") {
                         metaType = "bundle";
-                        discounted = Math.max(
-                          0,
-                          Math.round(base * (1 - (selectedOffer.discountPercentage || 0) / 100)),
-                        );
+                        discounted = Math.round(applyOfferDiscount(base, selectedOffer));
                       } else if (selectedOffer.type === "free_product") {
                         metaType = "free";
                         discounted = 0;
                       } else {
                         metaType = "coupon";
-                        const value =
-                          selectedOffer.couponValue ??
-                          selectedOffer.discountValue ??
-                          selectedOffer.discount ??
-                          0;
-                        discounted = base > value ? base - value : 0;
+                        discounted = Math.round(applyOfferDiscount(base, selectedOffer));
                       }
 
                       return (

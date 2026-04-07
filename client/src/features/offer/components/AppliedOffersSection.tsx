@@ -1,24 +1,30 @@
-import { useState } from "react";
 import {
-  Tag,
-  Gift,
-  Ticket,
-  Sparkles,
-  TrendingDown,
   CheckCircle,
+  Gift,
   Plus,
-  ShoppingBag,
+  Sparkles,
+  Tag,
+  Ticket,
+  TrendingDown
 } from "lucide-react";
-import translations from "../../../i18n/translations";
-import { CURRENCY_LABEL } from "../../../utils/currency";
+import { useState } from "react";
 import { getProductOffers, products } from "../../../data/products";
+import translations from "../../../i18n/translations";
 import type {
-  ProductOffer,
-  DirectDiscountOffer,
-  CouponOffer,
-  FreeProductOffer,
   BundleDiscountOffer,
+  CouponOffer,
+  DirectDiscountOffer,
+  FreeProductOffer,
+  ProductOffer,
 } from "../../../types/product";
+import { CURRENCY_LABEL } from "../../../utils/currency";
+import {
+  applyOfferDiscount,
+  formatOfferDiscountLabel,
+  getOfferSavings,
+  resolveOfferDiscountType,
+  resolveOfferDiscountValue,
+} from "../../../utils/offerPricing";
 
 interface CartItem {
   id: number | string;
@@ -104,14 +110,19 @@ export function AppliedOffersSection({
         );
       }
       if (offer.type === "coupon") {
-        return Number(a.couponValue ?? a.discount) ===
-          Number((offer as CouponOffer).couponValue ?? (offer as any).discount);
+        return (
+          resolveOfferDiscountType(a) === resolveOfferDiscountType(offer) &&
+          resolveOfferDiscountValue(a) === resolveOfferDiscountValue(offer)
+        );
       }
       if (offer.type === "free_product") {
         return Number(a.freeProductId ?? 0) === Number((offer as FreeProductOffer).freeProductId ?? 0);
       }
       if (offer.type === "bundle_discount") {
-        return Number(a.discountPercentage) === Number((offer as BundleDiscountOffer).discountPercentage);
+        return (
+          resolveOfferDiscountType(a) === resolveOfferDiscountType(offer) &&
+          resolveOfferDiscountValue(a) === resolveOfferDiscountValue(offer)
+        );
       }
       return false;
     });
@@ -131,17 +142,10 @@ export function AppliedOffersSection({
 
       offers.forEach((offer) => {
         if (offer.type === "direct_discount") {
-          const directOffer = offer as DirectDiscountOffer;
           const isApplied = isOfferApplied(item, offer);
-          let savings = 0;
           const itemPrice =
             typeof item.basePrice === "number" ? item.basePrice : parsePrice(item.price);
-
-          if (directOffer.discountType === "percentage") {
-            savings = (itemPrice * directOffer.discountValue) / 100 * item.quantity;
-          } else {
-            savings = directOffer.discountValue * item.quantity;
-          }
+          const savings = getOfferSavings(itemPrice, offer) * item.quantity;
 
           allOffers.push({
             productId,
@@ -157,7 +161,6 @@ export function AppliedOffersSection({
         }
 
         if (offer.type === "coupon") {
-          const couponOffer = offer as CouponOffer;
           const isApplied = isOfferApplied(item, offer) || appliedCoupons.has(productId);
 
           allOffers.push({
@@ -169,7 +172,7 @@ export function AppliedOffersSection({
             offer,
             applied: isApplied,
             autoApplied: false,
-            couponValue: couponOffer.couponValue * item.quantity,
+            couponValue: resolveOfferDiscountValue(offer) * item.quantity,
           });
         }
 
@@ -279,9 +282,14 @@ export function AppliedOffersSection({
             <div className="bg-white rounded-lg p-3 border border-red-200">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-600">{translation.offers_you_save}:</span>
-                <span className="text-lg font-bold text-green-600">
-                  {formatPrice(appliedOffer.savings || 0)} {displayCurrency}
-                </span>
+                <div className="text-right">
+                  <div className="text-xs font-semibold text-red-600">
+                    {formatOfferDiscountLabel(offer, language, displayCurrency, translation.offers_off)}
+                  </div>
+                  <span className="text-lg font-bold text-green-600">
+                    {formatPrice(appliedOffer.savings || 0)} {displayCurrency}
+                  </span>
+                </div>
               </div>
             </div>
             {appliedOffer.applied && (
@@ -337,18 +345,18 @@ export function AppliedOffersSection({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-600">{translation.offers_coupon_value}:</span>
                 <span className="text-lg font-bold text-blue-600">
-                  {formatPrice(appliedOffer.couponValue || 0)} {displayCurrency}
+                  {formatOfferDiscountLabel(offer, language, displayCurrency)}
                 </span>
               </div>
             </div>
 
-            <button
+            {/* <button
               onClick={() => toggleExpanded(offerId)}
               className="text-xs text-blue-600 font-semibold hover:text-blue-700 flex items-center gap-1"
             >
               {isExpanded ? translation.offers_hide_details : translation.offers_view_details}
               <Sparkles className="w-3 h-3" />
-            </button>
+            </button> */}
 
             {isExpanded && (
               <div className="mt-3 space-y-2">
@@ -357,7 +365,7 @@ export function AppliedOffersSection({
                   const product = products.find((p) => p.id === eligibleId);
                   if (!product) return null;
                   const productPrice = parsePrice(product.price as any);
-                  const discountedPrice = Math.max(0, productPrice - offer.couponValue);
+                  const discountedPrice = applyOfferDiscount(productPrice, offer);
                   const isSelected = appliedProductId === eligibleId;
                   const disabled = !!appliedProductId && !isSelected;
 
@@ -502,7 +510,7 @@ export function AppliedOffersSection({
                 <p className="text-xs text-gray-600 mb-1">{appliedOffer.productName}</p>
               </div>
               <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">
-                {offer.discountPercentage}% {translation.offers_off}
+                {formatOfferDiscountLabel(offer, language, displayCurrency, translation.offers_off)}
               </div>
             </div>
             <p className="text-xs text-gray-600 mb-3">
@@ -518,13 +526,13 @@ export function AppliedOffersSection({
               </div>
             )}
 
-            <button
+            {/* <button
               onClick={() => toggleExpanded(offerId)}
               className="text-xs text-purple-600 font-semibold hover:text-purple-700 flex items-center gap-1"
             >
               {isExpanded ? translation.offers_hide_details : translation.offers_view_details}
               <ShoppingBag className="w-3 h-3" />
-            </button>
+            </button> */}
 
             {isExpanded && (
               <div className="mt-3 space-y-2">
@@ -534,8 +542,7 @@ export function AppliedOffersSection({
                   if (!product) return null;
 
                   const productPrice = parsePrice(product.price as any);
-                  const discountedPrice =
-                    productPrice * (1 - offer.discountPercentage / 100);
+                  const discountedPrice = applyOfferDiscount(productPrice, offer);
                   const isAdded = appliedOffer.bundleProductIds?.includes(relatedId);
                   const disabled = alreadySelected && !isAdded;
 

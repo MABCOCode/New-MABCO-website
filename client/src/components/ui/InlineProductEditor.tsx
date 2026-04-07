@@ -28,7 +28,7 @@ import {
 import { useEffect, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import savedSpecTitlesManager from "../../data/savedSpecTitlesData";
-import { uploadImageFile, uploadImageDataUrl } from "../../services/uploads";
+import { uploadImageDataUrl, uploadImageFile } from "../../services/uploads";
 
 // Content Guidelines & Limits
 const CONTENT_LIMITS = {
@@ -880,7 +880,7 @@ export function InlineProductEditor({
                                                 : "bg-gray-50 hover:bg-gray-100 text-gray-700"
                                             }`}
                                           >
-                                            <div className="w-8 h-8 bg-blue-50 rounded flex items-center justify-center overflow-hidden border border-blue-200">
+                                            <div className="bg-gradient-to-br from-[#009FE3] to-[#007BC7] p-3 rounded-xl shadow-md flex-shrink-0">
                                               <img src={iconItem.iconImage} alt={iconItem.nameEn} className="w-full h-full object-contain" />
                                             </div>
                                             <span className="text-xs font-medium text-center leading-tight">

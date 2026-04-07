@@ -52,6 +52,7 @@ interface CartItem {
   isBundleItem?: boolean;
   linkedToProductId?: number;
   bundleDiscount?: number;
+  bundleDiscountType?: "value" | "percentage" | null;
 }
 
 interface Showroom {
@@ -107,6 +108,13 @@ import { CartOfferDisplay } from "@/features/offer/components/CartOfferDisplay";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../../../context/CartContext";
 import { useLanguage } from "../../../context/LanguageContext";
+import {
+  applyOfferDiscount,
+  formatOfferDiscountLabel,
+  getOfferSavings,
+  resolveOfferDiscountType,
+  resolveOfferDiscountValue,
+} from "../../../utils/offerPricing";
 
 export function CheckoutPage() {
   const { language } = useLanguage();
@@ -540,15 +548,17 @@ export function CheckoutPage() {
     cartItems.forEach((source, idx) => {
       const offer = (source as any).appliedOffers?.find((o: any) => o?.type === "coupon");
       if (!offer) return;
-      let remaining = Number(offer.couponValue ?? offer.discountValue ?? offer.discount ?? 0) * (source.quantity || 1);
-      if (remaining <= 0) return;
-      for (let j = idx + 1; j < cartItems.length && remaining > 0; j += 1) {
+      const offerValue = resolveOfferDiscountValue(offer);
+      const isPercent = resolveOfferDiscountType(offer) === "percentage";
+      let remaining = offerValue * (source.quantity || 1);
+      if (!isPercent && remaining <= 0) return;
+      for (let j = idx + 1; j < cartItems.length && (isPercent || remaining > 0); j += 1) {
         const target = cartItems[j];
         if (target.isFreeGift || target.isBundleItem || target.linkedToProductId) continue;
         const lineTotal = parsePrice(target.price) * target.quantity;
         if (lineTotal <= 0) continue;
-        const applied = Math.min(remaining, lineTotal);
-        remaining -= applied;
+        const applied = isPercent ? (lineTotal * offerValue) / 100 : Math.min(remaining, lineTotal);
+        if (!isPercent) remaining -= applied;
         discount += applied;
       }
     });
@@ -583,11 +593,7 @@ export function CheckoutPage() {
               : item.oldPrice
               ? parsePrice(item.oldPrice)
               : parsePrice(item.price);
-          if (offer.discountType === "percentage") {
-            savings += (itemPrice * offer.discountValue / 100) * item.quantity;
-          } else {
-            savings += offer.discountValue * item.quantity;
-          }
+          savings += getOfferSavings(itemPrice, offer) * item.quantity;
         }
       });
     });
@@ -606,6 +612,28 @@ export function CheckoutPage() {
   
   const total = Math.max(0, subtotal + deliveryFee - couponDiscount);
   const formatPrice = (price: number) => price.toLocaleString();
+  const getItemDiscountBadge = (item: CartItem) => {
+    if (item.isBundleItem && item.bundleDiscount) {
+      return formatOfferDiscountLabel(
+        { type: "bundle_discount", discountValue: item.bundleDiscount, discountType: item.bundleDiscountType ?? "percentage" },
+        language,
+        t.currency,
+        isArabic ? "خصم" : "Off",
+      );
+    }
+    const offer = (item.appliedOffers || []).find((entry: any) =>
+      entry?.type === "direct_discount" || entry?.type === "coupon",
+    );
+    if (offer) {
+      return formatOfferDiscountLabel(
+        offer,
+        language,
+        t.currency,
+        isArabic ? "خصم" : "Off",
+      );
+    }
+    return "";
+  };
 
   // Filter showrooms
   const filteredShowrooms = showrooms
@@ -713,9 +741,9 @@ export function CheckoutPage() {
 
     const offers = getProductOffers(productId);
     const bundleOffer = offers.find((offer) => offer.type === "bundle_discount") as BundleDiscountOffer | undefined;
-    const discountPercentage = bundleOffer?.discountPercentage ?? 0;
+    const discountValue = resolveOfferDiscountValue(bundleOffer);
     const basePrice = parsePrice(bundleProduct.price);
-    const discountedPrice = Math.max(0, Math.round(basePrice * (1 - discountPercentage / 100)));
+    const discountedPrice = Math.round(applyOfferDiscount(basePrice, bundleOffer));
 
     addToCart(bundleProduct, {
       customId: `bundle-${productId}-${bundleProductId}`,
@@ -724,7 +752,8 @@ export function CheckoutPage() {
       overrideOldPrice: basePrice,
       isBundleItem: true,
       linkedToProductId: productId,
-      bundleDiscount: discountPercentage,
+      bundleDiscount: discountValue,
+      bundleDiscountType: resolveOfferDiscountType(bundleOffer),
     });
 
     setBundleProductsAdded((prev) => {
@@ -755,8 +784,8 @@ export function CheckoutPage() {
       description,
       description_ar: descriptionAr,
       descriptionAr,
-      discount: offer.discount ?? offer.discountValue ?? offer.couponValue ?? offer.value ?? 0,
-      discount_type: offer.discount_type ?? offer.discountType ?? null,
+      discount: resolveOfferDiscountValue(offer),
+      discount_type: resolveOfferDiscountType(offer) === "percentage" ? "p" : "v",
     };
   };
 
@@ -844,6 +873,7 @@ export function CheckoutPage() {
         isBundleItem: Boolean(item.isBundleItem),
         linkedToProductId: item.linkedToProductId ?? null,
         bundleDiscount: item.bundleDiscount ?? null,
+        bundleDiscountType: item.bundleDiscountType ?? null,
         appliedOffers,
       };
     });
@@ -1676,7 +1706,12 @@ export function CheckoutPage() {
                       {item.isBundleItem && item.bundleDiscount && (
                         <div className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs font-bold mb-1">
                           <Sparkles className="w-3 h-3" />
-                          {item.bundleDiscount}% {isArabic ? "خصم" : "Off"}
+                          {formatOfferDiscountLabel(
+                            { type: "bundle_discount", discountValue: item.bundleDiscount, discountType: item.bundleDiscountType ?? "percentage" },
+                            language,
+                            t.currency,
+                            isArabic ? "خصم" : "Off",
+                          )}
                         </div>
                       )}
                       {item.isCouponItem && (
@@ -1728,17 +1763,18 @@ export function CheckoutPage() {
                         (() => {
                           const itemPrice = parsePrice(item.price);
                           const oldPrice = parsePrice(item.oldPrice);
-                          const saved = Math.max(0, oldPrice - itemPrice);
-                          const percent = oldPrice > 0 ? Math.round((saved / oldPrice) * 100) : 0;
+                          const discountBadge = getItemDiscountBadge(item);
                           return (
                             <div>
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm text-gray-400 line-through">
                                   {formatPrice(oldPrice)} {t.currency}
                                 </span>
-                                <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
-                                  {isArabic ? `${formatPrice(saved)} ${t.currency} خصم` : `${formatPrice(saved)} ${t.currency} OFF`}
-                                </span>
+                                {discountBadge && (
+                                  <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
+                                    {discountBadge}
+                                  </span>
+                                )}
                                
                               </div>
                               <p className="text-sm font-bold text-[#009FE3]">

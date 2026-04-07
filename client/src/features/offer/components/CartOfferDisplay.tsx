@@ -15,6 +15,7 @@ import {
   getProductOffers,
   products,
 } from "../../../data/products";
+import { applyOfferDiscount, formatOfferDiscountLabel, getOfferSavings } from "../../../utils/offerPricing";
 import type {
   ProductOffer,
   DirectDiscountOffer,
@@ -102,14 +103,9 @@ export function CartOfferDisplay({
     const Icon = getOfferIcon("direct_discount");
     const gradient = getOfferGradient("direct_discount");
 
-    let savingsAmount = 0;
     const basePriceValue =
       typeof basePrice === "number" ? basePrice : numericPrice(product?.price);
-    if (offer.discountType === "percentage") {
-      savingsAmount = (basePriceValue * offer.discountValue) / 100 * quantity;
-    } else {
-      savingsAmount = offer.discountValue * quantity;
-    }
+    const savingsAmount = getOfferSavings(basePriceValue, offer) * quantity;
 
     return (
       <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-xl p-3 border-2 border-red-200">
@@ -166,7 +162,7 @@ export function CartOfferDisplay({
               <div className="flex items-center gap-1 bg-blue-100 px-2 py-1 rounded-full">
                 <Ticket className="w-3 h-3 text-blue-600" />
                 <span className="text-xs font-bold text-blue-700">
-                  {formatPrice(offer.couponValue * quantity)} {displayCurrency}
+                  {formatOfferDiscountLabel(offer, language, displayCurrency)}
                 </span>
               </div>
             </div>
@@ -262,7 +258,7 @@ export function CartOfferDisplay({
                 {language === "ar" ? offer.titleAr : offer.titleEn}
               </h4>
               <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">
-                {offer.discountPercentage}% {language === "ar" ? "خصم" : "OFF"}
+                {formatOfferDiscountLabel(offer, language, displayCurrency, language === "ar" ? "خصم" : "OFF")}
               </div>
             </div>
             <p className="text-xs text-gray-600 mb-2">
@@ -279,8 +275,10 @@ export function CartOfferDisplay({
                 if (!relatedProduct) return null;
                 const isAdded = appliedBundleItems.includes(relatedId);
 
-                const discountedPrice =
-                  numericPrice(relatedProduct.price) * (1 - offer.discountPercentage / 100);
+                const discountedPrice = applyOfferDiscount(
+                  numericPrice(relatedProduct.price),
+                  offer,
+                );
 
                 return (
                   <div
