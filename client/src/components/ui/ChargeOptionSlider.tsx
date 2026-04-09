@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ChargeOption {
   id?: string;
@@ -102,7 +102,7 @@ export function ChargeOptionSlider({
           ref={sliderRef}
           className="flex-1 bg-gradient-to-r from-[#009FE3]/10 to-[#009FE3]/5 border border-[#009FE3]/50 rounded-md px-2 py-1.5 text-center transition-all duration-300"
         >
-          <div className="text-xs font-bold text-[#009FE3]">
+          <div className="text-xl font-bold text-[#009FE3]">
             {language === "ar" ? currentOption.valueAr : currentOption.value}
           </div>
         </div>

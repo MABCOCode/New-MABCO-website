@@ -178,6 +178,26 @@ function normalizeOffersArray(raw) {
   return raw.map(normalizeOfferPayload).filter(Boolean);
 }
 
+function mergeItemsByStkCode(existingItems = [], incomingItems = [], mergeItem) {
+  const existingList = Array.isArray(existingItems) ? existingItems : [];
+  const incomingList = Array.isArray(incomingItems) ? incomingItems : [];
+  const incomingByCode = new Map(
+    incomingList
+      .filter((item) => item && (item.stk_code || item.stkCode))
+      .map((item) => [String(item.stk_code || item.stkCode), item]),
+  );
+
+  const merged = existingList.map((item) => {
+    const code = String(item?.stk_code || item?.stkCode || '');
+    if (!code || !incomingByCode.has(code)) return item;
+    const incoming = incomingByCode.get(code);
+    incomingByCode.delete(code);
+    return mergeItem(item, incoming);
+  });
+
+  return [...merged, ...Array.from(incomingByCode.values())];
+}
+
 router.get('/users', asyncHandler(async (req, res) => {
   const db = getDb();
   const query = {};
@@ -981,15 +1001,7 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
 
     if (Array.isArray(updates.colorVariants) && existing) {
       const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
-      const byCode = new Map(
-        updates.colorVariants
-          .filter((v) => v && (v.stk_code || v.stkCode))
-          .map((v) => [String(v.stk_code || v.stkCode), v]),
-      );
-      updates.colorVariants = existingVariants.map((variant) => {
-        const code = String(variant?.stk_code || variant?.stkCode || '');
-        if (!code || !byCode.has(code)) return variant;
-        const incoming = byCode.get(code);
+      updates.colorVariants = mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
         const next = { ...variant };
         if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.images !== undefined) next.images = incoming.images;
@@ -998,27 +1010,21 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
         if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
         if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
         if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
+        if (incoming.offers !== undefined) next.offers = incoming.offers;
         return next;
       });
     }
 
     if (Array.isArray(updates.chargeOptions) && existing) {
       const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
-      const byCode = new Map(
-        updates.chargeOptions
-          .filter((o) => o && (o.stk_code || o.stkCode))
-          .map((o) => [String(o.stk_code || o.stkCode), o]),
-      );
-      updates.chargeOptions = existingOptions.map((opt) => {
-        const code = String(opt?.stk_code || opt?.stkCode || '');
-        if (!code || !byCode.has(code)) return opt;
-        const incoming = byCode.get(code);
+      updates.chargeOptions = mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
         const next = { ...opt };
         if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
         if (incoming.price !== undefined) next.price = incoming.price;
         if (incoming.name !== undefined) next.name = incoming.name;
         if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
+        if (incoming.offers !== undefined) next.offers = incoming.offers;
         return next;
       });
     }
@@ -1122,15 +1128,7 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
 
     if (Array.isArray(updates.colorVariants) && existing) {
       const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
-      const byCode = new Map(
-        updates.colorVariants
-          .filter((v) => v && (v.stk_code || v.stkCode))
-          .map((v) => [String(v.stk_code || v.stkCode), v]),
-      );
-      updates.colorVariants = existingVariants.map((variant) => {
-        const code = String(variant?.stk_code || variant?.stkCode || '');
-        if (!code || !byCode.has(code)) return variant;
-        const incoming = byCode.get(code);
+      updates.colorVariants = mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
         const next = { ...variant };
         if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.images !== undefined) next.images = incoming.images;
@@ -1139,27 +1137,21 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
         if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
         if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
         if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
+        if (incoming.offers !== undefined) next.offers = incoming.offers;
         return next;
       });
     }
 
     if (Array.isArray(updates.chargeOptions) && existing) {
       const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
-      const byCode = new Map(
-        updates.chargeOptions
-          .filter((o) => o && (o.stk_code || o.stkCode))
-          .map((o) => [String(o.stk_code || o.stkCode), o]),
-      );
-      updates.chargeOptions = existingOptions.map((opt) => {
-        const code = String(opt?.stk_code || opt?.stkCode || '');
-        if (!code || !byCode.has(code)) return opt;
-        const incoming = byCode.get(code);
+      updates.chargeOptions = mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
         const next = { ...opt };
         if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
         if (incoming.price !== undefined) next.price = incoming.price;
         if (incoming.name !== undefined) next.name = incoming.name;
         if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
+        if (incoming.offers !== undefined) next.offers = incoming.offers;
         return next;
       });
     }
@@ -1228,6 +1220,9 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
   setIfDefined('cat_code', payload.cat_code);
   setIfDefined('brand', payload.brand);
   setIfDefined('brand_code', payload.brand_code);
+  if (payload.offers !== undefined) {
+    updates.offers = normalizeOffersArray(payload.offers);
+  }
   setIfDefined('inTheBox', payload.inTheBox);
   if (payload.status && typeof payload.status === 'object') {
     if (payload.status.isHidden !== undefined) {
@@ -1259,16 +1254,12 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
   }
 
   if (Array.isArray(payload.colorVariants)) {
+    const normalizedIncoming = payload.colorVariants.map((variant) => ({
+      ...variant,
+      offers: normalizeOffersArray(variant?.offers),
+    }));
     const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
-    const byCode = new Map(
-      payload.colorVariants
-        .filter((v) => v && (v.stk_code || v.stkCode))
-        .map((v) => [String(v.stk_code || v.stkCode), v]),
-    );
-    const merged = existingVariants.map((variant) => {
-      const variantStkCode = String(variant?.stk_code || variant?.stkCode || '').trim();
-      if (!variantStkCode || !byCode.has(variantStkCode)) return variant;
-      const match = byCode.get(variantStkCode);
+    const merged = mergeItemsByStkCode(existingVariants, normalizedIncoming, (variant, match) => {
       const hasExplicitImages = Array.isArray(match.images);
       const images = hasExplicitImages
         ? match.images
@@ -1284,22 +1275,19 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
         color_name: match.color_name !== undefined ? match.color_name : variant.color_name,
         color_name_ar: match.color_name_ar !== undefined ? match.color_name_ar : variant.color_name_ar,
         color_hex: match.color_hex !== undefined ? match.color_hex : variant.color_hex,
+        offers: match.offers !== undefined ? match.offers : variant.offers,
       };
     });
     updates.colorVariants = merged;
   }
 
   if (Array.isArray(payload.chargeOptions)) {
+    const normalizedIncoming = payload.chargeOptions.map((opt) => ({
+      ...opt,
+      offers: normalizeOffersArray(opt?.offers),
+    }));
     const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
-    const byCode = new Map(
-      payload.chargeOptions
-        .filter((o) => o && (o.stk_code || o.stkCode))
-        .map((o) => [String(o.stk_code || o.stkCode), o]),
-    );
-    const merged = existingOptions.map((opt) => {
-      const optCode = String(opt?.stk_code || opt?.stkCode || '').trim();
-      if (!optCode || !byCode.has(optCode)) return opt;
-      const match = byCode.get(optCode);
+    const merged = mergeItemsByStkCode(existingOptions, normalizedIncoming, (opt, match) => {
       return {
         ...opt,
         active: typeof match.active === 'boolean' ? match.active : opt.active,
@@ -1307,6 +1295,7 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
         price: match.price !== undefined ? match.price : opt.price,
         name: match.name !== undefined ? match.name : opt.name,
         name_ar: match.name_ar !== undefined ? match.name_ar : opt.name_ar,
+        offers: match.offers !== undefined ? match.offers : opt.offers,
       };
     });
     updates.chargeOptions = merged;

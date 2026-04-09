@@ -311,6 +311,25 @@ const pickPrimaryImage = (images: UnifiedImage[]) => {
   return productLevel?.src || images[0]?.src || "";
 };
 
+const getAdminActorHeaders = () => {
+  try {
+    const raw = localStorage.getItem("session");
+    if (!raw) return {};
+    const session = JSON.parse(raw);
+    const user = session?.user;
+    if (!user) return {};
+
+    const id = user.id ?? user._id ?? user.userId;
+    const role = user.role ?? "admin";
+    const headers: Record<string, string> = {};
+    if (id) headers["x-admin-user-id"] = String(id);
+    if (role) headers["x-admin-role"] = String(role);
+    return headers;
+  } catch {
+    return {};
+  }
+};
+
 function SpecIcon({ spec, size }: { spec: any; size: "sm" | "lg" }) {
   const dimension = size === "lg" ? "w-6 h-6" : "w-5 h-5";
   const [loaded, setLoaded] = useState(false);
@@ -676,7 +695,10 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     const apiBase =
       (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
     const adminKey = (import.meta as any).env?.VITE_ADMIN_API_KEY || "";
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...getAdminActorHeaders(),
+    };
     if (adminKey) headers["x-admin-key"] = adminKey;
     setIsSaving(true);
     setSaveError(null);
@@ -694,7 +716,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       const payload: Record<string, any> = {
         name: updated?.name,
         nameAr: updated?.nameAr,
-        description: updated?.description,
+        description: updated?.descriptionEn ?? updated?.description,
+        descriptionEn: updated?.descriptionEn,
         descriptionAr: updated?.descriptionAr,
         specs: updated?.specs ? updated.specs.map((spec: any) => {
           let icon = "Smartphone";
@@ -959,7 +982,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     unifiedImages.length > 0 || availableColorVariants.length > 0;
   const hasValidName = Boolean(String(prod?.name || "").trim());
   const hasSpecs = Array.isArray(prod?.specs) && prod.specs.length > 0;
-  const hasDescription = Boolean(String(prod?.description || prod?.descriptionAr || "").trim());
+  const localizedDescription = String(
+    language === "ar"
+      ? prod?.descriptionAr || prod?.description || ""
+      : prod?.description || prod?.descriptionAr || "",
+  ).trim();
+  const hasDescription = Boolean(localizedDescription);
   const hasDetails = hasSpecs || hasDescription;
 
   const [selectedColor, setSelectedColor] = useState(
@@ -2100,7 +2128,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               </div>
             </div>
 
-            {/* Description */}
+            {/* Description 
             {prod?.description && (
               <div className="mb-4 sm:mb-6 bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-200">
                 <h3 className="font-bold text-gray-900 mb-2 sm:mb-3 flex items-center gap-2 text-base sm:text-lg">
@@ -2128,7 +2156,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   }
                 />
               </div>
-            )}
+            )}*/}
 
             {/* {hasColors && (
               <div className="mb-6 bg-white rounded-2xl p-6 border border-gray-200">
@@ -2408,7 +2436,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 )}
 
                 <div className="prose prose-lg max-w-none">
-                  {prod?.description ? (
+                  {localizedDescription ? (
                     <div>
                       <h3 className="text-2xl font-bold text-gray-900 mb-4">
                         {language === "ar"
@@ -2416,7 +2444,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                           : "About this product"}
                       </h3>
                       <p className="text-gray-600 leading-relaxed mb-6">
-                        {prod?.description}
+                        {localizedDescription}
                       </p>
 
                       {(userPermissions.canEditContent || hasBoxItems) && (

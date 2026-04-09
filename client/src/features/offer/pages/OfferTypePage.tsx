@@ -1,13 +1,18 @@
-import { X, Tag, Gift, Ticket, Package, Sparkles, ArrowRight, TrendingDown, Menu, ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight, Gift, Package, Sparkles, Tag, Ticket, TrendingDown, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCart } from "../../../context/CartContext";
-import { useCompareStore } from "../../compare/state";
 import { useLanguage } from "../../../context/LanguageContext";
-import  ProductCard  from "../../products/components/ProductCard";
 import { CURRENCY_LABEL } from "../../../utils/currency";
 import { getProductRef } from "../../../utils/entityRefs";
-import { normalizeOffers } from "../../../utils/offerPricing";
+import {
+  formatOfferDiscountLabel,
+  normalizeOffers,
+  resolveOfferDiscountType,
+  resolveOfferDiscountValue,
+} from "../../../utils/offerPricing";
+import { useCompareStore } from "../../compare/state";
+import ProductCard from "../../products/components/ProductCard";
 
 interface OfferTypePageProps {
   offerType: "direct_discount" | "coupon" | "free_product" | "bundle_discount";
@@ -248,10 +253,15 @@ export function OfferTypePage({
           }
         }
         if (offer.type === "coupon") {
-          maxCouponValue = Math.max(maxCouponValue, offer.couponValue);
+          maxCouponValue = Math.max(maxCouponValue, resolveOfferDiscountValue(offer));
         }
         if (offer.type === "bundle_discount") {
-          maxBundlePct = Math.max(maxBundlePct, offer.discountPercentage);
+          const bundleValue = resolveOfferDiscountValue(offer);
+          if (resolveOfferDiscountType(offer) === "percentage") {
+            maxBundlePct = Math.max(maxBundlePct, bundleValue);
+          } else {
+            maxDiscountValue = Math.max(maxDiscountValue, bundleValue);
+          }
         }
         if (offer.type === "free_product") {
           const freeId = (offer as any).freeProductId;
@@ -277,7 +287,9 @@ export function OfferTypePage({
           ? `${maxCouponValue.toLocaleString()} ${CURRENCY_LABEL}`
           : "--";
       case "bundle_discount":
-        return maxBundlePct > 0 ? `${Math.round(maxBundlePct)}%` : "--";
+        if (maxBundlePct > 0) return `${Math.round(maxBundlePct)}%`;
+        if (maxDiscountValue > 0) return `${maxDiscountValue.toLocaleString()} ${CURRENCY_LABEL}`;
+        return "--";
       case "free_product":
         return maxGiftValue > 0
           ? `${maxGiftValue.toLocaleString()} ${CURRENCY_LABEL}`
@@ -580,18 +592,16 @@ export function OfferTypePage({
                             <span>
                               {(() => {
                                 if (!currentOffer) return "";
-                                const raw =
-                                  (currentOffer as any).couponValue ??
-                                  (currentOffer as any).coupon_value ??
-                                  (currentOffer as any).discount ??
-                                  (currentOffer as any).value ??
-                                  0;
-                                const num = typeof raw === "number"
-                                  ? raw
-                                  : Number(String(raw).replace(/[^0-9.-]/g, ""));
+                                const num = resolveOfferDiscountValue(currentOffer);
                                 if (!Number.isFinite(num) || num <= 0) {
                                   return language === "ar" ? "كوبون" : "Coupon";
                                 }
+                                return formatOfferDiscountLabel(
+                                  currentOffer,
+                                  language,
+                                  CURRENCY_LABEL,
+                                  language === "ar" ? "كوبون" : "Coupon",
+                                );
                                 return `${(num).toFixed(0)} $ ${
                                   language === "ar" ? "كوبون" : "Coupon"
                                 }`;
@@ -603,7 +613,20 @@ export function OfferTypePage({
                           )}
                           {offerType === "bundle_discount" && (
                             <span>
-                              {currentOffer && "discountPercentage" in currentOffer
+                              {(() => {
+                                if (!currentOffer) return "";
+                                const num = resolveOfferDiscountValue(currentOffer);
+                                if (!Number.isFinite(num) || num <= 0) {
+                                  return language === "ar" ? "حزمة" : "Bundle";
+                                }
+                                return formatOfferDiscountLabel(
+                                  currentOffer,
+                                  language,
+                                  CURRENCY_LABEL,
+                                  language === "ar" ? "حزمة" : "Bundle",
+                                );
+                              })()}
+                              {false && currentOffer && "discountPercentage" in currentOffer
                                 ? `${currentOffer.discountPercentage}% ${
                                     language === "ar" ? "على الحزمة" : "Bundle"
                                   }`

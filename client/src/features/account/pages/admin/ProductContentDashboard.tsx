@@ -74,7 +74,7 @@ const CONTENT_REQUIREMENTS = {
   imageMaxSize: 2, // MB
 };
 
-const SPEC_INPUT_MAX_LENGTH = 60;
+const SPEC_INPUT_MAX_LENGTH = 120;
 
 // Available icons for specifications
 const AVAILABLE_ICONS = [
@@ -108,6 +108,25 @@ const CATEGORIES = [
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
+
+const getAdminActorHeaders = () => {
+  try {
+    const raw = localStorage.getItem("session");
+    if (!raw) return {};
+    const session = JSON.parse(raw);
+    const user = session?.user;
+    if (!user) return {};
+
+    const id = user.id ?? user._id ?? user.userId;
+    const role = user.role ?? "admin";
+    const headers: Record<string, string> = {};
+    if (id) headers["x-admin-user-id"] = String(id);
+    if (role) headers["x-admin-role"] = String(role);
+    return headers;
+  } catch {
+    return {};
+  }
+};
 
 const pickLocalizedStaticName = (value: any, fallback = "") => {
   if (!value) return fallback;
@@ -655,7 +674,10 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   }, []);
 
   const saveProductUpdate = async (productId: string, update: any) => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...getAdminActorHeaders(),
+    };
     if (ADMIN_API_KEY) headers["x-admin-key"] = ADMIN_API_KEY;
     const res = await fetch(`${API_BASE}/admin/products/${encodeURIComponent(productId)}`, {
       method: "PUT",
@@ -2477,7 +2499,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                         {spec.iconImage ? (
                           /* Show image if using icon image */
                           <div className="flex items-center gap-3 px-4 py-3 border-2 border-[#009FE3] rounded-xl bg-blue-50">
-                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center overflow-hidden border-2 border-blue-200">
+                            <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7]  rounded-lg flex items-center justify-center overflow-hidden border-2 border-blue-200">
                               <img src={spec.iconImage} alt="Icon" className="w-full h-full object-contain" />
                             </div>
                             <span className="text-gray-700 font-medium flex-1">
@@ -2769,13 +2791,13 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
           {/* Category & Brand Tab */}
           {activeTab === "category" && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+              {/* <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
                 <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <h4 className="font-bold text-blue-900 mb-1">{t('admin.content.categoryNote')}</h4>
                   <p className="text-sm text-blue-700">{t('admin.content.notApplicable')}</p>
                 </div>
-              </div>
+              </div> */}
 
               {/* Category Selector */}
               <div>

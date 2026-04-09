@@ -35,8 +35,8 @@ const CONTENT_LIMITS = {
   descriptionEn: { min: 10, max: 500, optimal: 200 },
   descriptionAr: { min: 10, max: 500, optimal: 200 },
   specName: { max: 60 },
-  specValue: { max: 60 },
-  maxSpecs: 14,
+  specValue: { max: 120 },
+  maxSpecs: 16,
   minSpecs: 0,
 };
 
@@ -777,7 +777,7 @@ export function InlineProductEditor({
                           {spec.iconImage ? (
                             /* Show image if using icon image */
                             <div className="flex items-center gap-3 px-4 py-3 border-2 border-purple-300 rounded-xl bg-purple-50">
-                              <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center overflow-hidden border-2 border-blue-200">
+                              <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7]  rounded-lg flex items-center justify-center overflow-hidden border-2 border-blue-200">
                                 <img src={spec.iconImage} alt="Icon" className="w-full h-full object-contain" />
                               </div>
                               <span className="text-gray-700 font-medium flex-1">
