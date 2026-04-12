@@ -220,11 +220,11 @@ export function StoreProductsGallery({ onClose }: StoreProductsGalleryProps) {
                       className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
                     >
                       {/* Image */}
-                      <div className="bg-gray-100 h-40 overflow-hidden flex items-center justify-center">
+                      <div className="relative aspect-square overflow-hidden bg-gray-50">
                         <img
                           src={product.image}
                           alt={product.name}
-                          className="h-full w-full object-contain p-2"
+                          className="h-full w-full object-cover"
                           onError={(e) => {
                             const img = e.target as HTMLImageElement;
                             img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3Ctext y='50' font-size='14' fill='%23999' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";

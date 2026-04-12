@@ -2152,7 +2152,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                             </div>
                           </div>
                         ) : (
-                          <label className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#009FE3] transition-all cursor-pointer group block">
+                          <label className="aspect-square border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#009FE3] transition-all cursor-pointer group flex flex-col items-center justify-center">
                             <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2 group-hover:text-[#009FE3] transition-colors" />
                             <p className="text-sm text-gray-600">{t('admin.content.uploadColorImage')}</p>
                             <input
@@ -2205,11 +2205,11 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                     </h5>
                   </div>
                   <div className="flex flex-col gap-4 md:flex-row md:items-start">
-                    <div className="h-44 w-full overflow-hidden rounded-2xl bg-gray-50 md:w-52">
+                    <div className="aspect-square w-full overflow-hidden rounded-2xl bg-gray-50 md:w-52 md:flex-shrink-0">
                       <img
                         src={editorPreviewImages[0]}
                         alt={product.sku}
-                        className="h-full w-full object-contain p-3"
+                        className="h-full w-full object-cover"
                       />
                     </div>
                     <div className="flex flex-wrap gap-2">

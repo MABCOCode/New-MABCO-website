@@ -135,6 +135,90 @@ function toDateValue(value) {
   return null;
 }
 
+function toStringValue(value) {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'object') {
+    const localized =
+      value.ar ??
+      value.en ??
+      value.nameAr ??
+      value.nameEn ??
+      value.name ??
+      value.valueAr ??
+      value.valueEn ??
+      value.value;
+    if (localized === undefined || localized === null) return undefined;
+    return String(localized).trim();
+  }
+  return undefined;
+}
+
+function toFiniteNumber(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function normalizeStringArray(values) {
+  if (!Array.isArray(values)) return [];
+  return values
+    .map((value) => toStringValue(value))
+    .filter(Boolean);
+}
+
+function normalizeProductImages(values) {
+  if (!Array.isArray(values)) return [];
+  return values
+    .map((img) => {
+      if (typeof img === 'string') return img.trim();
+      if (img && typeof img === 'object') {
+        const src = img.image_link || img.url || img.src || img.image || '';
+        if (!src) return null;
+        return {
+          ...img,
+          ...(img.image_link !== undefined ? { image_link: String(img.image_link).trim() } : {}),
+          ...(img.url !== undefined ? { url: String(img.url).trim() } : {}),
+          ...(img.src !== undefined ? { src: String(img.src).trim() } : {}),
+          ...(img.image !== undefined ? { image: String(img.image).trim() } : {}),
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
+function normalizeAvailabilityPayload(value) {
+  if (!value || typeof value !== 'object') return undefined;
+  const next = {};
+  if (value.isAvailable !== undefined) next.isAvailable = Boolean(value.isAvailable);
+  if (value.hiddenReason !== undefined) next.hiddenReason = toStringValue(value.hiddenReason) || '';
+  const lastSyncedAt = toDateValue(value.lastSyncedAt);
+  if (lastSyncedAt) next.lastSyncedAt = lastSyncedAt;
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function normalizeStatusObject(value, fallback = {}) {
+  if (!value || typeof value !== 'object') return undefined;
+  const next = {};
+  if (value.isActive !== undefined || fallback.isActive !== undefined) {
+    next.isActive = value.isActive !== undefined ? Boolean(value.isActive) : Boolean(fallback.isActive);
+  }
+  if (value.isHidden !== undefined || fallback.isHidden !== undefined) {
+    next.isHidden = value.isHidden !== undefined ? Boolean(value.isHidden) : Boolean(fallback.isHidden);
+  }
+  if (typeof next.isActive !== 'boolean' || typeof next.isHidden !== 'boolean') return undefined;
+  return next;
+}
+
+function normalizeAuditObject(value, now, fallback = {}) {
+  if (!value || typeof value !== 'object') return undefined;
+  const createdAt = toDateValue(value.createdAt) || toDateValue(fallback.createdAt) || now;
+  const updatedAt = toDateValue(value.updatedAt) || toDateValue(fallback.updatedAt) || now;
+  return { createdAt, updatedAt };
+}
+
 function normalizeOfferPayload(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const offerType = raw.offer_type || raw.type;
@@ -195,10 +279,10 @@ function normalizeColorVariantsArray(raw) {
     const price = Number.isFinite(priceVal) ? priceVal : undefined;
 
     const next = {
-      stk_code: variant.stk_code ? String(variant.stk_code) : String(variant.stkCode || ''),
-      color_name: variant.color_name || variant.name || '',
-      color_name_ar: variant.color_name_ar || variant.nameAr || '',
-      color_hex: variant.color_hex || variant.hex || variant.hexCode || '',
+      stk_code: toStringValue(variant.stk_code || variant.stkCode) || '',
+      color_name: toStringValue(variant.color_name || variant.name) || '',
+      color_name_ar: toStringValue(variant.color_name_ar || variant.nameAr) || '',
+      color_hex: toStringValue(variant.color_hex || variant.hex || variant.hexCode) || '',
       in_stock:
         typeof variant.in_stock === 'boolean'
           ? variant.in_stock
@@ -230,9 +314,9 @@ function normalizeChargeOptionsArray(raw) {
     const price = Number.isFinite(priceVal) ? priceVal : undefined;
 
     const next = {
-      stk_code: opt.stk_code ? String(opt.stk_code) : String(opt.stkCode || ''),
-      name: opt.name || opt.value || '',
-      name_ar: opt.name_ar || opt.valueAr || '',
+      stk_code: toStringValue(opt.stk_code || opt.stkCode) || '',
+      name: toStringValue(opt.name || opt.value) || '',
+      name_ar: toStringValue(opt.name_ar || opt.valueAr) || '',
       in_stock: typeof opt.in_stock === 'boolean' ? opt.in_stock : true,
       active: typeof opt.active === 'boolean' ? opt.active : true,
       offers: normalizeOffersArray(opt?.offers),
@@ -277,6 +361,54 @@ function mergeItemsByStkCode(existingItems = [], incomingItems = [], mergeItem) 
   });
 
   return [...merged, ...Array.from(incomingByCode.values())];
+}
+
+function buildValidationRepairUpdates(existing, now) {
+  if (!existing || typeof existing !== 'object') return {};
+
+  const repair = {};
+
+  if (Array.isArray(existing.images)) {
+    repair.images = normalizeProductImages(existing.images);
+  }
+  if (Array.isArray(existing.colorVariants)) {
+    repair.colorVariants = normalizeColorVariantsArray(existing.colorVariants).filter(
+      (variant) => variant?.stk_code && variant?.price !== undefined,
+    );
+  }
+  if (Array.isArray(existing.chargeOptions)) {
+    repair.chargeOptions = normalizeChargeOptionsArray(existing.chargeOptions).filter(
+      (opt) => opt?.stk_code && opt?.price !== undefined,
+    );
+  }
+  if (existing.availability) {
+    repair.availability = normalizeAvailabilityPayload(existing.availability) || {};
+  }
+  if (existing.status) {
+    repair.status = normalizeStatusObject(existing.status, { isActive: true, isHidden: false }) || {
+      isActive: true,
+      isHidden: false,
+    };
+  }
+  if (existing.audit) {
+    repair.audit = normalizeAuditObject(existing.audit, now, {
+      createdAt: existing.createdAt,
+      updatedAt: existing.updatedAt,
+    });
+  }
+
+  return repair;
+}
+
+function stripConflictingParentPaths(updates, parentPaths = []) {
+  if (!updates || typeof updates !== 'object') return updates;
+  parentPaths.forEach((parentPath) => {
+    const hasChildPath = Object.keys(updates).some((key) => key.startsWith(`${parentPath}.`));
+    if (hasChildPath && Object.prototype.hasOwnProperty.call(updates, parentPath)) {
+      delete updates[parentPath];
+    }
+  });
+  return updates;
 }
 
 router.get('/users', asyncHandler(async (req, res) => {
@@ -1068,9 +1200,25 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
   if (updates.status !== undefined) {
     delete updates.status;
   }
+  if (updates.nameAr !== undefined) updates.nameAr = toStringValue(updates.nameAr);
+  if (updates.category !== undefined) updates.category = toStringValue(updates.category);
+  if (updates.categoryAr !== undefined) updates.categoryAr = toStringValue(updates.categoryAr);
+  if (updates.cat_code !== undefined) updates.cat_code = toStringValue(updates.cat_code);
+  if (updates.brand !== undefined) updates.brand = toStringValue(updates.brand);
+  if (updates.brandAr !== undefined) updates.brandAr = toStringValue(updates.brandAr);
+  if (updates.brand_code !== undefined) updates.brand_code = toStringValue(updates.brand_code);
+  if (updates.slug !== undefined) updates.slug = toStringValue(updates.slug);
+  if (updates.image !== undefined) updates.image = toStringValue(updates.image);
+  if (updates.images !== undefined) updates.images = normalizeProductImages(updates.images);
+  if (updates.cat_codes !== undefined) updates.cat_codes = normalizeStringArray(updates.cat_codes);
+  if (updates.brand_codes !== undefined) updates.brand_codes = normalizeStringArray(updates.brand_codes);
+  if (updates.price !== undefined) updates.price = toFiniteNumber(updates.price);
+  if (updates.availability !== undefined) updates.availability = normalizeAvailabilityPayload(updates.availability);
+  if (updates.audit !== undefined) updates.audit = normalizeAuditObject(updates.audit, now);
 
   try {
     const existing = await db.collection('products').findOne(query);
+    Object.assign(updates, buildValidationRepairUpdates(existing, now), updates);
     if (!existing) {
       updates.createdAt = now;
       if (typeof updates.audit === 'undefined') {
@@ -1093,27 +1241,27 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
 
       if (Array.isArray(updates.colorVariants) && existing) {
         const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
-        updates.colorVariants = mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
+        updates.colorVariants = normalizeColorVariantsArray(mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
           const next = { ...variant };
           if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.images !== undefined) next.images = incoming.images;
         if (incoming.image !== undefined) next.image = incoming.image;
         if (incoming.price !== undefined) next.price = incoming.price;
         if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
-        if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
+          if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
           if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
           if (incoming.offers !== undefined) next.offers = incoming.offers;
           return next;
-        });
+        })).filter((variant) => variant?.stk_code && variant?.price !== undefined);
       } else if (Array.isArray(updates.colorVariants) && !existing) {
         updates.colorVariants = updates.colorVariants.filter(
-          (variant) => variant?.price !== undefined,
+          (variant) => variant?.stk_code && variant?.price !== undefined,
         );
       }
 
       if (Array.isArray(updates.chargeOptions) && existing) {
         const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
-        updates.chargeOptions = mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
+        updates.chargeOptions = normalizeChargeOptionsArray(mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
           const next = { ...opt };
           if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
@@ -1122,13 +1270,14 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
           if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
           if (incoming.offers !== undefined) next.offers = incoming.offers;
           return next;
-        });
+        })).filter((opt) => opt?.stk_code && opt?.price !== undefined);
       } else if (Array.isArray(updates.chargeOptions) && !existing) {
         updates.chargeOptions = updates.chargeOptions.filter(
-          (opt) => opt?.price !== undefined,
+          (opt) => opt?.stk_code && opt?.price !== undefined,
         );
       }
 
+    stripConflictingParentPaths(updates, ['status', 'audit', 'availability']);
     await db.collection('products').updateOne(query, { $set: updates }, { upsert: true });
     const updated = await db.collection('products').findOne(query);
     if (updated) {
@@ -1215,8 +1364,24 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
     if (updates.status !== undefined) {
       delete updates.status;
     }
+    if (updates.nameAr !== undefined) updates.nameAr = toStringValue(updates.nameAr);
+    if (updates.category !== undefined) updates.category = toStringValue(updates.category);
+    if (updates.categoryAr !== undefined) updates.categoryAr = toStringValue(updates.categoryAr);
+    if (updates.cat_code !== undefined) updates.cat_code = toStringValue(updates.cat_code);
+    if (updates.brand !== undefined) updates.brand = toStringValue(updates.brand);
+    if (updates.brandAr !== undefined) updates.brandAr = toStringValue(updates.brandAr);
+    if (updates.brand_code !== undefined) updates.brand_code = toStringValue(updates.brand_code);
+    if (updates.slug !== undefined) updates.slug = toStringValue(updates.slug);
+    if (updates.image !== undefined) updates.image = toStringValue(updates.image);
+    if (updates.images !== undefined) updates.images = normalizeProductImages(updates.images);
+    if (updates.cat_codes !== undefined) updates.cat_codes = normalizeStringArray(updates.cat_codes);
+    if (updates.brand_codes !== undefined) updates.brand_codes = normalizeStringArray(updates.brand_codes);
+    if (updates.price !== undefined) updates.price = toFiniteNumber(updates.price);
+    if (updates.availability !== undefined) updates.availability = normalizeAvailabilityPayload(updates.availability);
+    if (updates.audit !== undefined) updates.audit = normalizeAuditObject(updates.audit, now);
 
     const existing = await db.collection('products').findOne(query);
+    Object.assign(updates, buildValidationRepairUpdates(existing, now), updates);
     if (!existing) {
       const requiredMissing = !updates.name || !updates.nameAr || !updates.price || !updates.stk_code;
       if (requiredMissing) {
@@ -1237,7 +1402,7 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
 
     if (Array.isArray(updates.colorVariants) && existing) {
       const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
-      updates.colorVariants = mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
+      updates.colorVariants = normalizeColorVariantsArray(mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
         const next = { ...variant };
         if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.images !== undefined) next.images = incoming.images;
@@ -1248,16 +1413,16 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
           if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
           if (incoming.offers !== undefined) next.offers = incoming.offers;
           return next;
-        });
+        })).filter((variant) => variant?.stk_code && variant?.price !== undefined);
       } else if (Array.isArray(updates.colorVariants) && !existing) {
         updates.colorVariants = updates.colorVariants.filter(
-          (variant) => variant?.price !== undefined,
+          (variant) => variant?.stk_code && variant?.price !== undefined,
         );
       }
 
       if (Array.isArray(updates.chargeOptions) && existing) {
         const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
-        updates.chargeOptions = mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
+        updates.chargeOptions = normalizeChargeOptionsArray(mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
           const next = { ...opt };
           if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
@@ -1266,10 +1431,10 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
           if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
           if (incoming.offers !== undefined) next.offers = incoming.offers;
           return next;
-        });
+        })).filter((opt) => opt?.stk_code && opt?.price !== undefined);
       } else if (Array.isArray(updates.chargeOptions) && !existing) {
         updates.chargeOptions = updates.chargeOptions.filter(
-          (opt) => opt?.price !== undefined,
+          (opt) => opt?.stk_code && opt?.price !== undefined,
         );
       }
 
@@ -1291,6 +1456,7 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
       if (!existing) {
         updateDoc.$setOnInsert = { createdAt: now };
       }
+      stripConflictingParentPaths(updateDoc.$set, ['status', 'audit', 'availability']);
       await db.collection('products').updateOne(query, updateDoc, { upsert: true });
       const updated = await db.collection('products').findOne(query);
       if (updated) {
@@ -1343,17 +1509,21 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
   };
 
   setIfDefined('name', payload.name);
-  setIfDefined('nameAr', payload.nameAr);
+  setIfDefined('nameAr', toStringValue(payload.nameAr));
   if (payload.descriptionEn !== undefined) setIfDefined('description', payload.descriptionEn);
   else setIfDefined('description', payload.description);
-  setIfDefined('descriptionAr', payload.descriptionAr);
-  setIfDefined('image', payload.image);
-  setIfDefined('images', payload.images);
-  setIfDefined('category', payload.category);
-  setIfDefined('categoryAr', payload.categoryAr);
-  setIfDefined('cat_code', payload.cat_code);
-  setIfDefined('brand', payload.brand);
-  setIfDefined('brand_code', payload.brand_code);
+  setIfDefined('descriptionAr', toStringValue(payload.descriptionAr));
+  setIfDefined('image', toStringValue(payload.image));
+  if (payload.images !== undefined) setIfDefined('images', normalizeProductImages(payload.images));
+  setIfDefined('category', toStringValue(payload.category));
+  setIfDefined('categoryAr', toStringValue(payload.categoryAr));
+  setIfDefined('cat_code', toStringValue(payload.cat_code));
+  setIfDefined('brand', toStringValue(payload.brand));
+  setIfDefined('brandAr', toStringValue(payload.brandAr));
+  setIfDefined('brand_code', toStringValue(payload.brand_code));
+  if (payload.price !== undefined) setIfDefined('price', toFiniteNumber(payload.price));
+  if (payload.cat_codes !== undefined) setIfDefined('cat_codes', normalizeStringArray(payload.cat_codes));
+  if (payload.brand_codes !== undefined) setIfDefined('brand_codes', normalizeStringArray(payload.brand_codes));
   if (payload.offers !== undefined) {
     updates.offers = normalizeOffersArray(payload.offers);
   }
@@ -1368,7 +1538,7 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
   }
   if (payload.availability && typeof payload.availability === 'object') {
     if (payload.availability.hiddenReason !== undefined) {
-      updates['availability.hiddenReason'] = payload.availability.hiddenReason || '';
+      updates['availability.hiddenReason'] = toStringValue(payload.availability.hiddenReason) || '';
     }
     if (payload.availability.isAvailable !== undefined) {
       updates['availability.isAvailable'] = Boolean(payload.availability.isAvailable);
@@ -1412,7 +1582,9 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
         offers: match.offers !== undefined ? match.offers : variant.offers,
       };
     });
-    updates.colorVariants = merged;
+    updates.colorVariants = normalizeColorVariantsArray(merged).filter(
+      (variant) => variant?.stk_code && variant?.price !== undefined,
+    );
   }
 
   if (Array.isArray(payload.chargeOptions)) {
@@ -1432,7 +1604,9 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
         offers: match.offers !== undefined ? match.offers : opt.offers,
       };
     });
-    updates.chargeOptions = merged;
+    updates.chargeOptions = normalizeChargeOptionsArray(merged).filter(
+      (opt) => opt?.stk_code && opt?.price !== undefined,
+    );
   }
 
   updates.updatedAt = new Date();
