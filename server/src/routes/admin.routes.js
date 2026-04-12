@@ -178,6 +178,87 @@ function normalizeOffersArray(raw) {
   return raw.map(normalizeOfferPayload).filter(Boolean);
 }
 
+function normalizeColorVariantsArray(raw) {
+  if (!Array.isArray(raw)) return raw;
+  return raw.map((variant) => {
+    const images = Array.isArray(variant.images)
+      ? variant.images
+          .map((img) => (typeof img === 'string' ? img : img?.image_link || img?.url || ''))
+          .filter(Boolean)
+      : [];
+
+    const hasPrice = Object.prototype.hasOwnProperty.call(variant, 'price');
+    const priceVal =
+      hasPrice && variant.price !== null && variant.price !== ''
+        ? Number(variant.price)
+        : undefined;
+    const price = Number.isFinite(priceVal) ? priceVal : undefined;
+
+    const next = {
+      stk_code: variant.stk_code ? String(variant.stk_code) : String(variant.stkCode || ''),
+      color_name: variant.color_name || variant.name || '',
+      color_name_ar: variant.color_name_ar || variant.nameAr || '',
+      color_hex: variant.color_hex || variant.hex || variant.hexCode || '',
+      in_stock:
+        typeof variant.in_stock === 'boolean'
+          ? variant.in_stock
+          : Boolean(variant.is_available ?? variant.isAvailable ?? variant.inStock),
+      active:
+        typeof variant.active === 'boolean'
+          ? variant.active
+          : Boolean(variant.is_available ?? variant.isAvailable ?? true),
+      images,
+      offers: normalizeOffersArray(variant?.offers),
+    };
+
+    if (hasPrice && price !== undefined) {
+      next.price = price;
+    }
+
+    return next;
+  });
+}
+
+function normalizeChargeOptionsArray(raw) {
+  if (!Array.isArray(raw)) return raw;
+  return raw.map((opt) => {
+    const hasPrice = Object.prototype.hasOwnProperty.call(opt, 'price');
+    const priceVal =
+      hasPrice && opt.price !== null && opt.price !== ''
+        ? Number(opt.price)
+        : undefined;
+    const price = Number.isFinite(priceVal) ? priceVal : undefined;
+
+    const next = {
+      stk_code: opt.stk_code ? String(opt.stk_code) : String(opt.stkCode || ''),
+      name: opt.name || opt.value || '',
+      name_ar: opt.name_ar || opt.valueAr || '',
+      in_stock: typeof opt.in_stock === 'boolean' ? opt.in_stock : true,
+      active: typeof opt.active === 'boolean' ? opt.active : true,
+      offers: normalizeOffersArray(opt?.offers),
+    };
+
+    if (hasPrice && price !== undefined) {
+      next.price = price;
+    }
+
+    return next;
+  });
+}
+
+function pickStatusPayload(rawStatus) {
+  if (!rawStatus || typeof rawStatus !== 'object') return null;
+  const hasActive = rawStatus.isActive !== undefined;
+  const hasHidden = rawStatus.isHidden !== undefined;
+  if (!hasActive && !hasHidden) return null;
+  return {
+    hasActive,
+    hasHidden,
+    isActive: hasActive ? Boolean(rawStatus.isActive) : undefined,
+    isHidden: hasHidden ? Boolean(rawStatus.isHidden) : undefined,
+  };
+}
+
 function mergeItemsByStkCode(existingItems = [], incomingItems = [], mergeItem) {
   const existingList = Array.isArray(existingItems) ? existingItems : [];
   const incomingList = Array.isArray(incomingItems) ? incomingItems : [];
@@ -978,16 +1059,14 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
     updates.offers = normalizeOffersArray(updates.offers);
   }
   if (Array.isArray(updates.colorVariants)) {
-    updates.colorVariants = updates.colorVariants.map((variant) => ({
-      ...variant,
-      offers: normalizeOffersArray(variant?.offers),
-    }));
+    updates.colorVariants = normalizeColorVariantsArray(updates.colorVariants);
   }
   if (Array.isArray(updates.chargeOptions)) {
-    updates.chargeOptions = updates.chargeOptions.map((opt) => ({
-      ...opt,
-      offers: normalizeOffersArray(opt?.offers),
-    }));
+    updates.chargeOptions = normalizeChargeOptionsArray(updates.chargeOptions);
+  }
+  const statusPayload = updates.status;
+  if (updates.status !== undefined) {
+    delete updates.status;
   }
 
   try {
@@ -999,35 +1078,56 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
       }
     }
 
-    if (Array.isArray(updates.colorVariants) && existing) {
-      const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
-      updates.colorVariants = mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
-        const next = { ...variant };
-        if (incoming.active !== undefined) next.active = incoming.active;
+    const statusUpdate = pickStatusPayload(statusPayload);
+    if (statusUpdate) {
+      if (existing) {
+        if (statusUpdate.hasActive) updates['status.isActive'] = statusUpdate.isActive;
+        if (statusUpdate.hasHidden) updates['status.isHidden'] = statusUpdate.isHidden;
+      } else if (statusUpdate.hasActive && statusUpdate.hasHidden) {
+        updates.status = {
+          isActive: statusUpdate.isActive,
+          isHidden: statusUpdate.isHidden,
+        };
+      }
+    }
+
+      if (Array.isArray(updates.colorVariants) && existing) {
+        const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
+        updates.colorVariants = mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
+          const next = { ...variant };
+          if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.images !== undefined) next.images = incoming.images;
         if (incoming.image !== undefined) next.image = incoming.image;
         if (incoming.price !== undefined) next.price = incoming.price;
         if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
         if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
-        if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
-        if (incoming.offers !== undefined) next.offers = incoming.offers;
-        return next;
-      });
-    }
+          if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
+          if (incoming.offers !== undefined) next.offers = incoming.offers;
+          return next;
+        });
+      } else if (Array.isArray(updates.colorVariants) && !existing) {
+        updates.colorVariants = updates.colorVariants.filter(
+          (variant) => variant?.price !== undefined,
+        );
+      }
 
-    if (Array.isArray(updates.chargeOptions) && existing) {
-      const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
-      updates.chargeOptions = mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
-        const next = { ...opt };
-        if (incoming.active !== undefined) next.active = incoming.active;
+      if (Array.isArray(updates.chargeOptions) && existing) {
+        const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
+        updates.chargeOptions = mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
+          const next = { ...opt };
+          if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
         if (incoming.price !== undefined) next.price = incoming.price;
         if (incoming.name !== undefined) next.name = incoming.name;
-        if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
-        if (incoming.offers !== undefined) next.offers = incoming.offers;
-        return next;
-      });
-    }
+          if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
+          if (incoming.offers !== undefined) next.offers = incoming.offers;
+          return next;
+        });
+      } else if (Array.isArray(updates.chargeOptions) && !existing) {
+        updates.chargeOptions = updates.chargeOptions.filter(
+          (opt) => opt?.price !== undefined,
+        );
+      }
 
     await db.collection('products').updateOne(query, { $set: updates }, { upsert: true });
     const updated = await db.collection('products').findOne(query);
@@ -1106,23 +1206,32 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
       updates.offers = normalizeOffersArray(updates.offers);
     }
     if (Array.isArray(updates.colorVariants)) {
-      updates.colorVariants = updates.colorVariants.map((variant) => ({
-        ...variant,
-        offers: normalizeOffersArray(variant?.offers),
-      }));
+      updates.colorVariants = normalizeColorVariantsArray(updates.colorVariants);
     }
     if (Array.isArray(updates.chargeOptions)) {
-      updates.chargeOptions = updates.chargeOptions.map((opt) => ({
-        ...opt,
-        offers: normalizeOffersArray(opt?.offers),
-      }));
+      updates.chargeOptions = normalizeChargeOptionsArray(updates.chargeOptions);
+    }
+    const statusPayload = updates.status;
+    if (updates.status !== undefined) {
+      delete updates.status;
     }
 
     const existing = await db.collection('products').findOne(query);
     if (!existing) {
-      updates.createdAt = now;
-      if (typeof updates.audit === 'undefined') {
-        updates['audit.createdAt'] = now;
+      const requiredMissing = !updates.name || !updates.nameAr || !updates.price || !updates.stk_code;
+      if (requiredMissing) {
+        results.push({
+          success: false,
+          identifier,
+          error: 'Missing required fields for insert',
+          missingFields: {
+            name: !updates.name,
+            nameAr: !updates.nameAr,
+            price: !updates.price,
+            stk_code: !updates.stk_code,
+          },
+        });
+        continue;
       }
     }
 
@@ -1136,28 +1245,53 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
         if (incoming.price !== undefined) next.price = incoming.price;
         if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
         if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
-        if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
-        if (incoming.offers !== undefined) next.offers = incoming.offers;
-        return next;
-      });
-    }
+          if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
+          if (incoming.offers !== undefined) next.offers = incoming.offers;
+          return next;
+        });
+      } else if (Array.isArray(updates.colorVariants) && !existing) {
+        updates.colorVariants = updates.colorVariants.filter(
+          (variant) => variant?.price !== undefined,
+        );
+      }
 
-    if (Array.isArray(updates.chargeOptions) && existing) {
-      const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
-      updates.chargeOptions = mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
-        const next = { ...opt };
-        if (incoming.active !== undefined) next.active = incoming.active;
+      if (Array.isArray(updates.chargeOptions) && existing) {
+        const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
+        updates.chargeOptions = mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
+          const next = { ...opt };
+          if (incoming.active !== undefined) next.active = incoming.active;
         if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
         if (incoming.price !== undefined) next.price = incoming.price;
         if (incoming.name !== undefined) next.name = incoming.name;
-        if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
-        if (incoming.offers !== undefined) next.offers = incoming.offers;
-        return next;
-      });
+          if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
+          if (incoming.offers !== undefined) next.offers = incoming.offers;
+          return next;
+        });
+      } else if (Array.isArray(updates.chargeOptions) && !existing) {
+        updates.chargeOptions = updates.chargeOptions.filter(
+          (opt) => opt?.price !== undefined,
+        );
+      }
+
+    const statusUpdate = pickStatusPayload(statusPayload);
+    if (statusUpdate) {
+      if (existing) {
+        if (statusUpdate.hasActive) updates['status.isActive'] = statusUpdate.isActive;
+        if (statusUpdate.hasHidden) updates['status.isHidden'] = statusUpdate.isHidden;
+      } else if (statusUpdate.hasActive && statusUpdate.hasHidden) {
+        updates.status = {
+          isActive: statusUpdate.isActive,
+          isHidden: statusUpdate.isHidden,
+        };
+      }
     }
 
     try {
-      await db.collection('products').updateOne(query, { $set: updates }, { upsert: true });
+      const updateDoc = { $set: updates };
+      if (!existing) {
+        updateDoc.$setOnInsert = { createdAt: now };
+      }
+      await db.collection('products').updateOne(query, updateDoc, { upsert: true });
       const updated = await db.collection('products').findOne(query);
       if (updated) {
         await db.collection('admin_actions').insertOne({

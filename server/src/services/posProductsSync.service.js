@@ -136,9 +136,15 @@ function normalizeColorVariants(variants = []) {
           .filter(Boolean)
       : [];
 
-    return {
+    const hasPrice = Object.prototype.hasOwnProperty.call(variant, 'price');
+    const priceVal =
+      hasPrice && variant.price !== null && variant.price !== ''
+        ? Number(variant.price)
+        : undefined;
+    const price = Number.isFinite(priceVal) ? priceVal : undefined;
+
+    const next = {
       stk_code: variant.stk_code ? String(variant.stk_code) : '',
-      price: Number(variant.price ?? 0),
       color_name: variant.color_name || variant.name || '',
       color_name_ar: variant.color_name_ar || variant.nameAr || '',
       color_hex: variant.color_hex || variant.hex || variant.hexCode || '',
@@ -155,20 +161,40 @@ function normalizeColorVariants(variants = []) {
         ? variant.offers.map(normalizeOffer).filter(Boolean)
         : [],
     };
+
+    if (hasPrice && price !== undefined) {
+      next.price = price;
+    }
+
+    return next;
   });
 }
 
 function normalizeChargeOptions(options = []) {
   if (!Array.isArray(options)) return [];
-  return options.map((opt) => ({
-    stk_code: opt.stk_code ? String(opt.stk_code) : '',
-    price: Number(opt.price ?? 0),
-    name: opt.name || opt.value || '',
-    name_ar: opt.name_ar || opt.valueAr || '',
-    in_stock: typeof opt.in_stock === 'boolean' ? opt.in_stock : true,
-    active: typeof opt.active === 'boolean' ? opt.active : true,
-    offers: Array.isArray(opt.offers) ? opt.offers.map(normalizeOffer).filter(Boolean) : [],
-  }));
+  return options.map((opt) => {
+    const hasPrice = Object.prototype.hasOwnProperty.call(opt, 'price');
+    const priceVal =
+      hasPrice && opt.price !== null && opt.price !== ''
+        ? Number(opt.price)
+        : undefined;
+    const price = Number.isFinite(priceVal) ? priceVal : undefined;
+
+    const next = {
+      stk_code: opt.stk_code ? String(opt.stk_code) : '',
+      name: opt.name || opt.value || '',
+      name_ar: opt.name_ar || opt.valueAr || '',
+      in_stock: typeof opt.in_stock === 'boolean' ? opt.in_stock : true,
+      active: typeof opt.active === 'boolean' ? opt.active : true,
+      offers: Array.isArray(opt.offers) ? opt.offers.map(normalizeOffer).filter(Boolean) : [],
+    };
+
+    if (hasPrice && price !== undefined) {
+      next.price = price;
+    }
+
+    return next;
+  });
 }
 
 function normalizeProductDoc(doc, stkCode, now) {
@@ -455,6 +481,16 @@ async function syncPosProducts({ connString, db, logger = console }) {
       if (!existing) {
         if (!updates.name) updates.name = `${stkCode}`;
         if (!updates.nameAr) updates.nameAr = `${stkCode}`;
+        if (Array.isArray(updates.colorVariants)) {
+          updates.colorVariants = updates.colorVariants.filter(
+            (variant) => variant?.price !== undefined,
+          );
+        }
+        if (Array.isArray(updates.chargeOptions)) {
+          updates.chargeOptions = updates.chargeOptions.filter(
+            (opt) => opt?.price !== undefined,
+          );
+        }
         const requiredMissing = !updates.name || !updates.nameAr || !updates.price;
         if (requiredMissing) {
           errors.push({
