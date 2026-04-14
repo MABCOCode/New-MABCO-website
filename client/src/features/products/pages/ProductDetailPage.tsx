@@ -563,7 +563,11 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   }, [id]);
 
   const prod = localProduct ?? product;
-  const hasBoxItems = Boolean(prod?.boxItems?.length);
+  const hasBoxItems = Boolean(
+    (Array.isArray(prod?.inTheBox) && prod.inTheBox.length > 0) ||
+    (Array.isArray(prod?.boxItems) && prod.boxItems.length > 0) ||
+    (Array.isArray(prod?.box) && prod.box.length > 0)
+  );
 
   useEffect(() => {
     let mounted = true;
