@@ -2454,7 +2454,30 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                         {localizedDescription}
                       </p>
 
-                      {(userPermissions.canEditContent || hasBoxItems) && (
+                      {isLoadingProduct && (
+                        <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
+                          <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <PackageCheck className="w-5 h-5 text-[#009FE3]" />
+                            {t("admin.content.boxTitle") ||
+                              (language === "ar"
+                                ? "ما يأتي في العلبة"
+                                : "What's in the box")}
+                          </h4>
+                          <ul className="space-y-2">
+                            {[1, 2, 3].map((idx) => (
+                              <li
+                                key={idx}
+                                className="flex items-center gap-2"
+                              >
+                                <div className="w-4 h-4 rounded-full shimmer-surface" />
+                                <div className="h-4 w-32 shimmer-surface rounded" />
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {!isLoadingProduct && (userPermissions.canEditContent || hasBoxItems) && (
                         <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
                           <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
                             <PackageCheck className="w-5 h-5 text-[#009FE3]" />
@@ -2478,18 +2501,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             {(() => {
                               const raw = prod?.inTheBox ||
                                 prod?.box ||
-                                prod?.boxItems || [
-                                  prod?.name,
-                                  language === "ar"
-                                    ? "دليل المستخدم"
-                                    : "User Manual",
-                                  language === "ar"
-                                    ? "بطاقة الضمان"
-                                    : "Warranty Card",
-                                  language === "ar"
-                                    ? "ملحقات إضافية"
-                                    : "Accessories",
-                                ];
+                                prod?.boxItems;
                               return (raw || [])
                                 .filter(Boolean)
                                 .map((item: any) => {
