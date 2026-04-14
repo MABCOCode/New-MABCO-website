@@ -39,6 +39,8 @@ export function SignupFlow({
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
+  const [otpDeliveryNotice, setOtpDeliveryNotice] = useState<string | null>(null);
+  const [otpFallbackNotice, setOtpFallbackNotice] = useState<string | null>(null);
 
   const t = translations[language];
   const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
@@ -177,6 +179,8 @@ export function SignupFlow({
         setResendTimer(60);
         setCanResend(false);
         setRemainingAttempts(json?.remainingAttempts ?? null);
+        setOtpDeliveryNotice(t.account_otp_delivery_notice);
+        setOtpFallbackNotice(json?.delivery?.fallbackNotice ? t.account_otp_delivery_fallback : null);
         setTimeout(() => inputRefs.current[0]?.focus(), 100);
       } catch (err: any) {
         setApiError(mapAuthError(err?.message));
@@ -262,6 +266,8 @@ export function SignupFlow({
           throw new Error(json?.message || "");
         }
         setRemainingAttempts(json?.remainingAttempts ?? null);
+        setOtpDeliveryNotice(t.account_otp_delivery_notice);
+        setOtpFallbackNotice(json?.delivery?.fallbackNotice ? t.account_otp_delivery_fallback : null);
         inputRefs.current[0]?.focus();
       } catch (err: any) {
         setApiError(mapAuthError(err?.message));
@@ -646,6 +652,16 @@ export function SignupFlow({
                   <br />
                   <span className="font-semibold text-[#009FE3]">{phoneNumber}</span>
                 </p>
+                {otpDeliveryNotice && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 text-blue-700 px-3 py-2 text-sm">
+                    {otpDeliveryNotice}
+                  </div>
+                )}
+                {otpFallbackNotice && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-700 px-3 py-2 text-sm">
+                    {otpFallbackNotice}
+                  </div>
+                )}
                 {apiError && (
                   <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
                     {apiError}

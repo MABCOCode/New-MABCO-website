@@ -15,7 +15,9 @@
 
   export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
-    const apiBase = env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    const isDevelopment = mode === 'development';
+    const defaultApiBase = isDevelopment ? 'http://localhost:5000/api' : 'https://new.mabcoonline.com/api';
+    const apiBase = env.VITE_API_BASE_URL || defaultApiBase;
     const serverBase = resolveBaseUrl(apiBase);
     return {
     plugins: [react()],

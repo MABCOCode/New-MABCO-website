@@ -27,6 +27,8 @@ export function ForgotPasswordPage({ language, onClose, onBackToLogin }: ForgotP
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
+  const [otpDeliveryNotice, setOtpDeliveryNotice] = useState<string | null>(null);
+  const [otpFallbackNotice, setOtpFallbackNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (otpSent && resendTimer > 0) {
@@ -98,6 +100,8 @@ export function ForgotPasswordPage({ language, onClose, onBackToLogin }: ForgotP
       setResendTimer(60);
       setCanResend(false);
       setRemainingAttempts(json?.remainingAttempts ?? null);
+      setOtpDeliveryNotice(t.account_otp_delivery_notice);
+      setOtpFallbackNotice(json?.delivery?.fallbackNotice ? t.account_otp_delivery_fallback : null);
     } catch (err: any) {
       setApiError(mapAuthError(err?.message));
     } finally {
@@ -128,6 +132,8 @@ export function ForgotPasswordPage({ language, onClose, onBackToLogin }: ForgotP
         setResendTimer(60);
         setCanResend(false);
         setRemainingAttempts(json?.remainingAttempts ?? null);
+        setOtpDeliveryNotice(t.account_otp_delivery_notice);
+        setOtpFallbackNotice(json?.delivery?.fallbackNotice ? t.account_otp_delivery_fallback : null);
       } catch (err: any) {
         setApiError(mapAuthError(err?.message));
       } finally {
@@ -188,6 +194,16 @@ export function ForgotPasswordPage({ language, onClose, onBackToLogin }: ForgotP
             {apiError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4">
                 {apiError}
+              </div>
+            )}
+            {otpSent && otpDeliveryNotice && (
+              <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl mb-4 text-sm">
+                {otpDeliveryNotice}
+              </div>
+            )}
+            {otpSent && otpFallbackNotice && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl mb-4 text-sm">
+                {otpFallbackNotice}
               </div>
             )}
 

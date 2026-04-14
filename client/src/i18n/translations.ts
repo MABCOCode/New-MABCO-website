@@ -1,4 +1,4 @@
-import { CURRENCY_LABEL } from "@/utils/currency";
+﻿import { CURRENCY_LABEL } from "@/utils/currency";
 
 export type Lang = "ar" | "en";
 
@@ -179,6 +179,8 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     account_signup_next: "التالي",
     account_signup_verify_phone: "التحقق من الهاتف",
     account_signup_verification_sent: "تم إرسال رمز التحقق إلى",
+    account_otp_delivery_notice: "سيتم إرسال رمز التحقق عبر واتساب، وإذا فشل الإرسال سنحاول عبر SMS.",
+    account_otp_delivery_fallback: "فشل إرسال واتساب. سيحاول الموقع إرسال رسالة SMS.",
     account_signup_enter_code: "أدخل رمز التحقق المكون من 6 أرقام",
     account_signup_resend_code: "إعادة إرسال الرمز",
     account_signup_resend_in: "إعادة الإرسال بعد",
@@ -679,6 +681,8 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     account_signup_next: "Next",
     account_signup_verify_phone: "Verify Phone",
     account_signup_verification_sent: "Verification code sent to",
+    account_otp_delivery_notice: "OTP will be sent to WhatsApp. If it fails, we will try SMS.",
+    account_otp_delivery_fallback: "WhatsApp delivery failed. The website will try to send SMS.",
     account_signup_enter_code: "Enter the 6-digit verification code",
     account_signup_resend_code: "Resend Code",
     account_signup_resend_in: "Resend in",

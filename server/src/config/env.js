@@ -13,6 +13,7 @@ module.exports = {
   smsPass: process.env.SMS_PASS || 'ocbam4141',
   smsFrom: process.env.SMS_FROM || 'MABCO',
   smsLang: process.env.SMS_LANG || '0',
+  whatsappApiKey: process.env.WHATSAPP_API_KEY || '',
   otpSecret: process.env.OTP_SECRET || 'otp-secret',
   adminTokenSecret: process.env.ADMIN_TOKEN_SECRET || process.env.OTP_SECRET || 'admin-token-secret',
   posSyncToken: process.env.POS_SYNC_TOKEN || '',

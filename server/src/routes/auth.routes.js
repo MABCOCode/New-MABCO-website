@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const { ObjectId } = require('mongodb');
 const asyncHandler = require('../utils/asyncHandler');
 const { getDb } = require('../config/db');
-const { smsUser, smsPass, smsFrom, smsLang, otpSecret } = require('../config/env');
+const { smsUser, smsPass, smsFrom, smsLang, otpSecret, whatsappApiKey } = require('../config/env');
 const { hashToken } = require('../middleware/adminTokenAuth');
 
 const router = express.Router();
@@ -101,6 +101,64 @@ const sendOtpSms = async ({ phone, code }) => {
   return true; // fallback: probably successful when status=200 but output format unknown
 };
 
+const sendOtpWhatsApp = async ({ phone, code }) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[DEV MODE] OTP (WhatsApp) for ${phone}: ${code}`);
+    return true;
+  }
+
+  if (!whatsappApiKey) {
+    console.warn('[OTP] WhatsApp API key is missing; skipping WhatsApp send.');
+    return false;
+  }
+
+  const to = phone.startsWith('+') ? phone : `+${phone}`;
+  const payload = {
+    to,
+    text: `Your verification code is ${code}`,
+  };
+
+  const res = await fetch('https://www.wasenderapi.com/api/send-message', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${whatsappApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  let responseData;
+  try {
+    responseData = await res.json();
+  } catch (error) {
+    console.error(`[OTP] WhatsApp API response parsing failed for ${to}:`, res.status, error.message);
+    return false;
+  }
+
+  // Log the result in npm server logs
+  if (responseData.success) {
+    console.log(`[OTP] WhatsApp API success for ${to}:`, responseData);
+  } else {
+    console.log(`[OTP] WhatsApp API failed for ${to}:`, responseData);
+  }
+
+  return responseData.success === true;
+};
+
+const sendOtpWithFallback = async ({ phone, code }) => {
+  const whatsappSent = await sendOtpWhatsApp({ phone, code });
+  if (whatsappSent) {
+    return { sent: true, usedChannel: 'whatsapp', whatsappFailed: false };
+  }
+
+  const smsSent = await sendOtpSms({ phone, code });
+  if (smsSent) {
+    return { sent: true, usedChannel: 'sms', whatsappFailed: true };
+  }
+
+  return { sent: false, usedChannel: null, whatsappFailed: true };
+};
+
 const loadOtpRecord = async (db, phone, purpose) => {
   return db.collection('otp_verifications').findOne({ phone, purpose });
 };
@@ -161,8 +219,8 @@ router.post('/signup/request-otp', asyncHandler(async (req, res) => {
   const codeHash = hashOtp(code, phone, PURPOSES.SIGNUP);
   const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
 
-  const sent = await sendOtpSms({ phone, code });
-  if (!sent) {
+  const sendResult = await sendOtpWithFallback({ phone, code });
+  if (!sendResult.sent) {
     return res.status(502).json({
       success: false,
       message: 'Failed to send OTP',
@@ -184,6 +242,15 @@ router.post('/signup/request-otp', asyncHandler(async (req, res) => {
   res.json({
     success: true,
     phone,
+    delivery: {
+      primary: 'whatsapp',
+      fallback: 'sms',
+      notice: 'OTP will be sent to WhatsApp. If it fails, we will try SMS.',
+      fallbackNotice: sendResult.whatsappFailed
+        ? 'WhatsApp delivery failed. The website will try to send SMS.'
+        : null,
+      usedChannel: sendResult.usedChannel,
+    },
     remainingAttempts: Math.max(0, OTP_MAX_PER_DAY - attemptsToday - 1)
   });
 }));
@@ -506,8 +573,8 @@ router.post('/password/request-otp', asyncHandler(async (req, res) => {
   const codeHash = hashOtp(code, phone, PURPOSES.PASSWORD_RESET);
   const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
 
-  const sent = await sendOtpSms({ phone, code });
-  if (!sent) {
+  const sendResult = await sendOtpWithFallback({ phone, code });
+  if (!sendResult.sent) {
     return res.status(502).json({
       success: false,
       message: 'Failed to send OTP',
@@ -529,6 +596,15 @@ router.post('/password/request-otp', asyncHandler(async (req, res) => {
   res.json({
     success: true,
     phone,
+    delivery: {
+      primary: 'whatsapp',
+      fallback: 'sms',
+      notice: 'OTP will be sent to WhatsApp. If it fails, we will try SMS.',
+      fallbackNotice: sendResult.whatsappFailed
+        ? 'WhatsApp delivery failed. The website will try to send SMS.'
+        : null,
+      usedChannel: sendResult.usedChannel,
+    },
     remainingAttempts: Math.max(0, OTP_MAX_PER_DAY - attemptsToday - 1)
   });
 }));

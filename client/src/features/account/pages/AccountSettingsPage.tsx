@@ -43,6 +43,8 @@ export function AccountSettingsPage({
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
+  const [otpDeliveryNotice, setOtpDeliveryNotice] = useState<string | null>(null);
+  const [otpFallbackNotice, setOtpFallbackNotice] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
 
@@ -178,6 +180,8 @@ export function AccountSettingsPage({
           setOtpSent(true);
           setOtpCode("");
           setRemainingAttempts(json?.remainingAttempts ?? null);
+          setOtpDeliveryNotice(t.account_otp_delivery_notice);
+          setOtpFallbackNotice(json?.delivery?.fallbackNotice ? t.account_otp_delivery_fallback : null);
           setIsLoading(false);
           setOtpSending(false);
           return;
@@ -557,6 +561,16 @@ export function AccountSettingsPage({
               {/* OTP Code */}
               {otpSent && (
                 <div>
+                  {otpDeliveryNotice && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 text-blue-700 px-3 py-2 text-sm mb-3">
+                      {otpDeliveryNotice}
+                    </div>
+                  )}
+                  {otpFallbackNotice && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-700 px-3 py-2 text-sm mb-3">
+                      {otpFallbackNotice}
+                    </div>
+                  )}
                   <label
                     className={`block text-sm font-medium text-gray-700 mb-2 ${
                       language === "ar" ? "text-right" : "text-left"
