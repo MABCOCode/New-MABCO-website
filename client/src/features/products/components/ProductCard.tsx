@@ -1,16 +1,15 @@
-import React from "react";
-import { ShoppingCart, Flame, TrendingUp, Tag, X } from "lucide-react";
-import { Product } from "../../../types/product";
-import { useCart } from "../../../context/CartContext";
-import { useState } from "react";
+import { Flame, ShoppingCart, Tag, TrendingUp, X } from "lucide-react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ColorSwatch } from "../../../components/ui/ColorSwatch";
-import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
+import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
+import { ColorSwatch } from "../../../components/ui/ColorSwatch";
+import { useCart } from "../../../context/CartContext";
+import { getOfferBadgeText, getOfferPricing, getProductOffers } from "../../../data/products";
+import { Product } from "../../../types/product";
 import { getProductRef } from "../../../utils/entityRefs";
 import { getPrimaryOfferBadgeAppearance } from "../../../utils/offerBadgeAppearance";
 import { applyOfferDiscount, resolveOfferDiscountType, resolveOfferDiscountValue } from "../../../utils/offerPricing";
-import { getOfferPricing, getOfferBadgeText, getProductOffers } from "../../../data/products";
 import { OfferDetailsCard } from "../../offer/components/OfferDetailsCard";
 
 export interface ProductCardProps {
