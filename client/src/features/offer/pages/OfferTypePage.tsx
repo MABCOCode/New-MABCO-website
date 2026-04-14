@@ -181,16 +181,16 @@ export function OfferTypePage({
         const productHasOffer = hasOfferType(product.offers);
         const colorVariants = Array.isArray(product.colorVariants) ? product.colorVariants : [];
         const chargeOptions = Array.isArray(product.chargeOptions) ? product.chargeOptions : [];
+        const hasColors = colorVariants.length > 0;
 
         const matchingColors = colorVariants.filter((variant: any) => hasOfferType(variant?.offers));
         const matchingCharges = chargeOptions.filter((opt: any) => hasOfferType(opt?.offers));
 
-        const resolvedColors =
-          matchingColors.length > 0
-            ? matchingColors
-            : productHasOffer
-            ? colorVariants
-            : [];
+        if (hasColors && matchingColors.length === 0) {
+          return null;
+        }
+
+        const resolvedColors = hasColors ? matchingColors : [];
         const resolvedCharges =
           matchingCharges.length > 0
             ? matchingCharges
