@@ -405,6 +405,108 @@ const pickPrimaryImage = (images: UnifiedImage[]) => {
   return productLevel?.src || images[0]?.src || "";
 };
 
+const dedupeColorImageEntries = (entries: any[]) => {
+  const seen = new Set<string>();
+  const result: any[] = [];
+  (Array.isArray(entries) ? entries : []).forEach((entry) => {
+    const src = String(entry?.src || entry || "").trim();
+    if (!src || seen.has(src)) return;
+    seen.add(src);
+    result.push(
+      typeof entry === "object" && entry
+        ? { ...entry, src }
+        : { id: createImageId(`color-group|${src}`), src, source: "colorVariant" },
+    );
+  });
+  return result;
+};
+
+const buildGroupedColors = (colors: any[]) => {
+  const groups = new Map<string, any>();
+
+  (Array.isArray(colors) ? colors : []).forEach((color: any, index: number) => {
+    const groupKey = String(color?.stkCode || color?.stk_code || index);
+    const existing = groups.get(groupKey);
+    const incomingImages = dedupeColorImageEntries(
+      Array.isArray(color?.images) && color.images.length > 0
+        ? color.images
+        : color?.image
+        ? [{ src: color.image }]
+        : [],
+    );
+
+    if (!existing) {
+      groups.set(groupKey, {
+        key: groupKey,
+        stkCode: String(color?.stkCode || color?.stk_code || ""),
+        name: color?.name || "",
+        nameAr: color?.nameAr || "",
+        names: new Set([String(color?.name || "").trim()].filter(Boolean)),
+        namesAr: new Set([String(color?.nameAr || "").trim()].filter(Boolean)),
+        codes: new Set([String(color?.code || "").trim()].filter(Boolean)),
+        images: incomingImages,
+        image: incomingImages[0]?.src || "",
+        inStock: color?.inStock !== false,
+        isHidden: Boolean(color?.isHidden),
+        entries: [color],
+      });
+      return;
+    }
+
+    if (!existing.name && color?.name) existing.name = color.name;
+    if (!existing.nameAr && color?.nameAr) existing.nameAr = color.nameAr;
+    if (color?.name) existing.names.add(String(color.name).trim());
+    if (color?.nameAr) existing.namesAr.add(String(color.nameAr).trim());
+    if (color?.code) existing.codes.add(String(color.code).trim());
+    existing.images = dedupeColorImageEntries([...existing.images, ...incomingImages]);
+    existing.image = existing.images[0]?.src || existing.image || "";
+    existing.inStock = existing.inStock || color?.inStock !== false;
+    existing.isHidden = existing.isHidden && Boolean(color?.isHidden);
+    existing.entries.push(color);
+  });
+
+  return Array.from(groups.values()).map((group) => ({
+    ...group,
+    names: Array.from(group.names),
+    namesAr: Array.from(group.namesAr),
+    codes: Array.from(group.codes),
+    duplicateCount: group.entries.length,
+  }));
+};
+
+const formatColorVariantsForPublish = (colors: any[]) => {
+  const grouped = new Map<string, { stk_code: string; active: boolean; images: string[] }>();
+
+  (Array.isArray(colors) ? colors : []).forEach((color: any, index: number) => {
+    const stkCode = String(color?.stkCode || color?.stk_code || "").trim();
+    const rawImages = color?.isHidden
+      ? []
+      : Array.isArray(color?.images)
+      ? color.images.map((img: any) => String(img?.src || "").trim()).filter(Boolean)
+      : color?.image
+      ? [String(color.image).trim()].filter(Boolean)
+      : [];
+
+    const dedupedImages = Array.from(new Set(rawImages));
+    const groupKey = stkCode || `__index_${index}`;
+    const existing = grouped.get(groupKey);
+
+    if (!existing) {
+      grouped.set(groupKey, {
+        stk_code: stkCode,
+        active: !color?.isHidden,
+        images: dedupedImages,
+      });
+      return;
+    }
+
+    existing.active = existing.active || !color?.isHidden;
+    existing.images = Array.from(new Set([...existing.images, ...dedupedImages]));
+  });
+
+  return Array.from(grouped.values());
+};
+
 export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDashboardProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1342,6 +1444,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     [availableEditorBrands, selectedBrand],
   );
   const hasManyColors = Array.isArray(colors) && colors.length > 0;
+  const groupedColors = useMemo(() => buildGroupedColors(colors), [colors]);
   const needsCategoryBrand = true;
   const selectedCategoryLabel =
     (language === "ar"
@@ -1736,17 +1839,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
         valueAr: spec.valueAr || "",
       }));
 
-      const formattedColors = colors.map((color: any) => ({
-        stk_code: color?.stkCode || "",
-        active: !color?.isHidden,
-        images: color?.isHidden
-          ? []
-          : Array.isArray(color?.images)
-          ? color.images.map((img: any) => String(img?.src || "").trim()).filter(Boolean)
-          : color?.image
-          ? [color.image]
-          : [],
-      }));
+      const formattedColors = formatColorVariantsForPublish(colors);
 
       const formattedBox = whatsInBox.map((item: any) => ({
         nameEn: item.itemEn || "",
@@ -2052,58 +2145,92 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {colors.map((color: any, index: number) => {
-                      const colorKey = getColorKey(color, index);
+                    {groupedColors.map((colorGroup: any) => {
+                      const colorKey = colorGroup.key;
+                      const colorNames = language === "ar" ? colorGroup.namesAr : colorGroup.names;
+                      const alternateColorNames = language === "ar" ? colorGroup.names : colorGroup.namesAr;
+                      const displayName =
+                        colorNames[0] ||
+                        colorGroup.name ||
+                        colorGroup.nameAr ||
+                        (language === "ar" ? "لون بدون اسم" : "Unnamed color");
+                      const secondaryName =
+                        alternateColorNames[0] ||
+                        (language === "ar" ? colorGroup.name : colorGroup.nameAr) ||
+                        "";
+                      const statusColor = colorGroup.codes[0] || "#e5e7eb";
                       return (
                       <div key={colorKey} className="border-2 border-gray-200 rounded-xl p-4 hover:border-[#009FE3] transition-all">
                         <div className="flex items-center gap-3 mb-3">
                           <div
                             className="w-8 h-8 rounded-full border-2 border-gray-300"
-                            style={{ backgroundColor: color.code }}
+                            style={{ backgroundColor: statusColor }}
                           ></div>
                           <div>
                             <div className="font-bold text-gray-900">
-                              {language === "ar" ? color.nameAr : color.name}
+                              {displayName}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {language === "ar" ? color.name : color.nameAr}
-                            </div>
-                            {color.stkCode && (
-                              <div className="mt-1 text-xs font-mono text-gray-500">
-                                stk_code: {color.stkCode}
+                            {secondaryName && (
+                              <div className="text-xs text-gray-500">
+                                {secondaryName}
                               </div>
                             )}
-                            <div className={`mt-1 text-xs font-semibold ${color.inStock ? "text-green-600" : "text-red-600"}`}>
-                              {color.inStock
+                            {colorGroup.stkCode && (
+                              <div className="mt-1 text-xs font-mono text-gray-500">
+                                stk_code: {colorGroup.stkCode}
+                              </div>
+                            )}
+                            {colorGroup.duplicateCount > 1 && (
+                              <div className="mt-1 text-xs font-semibold text-[#007BC7]">
+                                {language === "ar"
+                                  ? `${colorGroup.duplicateCount} ألوان مرتبطة بنفس المخزون`
+                                  : `${colorGroup.duplicateCount} colors share this stock`}
+                              </div>
+                            )}
+                            <div className={`mt-1 text-xs font-semibold ${colorGroup.inStock ? "text-green-600" : "text-red-600"}`}>
+                              {colorGroup.inStock
                                 ? (language === "ar" ? "متوفر" : "In stock")
                                 : (language === "ar" ? "غير متوفر" : "Out of stock")}
                             </div>
-                            <div className={`mt-1 text-xs font-semibold ${color.isHidden ? "text-red-600" : "text-green-600"}`}>
-                              {color.isHidden
+                            <div className={`mt-1 text-xs font-semibold ${colorGroup.isHidden ? "text-red-600" : "text-green-600"}`}>
+                              {colorGroup.isHidden
                                 ? (language === "ar" ? "مخفي من الموقع" : "Hidden from website")
                                 : (language === "ar" ? "ظاهر في الموقع" : "Visible on website")}
                             </div>
                           </div>
                         </div>
 
+                        {colorNames.length > 1 && (
+                          <div className="mb-3 flex flex-wrap gap-2">
+                            {colorNames.map((name: string) => (
+                              <span
+                                key={`${colorKey}-${name}`}
+                                className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
+                              >
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => toggleColorVisibility(colorKey)}
                           className={`mb-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                            color.isHidden
+                            colorGroup.isHidden
                               ? "bg-green-50 text-green-700 hover:bg-green-100"
                               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                           }`}
                         >
-                          {color.isHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                          {color.isHidden
+                          {colorGroup.isHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                          {colorGroup.isHidden
                             ? (language === "ar" ? "إظهار اللون في الموقع" : "Show color on website")
                             : (language === "ar" ? "إخفاء اللون من الموقع" : "Hide color from website")}
                         </button>
 
-                        {color.images?.[0]?.src ? (
+                        {colorGroup.images?.[0]?.src ? (
                           <div className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group">
-                            <img src={color.images[0].src} alt={color.name} className="w-full h-full object-cover" />
+                            <img src={colorGroup.images[0].src} alt={displayName} className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <div className="flex items-center gap-2">
                                 <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-gray-700 text-xs font-semibold cursor-pointer hover:bg-gray-100">
@@ -2117,18 +2244,18 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                       handleColorImageUpload(
                                         colorKey,
                                         e.target.files?.[0] || null,
-                                        color.images?.[0]?.id || null,
+                                        colorGroup.images?.[0]?.id || null,
                                       )
                                     }
                                   />
                                 </label>
-                                {isBase64Image(color.images?.[0]?.src || "") && (
+                                {isBase64Image(colorGroup.images?.[0]?.src || "") && (
                                   <button
                                     onClick={() => {
-                                      const src = String(color.images?.[0]?.src || "");
+                                      const src = String(colorGroup.images?.[0]?.src || "");
                                       uploadBase64Image(src).then((url) => {
                                         if (!url) return;
-                                        updateColorImage(colorKey, color.images?.[0]?.id || null, url);
+                                        updateColorImage(colorKey, colorGroup.images?.[0]?.id || null, url);
                                       });
                                     }}
                                     className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-semibold"
@@ -2140,7 +2267,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                   onClick={() =>
                                     updateColorImage(
                                       colorKey,
-                                      color.images?.[0]?.id || null,
+                                      colorGroup.images?.[0]?.id || null,
                                       "",
                                     )
                                   }

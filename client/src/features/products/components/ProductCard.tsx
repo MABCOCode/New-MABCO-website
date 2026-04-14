@@ -1,5 +1,5 @@
 import React from "react";
-import { ShoppingCart, Tag, Flame, TrendingUp, Ticket, Gift, Package, X } from "lucide-react";
+import { ShoppingCart, Flame, TrendingUp, Tag, X } from "lucide-react";
 import { Product } from "../../../types/product";
 import { useCart } from "../../../context/CartContext";
 import { useState } from "react";
@@ -8,6 +8,7 @@ import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import { getProductRef } from "../../../utils/entityRefs";
+import { getPrimaryOfferBadgeAppearance } from "../../../utils/offerBadgeAppearance";
 import { applyOfferDiscount, resolveOfferDiscountType, resolveOfferDiscountValue } from "../../../utils/offerPricing";
 import { getOfferPricing, getOfferBadgeText, getProductOffers } from "../../../data/products";
 import { OfferDetailsCard } from "../../offer/components/OfferDetailsCard";
@@ -555,29 +556,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const offerBadgeText = displayOffers.length > 0
     ? getOfferBadgeText(displayOffers, language)
     : "";
-  const offerBadgeInfo = (() => {
-    if (!offerBadgeText) return null;
-    const priority = ["direct_discount", "coupon", "free_product", "bundle_discount"] as const;
-    const currentOffer =
-      displayOffers.find((o: any) => o.type === priority[0]) ||
-      displayOffers.find((o: any) => o.type === priority[1]) ||
-      displayOffers.find((o: any) => o.type === priority[2]) ||
-      displayOffers.find((o: any) => o.type === priority[3]);
-    if (!currentOffer) return null;
-    const offerType = currentOffer.type;
-    switch (offerType) {
-      case "direct_discount":
-        return { Icon: Tag, gradient: "from-red-500 to-pink-600" };
-      case "coupon":
-        return { Icon: Ticket, gradient: "from-blue-500 to-indigo-600" };
-      case "free_product":
-        return { Icon: Gift, gradient: "from-green-500 to-emerald-600" };
-      case "bundle_discount":
-        return { Icon: Package, gradient: "from-purple-500 to-violet-600" };
-      default:
-        return null;
-    }
-  })();
+  const offerBadgeInfo = offerBadgeText
+    ? getPrimaryOfferBadgeAppearance(displayOffers)
+    : null;
   const offerTopBadge = !topBadge && offerBadgeInfo ? (
     <div
       className={`bg-gradient-to-r ${offerBadgeInfo.gradient} text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 whitespace-nowrap`}

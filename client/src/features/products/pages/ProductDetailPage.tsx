@@ -53,6 +53,7 @@ import {
 import { setSeo } from "../../../services/seo";
 import { CURRENCY_LABEL } from "../../../utils/currency";
 import { getProductRef } from "../../../utils/entityRefs";
+import { getPrimaryOfferBadgeAppearance } from "../../../utils/offerBadgeAppearance";
 import { applyOfferDiscount, resolveOfferDiscountType, resolveOfferDiscountValue } from "../../../utils/offerPricing";
 import { getCachedStaticCatalogData, loadStaticCatalogData } from "../../../utils/staticCatalogData";
 import { useCompareStore } from "../../compare/state";
@@ -1155,6 +1156,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const discountPercentage = offerPricing.discountPercentage;
   const displayPrice = currentPrice.toLocaleString("en-US");
   const offerBadgeText = getOfferBadgeText(displayOffers, language);
+  const offerBadgeInfo = offerBadgeText
+    ? getPrimaryOfferBadgeAppearance(displayOffers)
+    : null;
 
   const inStock = currentColorVariant
     ? currentColorVariant.isAvailable !== false && currentColorVariant.inStock !== false
@@ -1854,15 +1858,18 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                   )}
                 </Carousel>
 
-                  {offerBadgeText && (
+                  {offerBadgeText && offerBadgeInfo && (
                     <div
-                      className={`absolute top-4 ${language === "ar" ? "left-6" : "right-6"} flex items-start justify-end`}
+                      className={`absolute top-4 ${language === "ar" ? "left-6" : "right-6"} z-20 flex items-start justify-end`}
                     >
-                      <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-2 rounded-xl font-bold shadow-lg">
-                        {offerBadgeText}
+                      <div
+                        className={`bg-gradient-to-r ${offerBadgeInfo.gradient} text-white px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg flex items-center gap-2 whitespace-nowrap backdrop-blur-sm`}
+                      >
+                        <offerBadgeInfo.Icon className="w-4 h-4" />
+                        <span>{offerBadgeText}</span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Colors Section - Under Image */}
                 {hasColors &&
