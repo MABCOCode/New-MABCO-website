@@ -130,12 +130,12 @@ export function InlineProductEditor({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isEditingBox, setIsEditingBox] = useState(false);
   const [boxItems, setBoxItems] = useState<{ en: string; ar: string }[]>(() => {
-    const raw = (product.inTheBox || product.box || product.boxItems || [product.name || "", language === "ar" ? "دليل المستخدم" : "User Manual", language === "ar" ? "بطاقة الضمان" : "Warranty Card", language === "ar" ? "ملحقات إضافية" : "Accessories"]).filter(Boolean);
+    const raw = (product.inTheBox || product.box || product.boxItems || []).filter(Boolean);
     return raw.map((it: any) => {
       if (typeof it === "string") return { en: it, ar: "" };
       // If already stored as {en,ar}
       if (it && (it.en || it.ar)) return { en: it.en || "", ar: it.ar || "" };
-      // If legacy shape like {nameEn,nameAr} or {valueEn,valueAr}
+      // If stored as {nameEn,nameAr} or {valueEn,valueAr}
       if (it && (it.nameEn || it.valueEn || it.nameAr || it.valueAr)) {
         return { en: it.nameEn || it.valueEn || "", ar: it.nameAr || it.valueAr || "" };
       }
@@ -189,7 +189,7 @@ export function InlineProductEditor({
     });
     setSpecs(normalizedSpecs);
     
-    const raw = (product.inTheBox || product.box || product.boxItems || [product.name || "", language === "ar" ? "دليل المستخدم" : "User Manual", language === "ar" ? "بطاقة الضمان" : "Warranty Card", language === "ar" ? "ملحقات إضافية" : "Accessories"]).filter(Boolean);
+    const raw = (product.inTheBox || product.box || product.boxItems || []).filter(Boolean);
     const normalizedBox = raw.map((it: any) => {
       if (typeof it === "string") return { en: it, ar: "" };
       if (it && (it.en || it.ar)) return { en: it.en || "", ar: it.ar || "" };
