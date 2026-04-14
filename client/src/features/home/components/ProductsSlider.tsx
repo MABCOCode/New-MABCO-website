@@ -10,7 +10,7 @@ import {
 import ProductCard from "../../products/components/ProductCard";
 import { Product } from "../../../types/product";
 import { getOfferBadgeText, getProductOffers } from "../../../data/products";
-import { Tag, Ticket, Gift, Package } from "lucide-react";
+import { getPrimaryOfferBadgeAppearance } from "../../../utils/offerBadgeAppearance";
 
 interface ProductsSliderProps {
   language: "ar" | "en";
@@ -92,31 +92,7 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
   const getOfferBadgeForProduct = (product: Product) => {
     const offers = getProductOffers(product.id);
     if (offers.length === 0) return null;
-
-    const priority = ["direct_discount", "coupon", "free_product", "bundle_discount"] as const;
-    const currentOffer =
-      offers.find((o) => o.type === priority[0]) ||
-      offers.find((o) => o.type === priority[1]) ||
-      offers.find((o) => o.type === priority[2]) ||
-      offers.find((o) => o.type === priority[3]);
-
-    if (!currentOffer) return null;
-
-    const offerType = currentOffer.type;
-    const offerInfo = (() => {
-      switch (offerType) {
-        case "direct_discount":
-          return { Icon: Tag, gradient: "from-red-500 to-pink-600" };
-        case "coupon":
-          return { Icon: Ticket, gradient: "from-blue-500 to-indigo-600" };
-        case "free_product":
-          return { Icon: Gift, gradient: "from-green-500 to-emerald-600" };
-        case "bundle_discount":
-          return { Icon: Package, gradient: "from-purple-500 to-violet-600" };
-        default:
-          return null;
-      }
-    })();
+    const offerInfo = getPrimaryOfferBadgeAppearance(offers);
 
     if (!offerInfo) return null;
 
