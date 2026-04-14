@@ -2552,13 +2552,36 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                           : "No description available"}
                       </div>
 
-                      {(userPermissions.canEditContent || hasBoxItems) && (
+                      {isLoadingProduct && (
                         <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
                           <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
                             <PackageCheck className="w-5 h-5 text-[#009FE3]" />
                             {t("admin.content.boxTitle") ||
                               (language === "ar"
-                              ? "لا يوجد وصف متاح"
+                                ? "ما يأتي في العلبة"
+                                : "What's in the box")}
+                          </h4>
+                          <ul className="space-y-2">
+                            {[1, 2, 3].map((idx) => (
+                              <li
+                                key={idx}
+                                className="flex items-center gap-2"
+                              >
+                                <div className="w-4 h-4 rounded-full shimmer-surface" />
+                                <div className="h-4 w-32 shimmer-surface rounded" />
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {!isLoadingProduct && (userPermissions.canEditContent || hasBoxItems) && (
+                        <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
+                          <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <PackageCheck className="w-5 h-5 text-[#009FE3]" />
+                            {t("admin.content.boxTitle") ||
+                              (language === "ar"
+                                ? "ما يأتي في العلبة"
                                 : "What's in the box")}
                           </h4>
                           {userPermissions.canEditContent && (
@@ -2571,11 +2594,61 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                               mode="box"
                             />
                           )}
-                          <p className="text-sm text-gray-500">
-                            {language === "ar"
-                              ? "لا يوجد وصف متاح"
-                              : "No box items added yet."}
-                          </p>
+                          {(() => {
+                            const raw = prod?.inTheBox ||
+                              prod?.box ||
+                              prod?.boxItems;
+                            const items = (raw || [])
+                              .filter(Boolean)
+                              .map((item: any) => {
+                                if (typeof item === "string") return item;
+                                if (item && (item.en || item.ar)) {
+                                  return language === "ar"
+                                    ? `${item.ar || item.en}${item.en ? " / " + item.en : ""}`
+                                    : `${item.en || item.ar}${item.ar ? " / " + item.ar : ""}`;
+                                }
+                                if (
+                                  item &&
+                                  (item.nameEn ||
+                                    item.valueEn ||
+                                    item.nameAr ||
+                                    item.valueAr)
+                                ) {
+                                  return language === "ar"
+                                    ? item.nameAr ||
+                                        item.valueAr ||
+                                        item.nameEn ||
+                                        item.valueEn
+                                    : item.nameEn ||
+                                        item.valueEn ||
+                                        item.nameAr ||
+                                        item.valueAr;
+                                }
+                                return String(item);
+                              });
+                            if (items.length === 0) {
+                              return (
+                                <p className="text-sm text-gray-500">
+                                  {language === "ar"
+                                    ? "لم تتم إضافة عناصر بعد"
+                                    : "No box items added yet."}
+                                </p>
+                              );
+                            }
+                            return (
+                              <ul className="space-y-2 text-gray-600">
+                                {items.map((display: any, idx: number) => (
+                                  <li
+                                    key={idx}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                    {display}
+                                  </li>
+                                ))}
+                              </ul>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
