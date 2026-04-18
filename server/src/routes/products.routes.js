@@ -7,6 +7,95 @@ const { filterProductForCatalog, validateProductContent } = require('../utils/pr
 
 const router = express.Router();
 
+// ==================== CACHE SYSTEM ====================
+class InMemoryCache {
+  constructor(defaultTTL = 10000) {
+    this.cache = new Map();
+    this.defaultTTL = defaultTTL;
+  }
+
+  get(key) {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+
+  set(key, value, ttl = this.defaultTTL) {
+    this.cache.set(key, { value, expiresAt: Date.now() + ttl });
+  }
+
+  clear() { this.cache.clear(); }
+}
+
+const responseCache = new InMemoryCache(10000);
+let versionCache = { version: null, expiresAt: 0 };
+const VERSION_CACHE_TTL = 2000;
+
+async function getProductsVersion(db) {
+  const now = Date.now();
+  if (versionCache.version !== null && now < versionCache.expiresAt) {
+    return versionCache.version;
+  }
+  const latestProduct = await db.collection('products')
+    .find({}, { projection: { updatedAt: 1 } })
+    .sort({ updatedAt: -1 })
+    .limit(1)
+    .toArray();
+  const version = latestProduct[0]?.updatedAt?.getTime() || Date.now();
+  versionCache = { version, expiresAt: now + VERSION_CACHE_TTL };
+  return version;
+}
+
+function getCacheKey(req, version) {
+  return `${req.originalUrl || req.url}|v${version}`;
+}
+
+// Helper to add mandatory field filters (reduces DB scanning)
+function addMandatoryFieldFilters(query) {
+  return {
+    ...query,
+    name: { $exists: true, $ne: '', $ne: null },
+    nameAr: { $exists: true, $ne: '', $ne: null },
+    category: { $exists: true, $ne: '', $ne: null },
+    cat_code: { $exists: true, $ne: '', $ne: null },
+    brand: { $exists: true, $ne: '', $ne: null },
+    brand_code: { $exists: true, $ne: '', $ne: null },
+  };
+}
+
+// Helper to merge color‑variant pre‑filter without overwriting existing $or
+function addColorVariantPreFilter(baseQuery) {
+  const colorOrCondition = [
+    { colorVariants: { $exists: false } },
+    { colorVariants: { $size: 0 } },
+    {
+      $and: [
+        { colorVariants: { $exists: true, $ne: [] } },
+        { colorVariants: { $elemMatch: { name: { $exists: true, $ne: '' }, nameAr: { $exists: true, $ne: '' } } } }
+      ]
+    }
+  ];
+
+  if (baseQuery.$or) {
+    // Wrap existing $or and new color condition into $and
+    return {
+      ...baseQuery,
+      $and: [
+        { $or: baseQuery.$or },
+        { $or: colorOrCondition }
+      ],
+      $or: undefined, // remove original $or to avoid conflict
+    };
+  } else {
+    return { ...baseQuery, $or: colorOrCondition };
+  }
+}
+
+// Optimized collection function (fixed $or merging)
 async function collectCatalogReadyProducts({
   collection,
   query,
@@ -19,12 +108,18 @@ async function collectCatalogReadyProducts({
   let scanned = rawSkip;
   let filtered = [];
 
+  const baseQuery = addMandatoryFieldFilters(query);
+  const isBrandQuery = query.brand_code !== undefined;
+  const effectiveBatchSize = isBrandQuery ? Math.max(batchSize * 3, 200) : batchSize;
+
+  const finalQuery = isBrandQuery ? addColorVariantPreFilter(baseQuery) : baseQuery;
+
   while (filtered.length < targetCount) {
     const items = await collection
-      .find(query, projection ? { projection } : {})
+      .find(finalQuery, projection ? { projection } : {})
       .sort(sort)
       .skip(scanned)
-      .limit(batchSize)
+      .limit(effectiveBatchSize)
       .toArray();
 
     if (items.length === 0) break;
@@ -40,15 +135,21 @@ async function collectCatalogReadyProducts({
 
     filtered = filtered.concat(catalogReadyBatch);
     scanned += items.length;
-
-    if (items.length < batchSize) break;
+    if (items.length < effectiveBatchSize) break;
   }
 
   return filtered;
 }
 
+// ==================== ROUTES ====================
+
 router.get('/', asyncHandler(async (req, res) => {
   const db = getDb();
+  const version = await getProductsVersion(db);
+  const cacheKey = getCacheKey(req, version);
+  const cachedResponse = responseCache.get(cacheKey);
+  if (cachedResponse) return res.json(cachedResponse);
+
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 500);
   const skip = (page - 1) * limit;
@@ -57,110 +158,94 @@ router.get('/', asyncHandler(async (req, res) => {
   const includeHidden = req.query.include_hidden === '1' || req.query.include_hidden === 'true';
   const includeUnavailable = req.query.include_unavailable === '1' || req.query.include_unavailable === 'true';
 
-  const query = {};
+  let query = {};
   if (!includeHidden && req.query.hidden !== 'true') {
     query['status.isHidden'] = { $ne: true };
   }
   const shouldFilterAvailability = !includeUnavailable && req.query.available !== 'false';
   const search = String(req.query.search || '').trim();
+
   if (req.query.categoryId) query.categoryIds = new ObjectId(req.query.categoryId);
   if (req.query.brandId) query.brandId = new ObjectId(req.query.brandId);
   if (req.query.cat_code) query.cat_code = String(req.query.cat_code);
   if (req.query.brand_code) query.brand_code = String(req.query.brand_code);
   if (req.query.stk_code) query.stk_code = String(req.query.stk_code);
   if (req.query.stk_codes) {
-    const codes = String(req.query.stk_codes)
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
-    if (codes.length > 0) {
-      query.stk_code = { $in: codes };
-    }
+    const codes = String(req.query.stk_codes).split(',').map(v => v.trim()).filter(Boolean);
+    if (codes.length) query.stk_code = { $in: codes };
   }
   if (req.query.ids) {
-    const ids = String(req.query.ids)
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
-    if (ids.length > 0) {
-      query.id = { $in: ids };
-    }
+    const ids = String(req.query.ids).split(',').map(v => v.trim()).filter(Boolean);
+    if (ids.length) query.id = { $in: ids };
   }
   if (req.query.category) query.category = String(req.query.category);
   if (req.query.brand) query.brand = String(req.query.brand);
+
   if (req.query.offer_type) {
     const offerType = String(req.query.offer_type);
     const scope = String(req.query.offer_scope || '').toLowerCase();
+    let orConditions = [];
     if (scope === 'product') {
-      query.$or = [
-        { "offers.offer_type": offerType },
-        { "offers.type": offerType },
-      ];
+      orConditions = [{ "offers.offer_type": offerType }, { "offers.type": offerType }];
     } else if (scope === 'color') {
-      query.$or = [
-        { "colorVariants.offers.offer_type": offerType },
-        { "colorVariants.offers.type": offerType },
-      ];
+      orConditions = [{ "colorVariants.offers.offer_type": offerType }, { "colorVariants.offers.type": offerType }];
     } else if (scope === 'charge') {
-      query.$or = [
-        { "chargeOptions.offers.offer_type": offerType },
-        { "chargeOptions.offers.type": offerType },
-      ];
+      orConditions = [{ "chargeOptions.offers.offer_type": offerType }, { "chargeOptions.offers.type": offerType }];
     } else {
-      query.$or = [
-        { "offers.offer_type": offerType },
-        { "offers.type": offerType },
-        { "colorVariants.offers.offer_type": offerType },
-        { "colorVariants.offers.type": offerType },
-        { "chargeOptions.offers.offer_type": offerType },
-        { "chargeOptions.offers.type": offerType },
+      orConditions = [
+        { "offers.offer_type": offerType }, { "offers.type": offerType },
+        { "colorVariants.offers.offer_type": offerType }, { "colorVariants.offers.type": offerType },
+        { "chargeOptions.offers.offer_type": offerType }, { "chargeOptions.offers.type": offerType }
       ];
     }
+    query.$or = [...(query.$or || []), ...orConditions];
   }
+
   if (req.query.is_most_sold === 'true' || req.query.isMostSold === 'true') {
-    query.$or = [
-      ...(query.$or || []),
-      { isMostSold: true },
-      { is_most_sold: true },
-    ];
+    query.$or = [...(query.$or || []), { isMostSold: true }, { is_most_sold: true }];
   }
+
   if (req.query.is_new === 'true' || req.query.isNew === 'true') {
     query.$or = [
       ...(query.$or || []),
-      { isNew: true },
-      { is_new: true },
-      {price: {$gt: 10}},
-      {cat_code: {$ne: "02"}}, {cat_code: {$ne: "07"}} // treat products with price > 0 as new if isNew flag is missing
+      { isNew: true }, { is_new: true },
+      { price: { $gt: 10 } },
+      { cat_code: { $nin: ["02", "07"] } }  // fixed: both excluded together
     ];
   }
-  if (req.query.is_hot === 'true' || req.query.isHot === 'true' || req.query.is_best === 'true' || req.query.isBest === 'true') {
+
+  if (req.query.is_hot === 'true' || req.query.isHot === 'true' ||
+      req.query.is_best === 'true' || req.query.isBest === 'true') {
     query.$or = [
       ...(query.$or || []),
-      { isHot: true },
-      { is_hot: true },
-      { isBest: true },
-      { is_best: true },
-      
-      {price: {$gt: 10}},
+      { isHot: true }, { is_hot: true }, { isBest: true }, { is_best: true },
+      { price: { $gt: 10 } }
     ];
   }
+
   if (req.query.active === 'true') query['status.isActive'] = true;
   if (req.query.hidden === 'true') query['status.isHidden'] = true;
+
+  // Fixed availability filter merging
   if (shouldFilterAvailability) {
     const availabilityOr = [
       { 'availability.isAvailable': { $ne: false } },
-      { cat_code: '09', brand_code: '81' },
+      { cat_code: '09', brand_code: '81' }
     ];
     if (query.$or) {
-      query.$and = [...(query.$and || []), { $or: query.$or }, { $or: availabilityOr }];
-      delete query.$or;
+      query = {
+        ...query,
+        $and: [{ $or: query.$or }, { $or: availabilityOr }],
+        $or: undefined
+      };
     } else {
       query.$or = availabilityOr;
     }
   }
+
   if (search) {
     const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    query.$or = [
+    const searchOr = [
       { stk_code: { $regex: escaped, $options: 'i' } },
       { id: { $regex: escaped, $options: 'i' } },
       { name: { $regex: escaped, $options: 'i' } },
@@ -175,117 +260,143 @@ router.get('/', asyncHandler(async (req, res) => {
       { 'specs.title': { $regex: escaped, $options: 'i' } },
       { 'specs.titleAr': { $regex: escaped, $options: 'i' } },
       { 'specs.value': { $regex: escaped, $options: 'i' } },
-      { 'specs.valueAr': { $regex: escaped, $options: 'i' } },
+      { 'specs.valueAr': { $regex: escaped, $options: 'i' } }
     ];
+    query.$or = [...(query.$or || []), ...searchOr];
   }
 
-  // Determine sort order: price ascending for brand queries, updatedAt descending otherwise
   const sort = req.query.brand_code ? { price: 1 } : { updatedAt: -1 };
-
   const doCount = !(req.query.count === '0' || req.query.count === 'false');
 
-  const projection = useCardProjection
-    ? {
-        _id: 1,
-        stk_code: 1,
-        id: 1,
-        slug: 1,
-        name: 1,
-        nameAr: 1,
-        description: 1,
-        descriptionAr: 1,
-        price: 1,
-        image: 1,
-        images: 1,
-        category: 1,
-        categoryAr: 1,
-        cat_code: 1,
-        brand: 1,
-        brand_code: 1,
-        badge: 1,
-        isMostSold: 1,
-        isNew: 1,
-        isHot: 1,
-        offers: 1,
-        availability: 1,
-        colorVariants: 1,
-        chargeOptions: 1,
-        specs: 1,
-        status: 1,
-        updatedAt: 1,
-      }
-    : useLiteProjection
-    ? {
-        _id: 1,
-        stk_code: 1,
-        id: 1,
-        slug: 1,
-        name: 1,
-        nameAr: 1,
-        description: 1,
-        descriptionAr: 1,
-        price: 1,
-        image: 1,
-        images: 1,
-        category: 1,
-        categoryAr: 1,
-        cat_code: 1,
-        brand: 1,
-        brand_code: 1,
-        badge: 1,
-        isMostSold: 1,
-        isNew: 1,
-        isHot: 1,
-        specs: 1,
-        specifications: 1,
-        offers: 1,
-        availability: 1,
-        colorVariants: 1,
-        chargeOptions: 1,
-        status: 1,
-        updatedAt: 1,
-      }
-    : undefined;
+  const projection = useCardProjection ? {
+    _id:1, stk_code:1, id:1, slug:1, name:1, nameAr:1, description:1, descriptionAr:1,
+    price:1, image:1, images:1, category:1, categoryAr:1, cat_code:1, brand:1, brand_code:1,
+    badge:1, isMostSold:1, isNew:1, isHot:1, offers:1, availability:1, colorVariants:1,
+    chargeOptions:1, specs:1, status:1, updatedAt:1
+  } : useLiteProjection ? {
+    _id:1, stk_code:1, id:1, slug:1, name:1, nameAr:1, description:1, descriptionAr:1,
+    price:1, image:1, images:1, category:1, categoryAr:1, cat_code:1, brand:1, brand_code:1,
+    badge:1, isMostSold:1, isNew:1, isHot:1, specs:1, specifications:1, offers:1, availability:1,
+    colorVariants:1, chargeOptions:1, status:1, updatedAt:1
+  } : undefined;
 
   const includeMissing = req.query.include_missing === '1' || req.query.include_missing === 'true';
   const shouldExcludeMissing = !includeMissing;
+  const isBrandQuery = req.query.brand_code !== undefined;
 
   let filtered = [];
   let total = null;
 
   if (shouldExcludeMissing) {
+    const filteredQuery = addMandatoryFieldFilters(query);
+
     if (!doCount) {
-      const batchSize = Math.min(Math.max(limit * 3, 60), 250);
-      const targetCount = skip + limit;
-      const catalogReady = await collectCatalogReadyProducts({
-        collection: db.collection('products'),
-        query,
-        projection,
-        sort,
-        rawSkip: 0,
-        targetCount,
-        batchSize,
-      });
+      if (isBrandQuery) {
+        const brandQuery = addColorVariantPreFilter(filteredQuery);
+        const items = await db.collection('products')
+          .find(brandQuery, projection ? { projection } : {})
+          .sort(sort)
+          .limit(skip + limit * 2)
+          .toArray();
 
-      total = null;
-      filtered = catalogReady.slice(skip, skip + limit);
+        const hydrated = hydrateCollection('products', items);
+        const catalogReady = hydrated
+          .map(item => {
+            const validation = validateProductContent(item);
+            return validation.isCatalogReady ? filterProductForCatalog(item, validation) : null;
+          })
+          .filter(Boolean);
+        filtered = catalogReady.slice(skip, skip + limit);
+        total = null;
+      } else {
+        const batchSize = Math.min(Math.max(limit * 3, 60), 250);
+        const targetCount = skip + limit;
+        const catalogReady = await collectCatalogReadyProducts({
+          collection: db.collection('products'),
+          query: filteredQuery,
+          projection,
+          sort,
+          rawSkip: 0,
+          targetCount,
+          batchSize,
+        });
+        filtered = catalogReady.slice(skip, skip + limit);
+        total = null;
+      }
     } else {
-      const items = await db.collection('products')
-        .find(query, projection ? { projection } : {})
-        .sort(sort)
-        .toArray();
+      // Counting path – using mandatory filters and batches
+      if (isBrandQuery) {
+        const countBatchSize = 500;
+        let allFiltered = [];
+        let processed = 0;
+        const estimatedTotal = await db.collection('products').countDocuments(filteredQuery);
 
-      const hydrated = hydrateCollection('products', items);
-      const catalogReady = hydrated
-        .map((item) => {
-          const validation = validateProductContent(item);
-          if (!validation.isCatalogReady) return null;
-          return filterProductForCatalog(item, validation);
-        })
-        .filter(Boolean);
+        if (estimatedTotal <= 2000) {
+          while (allFiltered.length < skip + limit && processed < estimatedTotal) {
+            const batchItems = await db.collection('products')
+              .find(filteredQuery, projection ? { projection } : {})
+              .sort(sort)
+              .skip(processed)
+              .limit(countBatchSize)
+              .toArray();
+            if (batchItems.length === 0) break;
+            const hydrated = hydrateCollection('products', batchItems);
+            const catalogReadyBatch = hydrated
+              .map(item => {
+                const validation = validateProductContent(item);
+                return validation.isCatalogReady ? filterProductForCatalog(item, validation) : null;
+              })
+              .filter(Boolean);
+            allFiltered = allFiltered.concat(catalogReadyBatch);
+            processed += batchItems.length;
+            if (batchItems.length < countBatchSize) break;
+          }
+          total = allFiltered.length;
+          filtered = allFiltered.slice(skip, skip + limit);
+        } else {
+          // Sampling for very large catalogs
+          const sampleSize = Math.min(500, Math.max(50, estimatedTotal / 20));
+          const sampleItems = await db.collection('products')
+            .find(filteredQuery, projection ? { projection } : {})
+            .sort(sort)
+            .limit(sampleSize)
+            .toArray();
+          const hydratedSample = hydrateCollection('products', sampleItems);
+          const sampleCatalogReady = hydratedSample
+            .map(item => validateProductContent(item).isCatalogReady ? 1 : 0)
+            .reduce((sum, v) => sum + v, 0);
+          const catalogReadyRatio = sampleCatalogReady / sampleItems.length;
+          total = Math.round(estimatedTotal * catalogReadyRatio);
 
-      total = catalogReady.length;
-      filtered = catalogReady.slice(skip, skip + limit);
+          const targetItems = await db.collection('products')
+            .find(filteredQuery, projection ? { projection } : {})
+            .sort(sort)
+            .limit(Math.max(skip + limit * 2, sampleSize))
+            .toArray();
+          const hydrated = hydrateCollection('products', targetItems);
+          const catalogReady = hydrated
+            .map(item => {
+              const validation = validateProductContent(item);
+              return validation.isCatalogReady ? filterProductForCatalog(item, validation) : null;
+            })
+            .filter(Boolean);
+          filtered = catalogReady.slice(skip, skip + limit);
+        }
+      } else {
+        const items = await db.collection('products')
+          .find(filteredQuery, projection ? { projection } : {})
+          .sort(sort)
+          .toArray();
+        const hydrated = hydrateCollection('products', items);
+        const catalogReady = hydrated
+          .map(item => {
+            const validation = validateProductContent(item);
+            return validation.isCatalogReady ? filterProductForCatalog(item, validation) : null;
+          })
+          .filter(Boolean);
+        total = catalogReady.length;
+        filtered = catalogReady.slice(skip, skip + limit);
+      }
     }
   } else {
     const [items, count] = await Promise.all([
@@ -295,11 +406,8 @@ router.get('/', asyncHandler(async (req, res) => {
         .limit(limit)
         .sort(sort)
         .toArray(),
-      doCount
-        ? db.collection('products').countDocuments(query)
-        : Promise.resolve(null),
+      doCount ? db.collection('products').countDocuments(query) : Promise.resolve(null)
     ]);
-
     filtered = hydrateCollection('products', items);
     total = count;
   }
@@ -307,57 +415,46 @@ router.get('/', asyncHandler(async (req, res) => {
   const response = {
     success: true,
     data: filtered,
-    pagination: { page, limit },
+    pagination: { page, limit }
   };
   if (doCount) response.pagination.total = total;
 
+  responseCache.set(cacheKey, response);
   res.json(response);
 }));
 
 router.get('/home-sliders', asyncHandler(async (req, res) => {
   const db = getDb();
+  const version = await getProductsVersion(db);
+  const cacheKey = getCacheKey(req, version);
+  const cachedResponse = responseCache.get(cacheKey);
+  if (cachedResponse) return res.json(cachedResponse);
+
   const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 60);
 
   const cardProjection = {
-    _id: 1,
-    stk_code: 1,
-    id: 1,
-    slug: 1,
-    name: 1,
-    nameAr: 1,
-    description: 1,
-    descriptionAr: 1,
-    price: 1,
-    image: 1,
-    images: 1,
-    category: 1,
-    categoryAr: 1,
-    cat_code: 1,
-    brand: 1,
-    brand_code: 1,
-    badge: 1,
-    isMostSold: 1,
-    isNew: 1,
-    isHot: 1,
-    offers: 1,
-    availability: 1,
-    colorVariants: 1,
-    chargeOptions: 1,
-    specs: 1,
-    status: 1,
-    updatedAt: 1,
+    _id:1, stk_code:1, id:1, slug:1, name:1, nameAr:1, description:1, descriptionAr:1,
+    price:1, image:1, images:1, category:1, categoryAr:1, cat_code:1, brand:1, brand_code:1,
+    badge:1, isMostSold:1, isNew:1, isHot:1, offers:1, availability:1, colorVariants:1,
+    chargeOptions:1, specs:1, status:1, updatedAt:1
   };
 
   const baseQuery = {
     'status.isHidden': { $ne: true },
     'status.isActive': true,
     'availability.isAvailable': { $ne: false },
+    name: { $exists: true, $ne: '', $ne: null },
+    nameAr: { $exists: true, $ne: '', $ne: null },
+    category: { $exists: true, $ne: '', $ne: null },
+    cat_code: { $exists: true, $ne: '', $ne: null },
+    brand: { $exists: true, $ne: '', $ne: null },
+    brand_code: { $exists: true, $ne: '', $ne: null },
   };
 
   const parsePrice = (value) => {
     if (typeof value === 'number') return value;
     if (typeof value === 'string') {
-      const parsed = Number(String(value).replace(/,/g, '').trim());
+      const parsed = Number(value.replace(/,/g, '').trim());
       return Number.isFinite(parsed) ? parsed : 0;
     }
     return 0;
@@ -368,92 +465,97 @@ router.get('/home-sliders', asyncHandler(async (req, res) => {
   const mostSoldQuery = {
     ...excludeCat02,
     ...baseQuery,
-    $or: [{ isMostSold: true }, { is_most_sold: true }],
+    $or: [{ isMostSold: true }, { is_most_sold: true }]
   };
 
   const newHotQuery = {
     ...excludeCat02,
     ...baseQuery,
     $or: [{ isNew: true }, { is_new: true }, { isHot: true }, { is_hot: true }],
-    price: { $exists: true, $ne: '', $ne: null },
+    price: { $exists: true, $ne: '', $ne: null }
   };
 
-  const [mostSold, newHot] = await Promise.all([
-    db
-      .collection('products')
-      .find(mostSoldQuery, { projection: cardProjection })
-      .sort({ updatedAt: -1 })
-      .limit(limit)
-      .toArray(),
-    db
-      .collection('products')
-      .find(newHotQuery, { projection: cardProjection })
-      .sort({ updatedAt: -1 })
-      .limit(limit)
-      .toArray(),
+  const [mostSoldRaw, newHotRaw] = await Promise.all([
+    db.collection('products').find(mostSoldQuery, { projection: cardProjection }).sort({ updatedAt: -1 }).limit(limit).toArray(),
+    db.collection('products').find(newHotQuery, { projection: cardProjection }).sort({ updatedAt: -1 }).limit(limit).toArray()
   ]);
 
   const sortByPriceDesc = (items) =>
     items
-      .map((item) => ({ ...item, _priceValue: parsePrice(item.price) }))
-      .filter((item) => item._priceValue > 0)
+      .map(item => ({ ...item, _priceValue: parsePrice(item.price) }))
+      .filter(item => item._priceValue > 0)
       .sort((a, b) => b._priceValue - a._priceValue)
       .map(({ _priceValue, ...rest }) => rest);
 
-  const filteredNewHot = sortByPriceDesc(newHot)
-    .filter((item) => parsePrice(item.price) > 10)
-    .map((item) => {
+  const filteredNewHot = sortByPriceDesc(newHotRaw)
+    .filter(item => parsePrice(item.price) > 10)
+    .map(item => {
       const validation = validateProductContent(item);
       return validation.isCatalogReady ? filterProductForCatalog(item, validation) : null;
     })
     .filter(Boolean)
     .slice(0, limit);
 
-  const filteredMostSold = sortByPriceDesc(mostSold)
-    .map((item) => {
+  const filteredMostSold = sortByPriceDesc(mostSoldRaw)
+    .map(item => {
       const validation = validateProductContent(item);
       return validation.isCatalogReady ? filterProductForCatalog(item, validation) : null;
     })
     .filter(Boolean)
     .slice(0, limit);
 
-  res.json({
+  // Directly return the already‑filtered products – no double hydration
+  const response = {
     success: true,
     data: {
-      mostSold: hydrateCollection('products', filteredMostSold),
-      newHot: hydrateCollection('products', filteredNewHot),
-    },
-  });
+      mostSold: filteredMostSold,
+      newHot: filteredNewHot
+    }
+  };
+
+  responseCache.set(cacheKey, response);
+  res.json(response);
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {
   const db = getDb();
   const id = req.params.id;
+
   const query = ObjectId.isValid(id)
     ? { _id: new ObjectId(id) }
-    : {
-        $or: [
-          { slug: id },
-          { stk_code: String(id) },
-          { id: String(id) },
-        ],
-      };
-  const item = await db.collection('products').findOne(query);
+    : { $or: [{ slug: id }, { stk_code: String(id) }, { id: String(id) }] };
 
-  if (!item) {
-    return res.status(404).json({ success: false, message: 'Product not found' });
-  }
+  const item = await db.collection('products').findOne(query);
+  if (!item) return res.status(404).json({ success: false, message: 'Product not found' });
+
+  const itemUpdatedAt = item.updatedAt?.getTime() || Date.now();
+  const cacheKey = `product:${item._id}:${itemUpdatedAt}`;
+  const cachedItem = responseCache.get(cacheKey);
+  if (cachedItem) return res.json(cachedItem);
 
   if (req.query.include_hidden !== 'true' && item?.status?.isHidden === true) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
-  
   const isSpecialCategory = item?.cat_code === '09' && item?.brand_code === '81';
   if (req.query.include_unavailable !== 'true' && item?.availability?.isAvailable === false && !isSpecialCategory) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
 
-  res.json({ success: true, data: hydrateDocument('products', item) });
+  const response = { success: true, data: hydrateDocument('products', item) };
+  responseCache.set(cacheKey, response, 30000);
+  res.json(response);
 }));
+
+/*
+ * ==================== RECOMMENDED INDEXES ====================
+ * db.products.createIndex({ updatedAt: -1 })
+ * db.products.createIndex({ brand_code: 1, price: 1 })
+ * db.products.createIndex({ cat_code: 1, brand_code: 1 })
+ * db.products.createIndex({ stk_code: 1 })
+ * db.products.createIndex({ id: 1 })
+ * db.products.createIndex({ slug: 1 })
+ * db.products.createIndex({ "status.isHidden": 1 })
+ * db.products.createIndex({ "availability.isAvailable": 1 })
+ */
 
 module.exports = router;
