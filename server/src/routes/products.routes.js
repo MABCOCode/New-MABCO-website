@@ -81,14 +81,14 @@ function addColorVariantPreFilter(baseQuery) {
   ];
 
   if (baseQuery.$or) {
-    // Wrap existing $or and new color condition into $and
+    // Wrap existing $or and new color condition into $and, properly removing $or
+    const { $or, ...queryWithoutOr } = baseQuery;
     return {
-      ...baseQuery,
+      ...queryWithoutOr,
       $and: [
-        { $or: baseQuery.$or },
+        { $or: $or },
         { $or: colorOrCondition }
-      ],
-      $or: undefined, // remove original $or to avoid conflict
+      ]
     };
   } else {
     return { ...baseQuery, $or: colorOrCondition };
@@ -233,10 +233,10 @@ router.get('/', asyncHandler(async (req, res) => {
       { cat_code: '09', brand_code: '81' }
     ];
     if (query.$or) {
+      const { $or, ...queryWithoutOr } = query;
       query = {
-        ...query,
-        $and: [{ $or: query.$or }, { $or: availabilityOr }],
-        $or: undefined
+        ...queryWithoutOr,
+        $and: [{ $or: $or }, { $or: availabilityOr }]
       };
     } else {
       query.$or = availabilityOr;
