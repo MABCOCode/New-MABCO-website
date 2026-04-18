@@ -543,7 +543,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
     (async () => {
       try {
-        const res = await fetch(`${apiBase}/products/${encodeURIComponent(id)}`, { signal: controller.signal });
+        const res = await fetch(`${apiBase}/products/${encodeURIComponent(id)}?include_unavailable=true&include_hidden=true`, { signal: controller.signal });
         if (!res.ok) {
           throw new Error(`Failed to load product: ${res.status}`);
         }
