@@ -426,9 +426,9 @@ router.get('/home-sliders', asyncHandler(async (req, res) => {
   });
 }));
 
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id(*)', asyncHandler(async (req, res) => {
   const db = getDb();
-  const id = req.params.id;
+  const id = decodeURIComponent(req.params.id);
   const query = ObjectId.isValid(id)
     ? { _id: new ObjectId(id) }
     : {

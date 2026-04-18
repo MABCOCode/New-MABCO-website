@@ -198,7 +198,7 @@ const CategoryPage: React.FC = () => {
                 compareItems={compareItems}
                 language={language === 'ar' ? 'ar' : 'en'}
                 onProductClick={(product) =>
-                  navigate(`/product/${getProductRef(product) || (product as any).id}`, {
+                  navigate(`/product/${encodeURIComponent(getProductRef(product) || (product as any).id)}`, {
                     state: {
                       product,
                       breadcrumbs: [

@@ -446,10 +446,10 @@ const SearchPage: React.FC = () => {
                 compareItems={compareItems}
                 language={language === "ar" ? "ar" : "en"}
                 onProductClick={(clickedProduct) =>
-                  navigate(`/product/${getProductRef(clickedProduct) || (clickedProduct as any).id || (clickedProduct as any).stk_code}`)
+                  navigate(`/product/${encodeURIComponent(getProductRef(clickedProduct) || (clickedProduct as any).id || (clickedProduct as any).stk_code)}`)
                 }
                 onQuickView={() =>
-                  navigate(`/product/${getProductRef(product) || (product as any).id || (product as any).stk_code}`)
+                  navigate(`/product/${encodeURIComponent(getProductRef(product) || (product as any).id || (product as any).stk_code)}`)
                 }
               />
             ))}

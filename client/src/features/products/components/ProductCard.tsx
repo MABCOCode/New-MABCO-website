@@ -574,7 +574,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
     if (onProductClick) {
       onProductClick(product);
     } else {
-      navigate(`/product/${productRef || resolvedProductId || product.id || ""}`, { state: { product } });
+      navigate(`/product/${encodeURIComponent(productRef || resolvedProductId || product.id || "")}`, { state: { product } });
     }
   };
 

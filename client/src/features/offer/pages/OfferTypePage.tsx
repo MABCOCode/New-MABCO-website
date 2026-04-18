@@ -702,7 +702,7 @@ export function OfferTypeRoute() {
       language={language}
       onClose={() => navigate(-1)}
       onProductClick={(product) =>
-        navigate(`/product/${getProductRef(product) || (product as any).id}`, {
+        navigate(`/product/${encodeURIComponent(getProductRef(product) || (product as any).id)}`, {
           state: {
             product,
             breadcrumbs: [
