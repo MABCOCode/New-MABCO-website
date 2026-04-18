@@ -447,9 +447,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   if (req.query.include_hidden !== 'true' && item?.status?.isHidden === true) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
-  
-  const isSpecialCategory = item?.cat_code === '09' && item?.brand_code === '81';
-  if (req.query.include_unavailable !== 'true' && item?.availability?.isAvailable === false && !isSpecialCategory) {
+  if (req.query.include_unavailable !== 'true' && item?.availability?.isAvailable === false) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
 
