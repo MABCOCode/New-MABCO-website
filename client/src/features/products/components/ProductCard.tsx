@@ -725,14 +725,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
             >
               <div className={language === "ar" ? "text-right" : "text-left"}>
                 <div className={`mx-3 ${hasOldPrice ?  "":"mb-3" }  flex items-baseline gap-1`}>
-                  <span className="font-bold why text-[#009FE3] text-2xl">
+                  <span className="font-bold why text-[#009FE3] text-2xl price">
                     {displayPrice}
                   </span>
-                  <span className="font-bold text-m text-[#000000]">$</span>
+                  <span className="font-bold text-m text-[#000000] currency">$</span>
                 </div>
 
                 {hasOldPrice && (
-                  <div className="mx-3 mb-3  text-xs text-gray-400 line-through">
+                  <div className="mx-3 mb-3  text-xs text-gray-400 line-through price">
                     {oldPriceNum.toLocaleString("en-US")} $
                   </div>
                 )}

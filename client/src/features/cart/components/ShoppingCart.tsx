@@ -310,7 +310,7 @@ export function ShoppingCart({
                           <>
                             {item.oldPrice && (
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm text-gray-400 line-through">
+                                <span className="text-sm text-gray-400 line-through price">
                                   {formatPrice(parsePrice(item.oldPrice))} {t.currency}
                                 </span>
                               </div>
@@ -331,7 +331,7 @@ export function ShoppingCart({
                                 )}
                               </div>
                             )}
-                            <p className="text-lg font-bold text-[#009FE3]">
+                            <p className="text-lg font-bold text-[#009FE3] price">
                               {formatPrice(parsePrice(item.price) * item.quantity)} {t.currency}
                             </p>
                           </>
@@ -427,7 +427,7 @@ export function ShoppingCart({
             {/* Subtotal */}
             <div className="flex justify-between items-center mb-3">
               <span className="text-gray-600">{t.subtotal}</span>
-              <span className="text-lg font-semibold text-gray-900">
+              <span className="text-lg font-semibold text-gray-900 price">
                 {formatPrice(subtotal)} {t.currency}
               </span>
             </div>
@@ -441,7 +441,7 @@ export function ShoppingCart({
             {/* Total */}
             <div className="flex justify-between items-center mb-6">
               <span className="text-xl font-bold text-gray-900">{t.total}</span>
-              <span className="text-2xl font-bold text-[#009FE3]">
+              <span className="text-2xl font-bold text-[#009FE3] price">
                 {formatPrice(total)} {t.currency}
               </span>
             </div>

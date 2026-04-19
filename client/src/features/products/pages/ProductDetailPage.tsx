@@ -1900,7 +1900,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                           {colorPriceValue > 0 && (
                             <div className="mt-3 text-sm text-gray-600">
                               {language === "ar" ? "سعر اللون" : "Color price"}:{" "}
-                              <span className="font-semibold text-gray-900">
+                              <span className="font-semibold text-gray-900 price">
                                 {Number(colorPriceValue).toLocaleString("en-US")}
                               </span>
                               {hasColorPriceDiff && (
@@ -2034,20 +2034,20 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div className="flex-1">
                   <div className="flex items-baseline gap-3 mb-2">
-                    <span className="text-4xl sm:text-5xl font-bold text-[#009FE3]">
+                    <span className="text-4xl sm:text-5xl font-bold text-[#009FE3] price">
                       {displayPrice}
                     </span>
-                    <span className="text-xl text-gray-600 font-semibold">
+                    <span className="text-xl text-gray-600 font-semibold currency">
                       {currencyLabel}
                     </span>
                   </div>
 
                   {offerPricing.hasDiscount && (
                     <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-lg text-gray-400 line-through">
+                      <span className="text-lg text-gray-400 line-through price">
                         {offerPricing.originalPrice.toLocaleString("en-US")} {currencyLabel}
                       </span>
-                      <span className="bg-green-100 text-green-700 border border-green-200 px-2 py-1 rounded-lg text-sm font-semibold">
+                      <span className="bg-green-100 text-green-700 border border-green-200 px-2 py-1 rounded-lg text-sm font-semibold price">
                         {language === "ar" ? "توفير" : "Save"}{" "}
                         {savingsAmount.toLocaleString("en-US")} {currencyLabel}
                       </span>
