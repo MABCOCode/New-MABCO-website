@@ -252,7 +252,7 @@ const BrandPage: React.FC = () => {
 
             <button
               onClick={() => navigate('/')}
-              className={language === 'ar' ? 'flex-row-reverse group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0' : 'group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0'}
+              className={language === 'ar' ? 'flex-row-reverse group cursor-pointer flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0' : 'group cursor-pointer flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0'}
             >
               <span className="font-medium">{t('home')}</span>
             </button>
@@ -265,7 +265,7 @@ const BrandPage: React.FC = () => {
                       ? navigate(servicesHref)
                       : navigate(`/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`)
                   }
-                  className="text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0"
+                  className="cursor-pointer text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0 hover:underline underline-offset-4"
                 >
                   {isServiceBrand ? servicesLabel : displayCategoryName}
                 </button>

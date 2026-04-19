@@ -157,17 +157,17 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
       <div className="sticky top-20 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200/50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-3">
-            <div className={`flex items-center gap-2 text-sm ${isRTL ? 'flex-row' : 'flex-row'}`}>
+            <h2 className={`flex items-center gap-2 text-sm ${isRTL ? 'flex-row' : 'flex-row'}`}>
               <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-1 text-gray-600 hover:text-[#009FE3] transition-colors"
+                className="group cursor-pointer flex items-center gap-1 text-gray-600 hover:text-[#009FE3] transition-colors"
               >
-                <Home className="w-4 h-4" />
+                <Home className="w-4 h-4 group-hover:scale-105 transition-transform duration-200" />
                 <span>{t.home}</span>
               </button>
               <ChevronRight className={`w-4 h-4 text-gray-400 ${isRTL ? 'rotate-180' : ''}`} />
               <span className="text-[#009FE3]">{t.showrooms}</span>
-            </div>
+            </h2>
           </div>
         </div>
       </div>

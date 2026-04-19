@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Gift, Package, Sparkles, Tag, Ticket, TrendingDown, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Gift, Package, Sparkles, Tag, Ticket, TrendingDown, X ,ChevronRight} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCart } from "../../../context/CartContext";
@@ -373,22 +373,18 @@ export function OfferTypePage({
       {/* Breadcrumb */}
       <div className="sticky top-20 z-[10001] bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
+          <h2 className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
+            <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'}`} />
             <button
-              onClick={() => navigate("/")}
-              className={`group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0 ${
-                language === "ar" ? "flex-row-reverse" : "flex-row"
-              }`}
+              onClick={() => navigate('/')}
+              className={language === 'ar' ? 'flex-row-reverse group cursor-pointer flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0' : 'group cursor-pointer flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0'}
             >
-              <ArrowRight
-                className={`w-4 h-4 ${language === "ar" ? "rotate-180" : ""}`}
-              />
               <span className="font-medium">{language === "ar" ? "الرئيسية" : "Home"}</span>
             </button>
             <span className="text-gray-300 flex-shrink-0">/</span>
             <button
               onClick={() => navigate("/#special-offers-carousel")}
-              className="text-gray-500 hover:text-[#009FE3] transition-colors duration-200 font-medium whitespace-nowrap"
+              className="cursor-pointer text-gray-500 hover:text-[#009FE3] transition-colors duration-200 font-medium whitespace-nowrap hover:underline underline-offset-4"
             >
               {language === "ar" ? "العروض" : "Offers"}
             </button>
@@ -396,12 +392,12 @@ export function OfferTypePage({
             <span className="text-[#009FE3] font-semibold whitespace-nowrap">
               {language === "ar" ? offerInfo.titleAr : offerInfo.titleEn}
             </span>
-          </div>
+          </h2>
         </div>
       </div>
 
-      {/* Hero Section */}
-      <div className={`bg-gradient-to-br ${offerInfo.bgGradient} py-16 sm:py-20 relative overflow-hidden`}>
+        {/* Hero Section */}
+        <div className={`bg-gradient-to-br ${offerInfo.bgGradient} py-16 sm:py-20 relative overflow-hidden`}>
         {/* Decorative Background Elements */}
         <div className="absolute inset-0 opacity-10">
           <div className={`absolute top-10 right-10 w-64 h-64 ${offerInfo.bgColor} rounded-full blur-3xl`}></div>

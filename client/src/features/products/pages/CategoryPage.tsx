@@ -161,9 +161,9 @@ const CategoryPage: React.FC = () => {
           <h2 className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
             <button
               onClick={() => navigate('/')}
-              className={`group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0 ${language === 'ar' ? 'flex-row-reverse' : 'flex-row'}`}
+              className={`group cursor-pointer flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0 ${language === 'ar' ? 'flex-row-reverse' : 'flex-row'}`}
             >
-              <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'}`} />
+              <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'} group-hover:translate-x-0.5 transition-transform duration-200`} />
               <span className="font-medium">{t('home')}</span>
             </button>
             <span className="text-gray-300 flex-shrink-0">/</span>

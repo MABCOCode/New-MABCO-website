@@ -692,12 +692,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       'MABCO Product';
     const arabicSeoName =
       arabicProductName ||
-      String(prod.nameAr || prod.name || prod.nameEn || '???? ?????').trim();
+      String(prod.nameAr || prod.name || prod.nameEn || 'منتج مابكو').trim();
     const descriptionText =
       language === 'ar'
         ? productCameraMp
-          ? `${arabicSeoName} ?????? ${productCameraMp} ???? ???? | ?????`
-          : `${arabicSeoName} | ?????`
+          ? `${arabicSeoName} كاميرا ${productCameraMp} ميغا بكسل | مابكو`
+          : `${arabicSeoName} | مابكو`
         : String(prod.descriptionEn || prod.description || '').slice(0, 160) ||
           (resolvedBrandName && resolvedCategoryName
             ? `Browse ${englishSeoName} from ${resolvedBrandName} in ${resolvedCategoryName} on MABCO with available prices and specifications.`
@@ -711,7 +711,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     setSeo({
       title:
         language === 'ar'
-          ? `${arabicSeoName} | ?????`
+          ? `${arabicSeoName} | مابكو`
           : `MABCO | ${englishSeoName}`,
       description: descriptionText,
       url: window.location.href,
@@ -1732,13 +1732,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       <div className="sticky top-[72px] z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
+            <h2 className="flex flex-wrap items-center gap-2 text-sm">
               <button
                 onClick={() => navigate("/")}
-                className="group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0"
+                className="group cursor-pointer flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0"
               >
                 <ChevronRight
-                  className={`w-4 h-4 ${language === "ar" ? "" : "rotate-180"}`}
+                  className={`w-4 h-4 ${language === "ar" ? "" : "rotate-180"} group-hover:translate-x-0.5 transition-transform duration-200`}
                 />
                 <span className="font-medium">{t("home")}</span>
               </button>
@@ -1761,7 +1761,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     return (
                       <button
                         onClick={() => navigate(href)}
-                        className="text-gray-500 hover:text-[#009FE3] font-medium whitespace-nowrap transition-colors duration-200"
+                        className="cursor-pointer text-gray-500 hover:text-[#009FE3] font-medium whitespace-nowrap transition-colors duration-200 hover:underline underline-offset-4"
                       >
                         {crumb.label}
                       </button>
@@ -1774,7 +1774,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               <span className="text-[#009FE3] font-semibold break-words max-w-full sm:max-w-md">
                 {combinedProductHeading || arabicProductName || englishProductName || prod?.name}
               </span>
-            </div>
+            </h2>
 
             <button
               onClick={handleNavigateBack}
