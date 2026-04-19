@@ -10,89 +10,6 @@ import ProductCard from "../components/ProductCard";
 
 const brandProductsCache = new Map<string, any[]>();
 
-const normalizeBrandSeoKey = (value: string) => {
-  const normalized = String(value || '')
-    .toLowerCase()
-    .replace(/[()]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (['iphone', 'iphones', 'apple', 'apple iphone', 'أي فون', 'ايفون', 'أيفون', 'أبل'].includes(normalized)) {
-    return 'apple';
-  }
-  if (normalized.includes('samsung') || normalized.includes('سامسونغ') || normalized.includes('سامسونج')) {
-    return 'samsung';
-  }
-  if (normalized.includes('nokia') || normalized.includes('نوكيا')) {
-    return 'nokia';
-  }
-  if (normalized.includes('xiaomi') || normalized.includes('شاومي')) {
-    return 'xiaomi';
-  }
-  if (normalized.includes('honor') || normalized.includes('هونر')) {
-    return 'honor';
-  }
-  return normalized;
-};
-
-const getBrandSeoContent = (brandName: string, language: 'ar' | 'en') => {
-  const key = normalizeBrandSeoKey(brandName);
-  const mapping = {
-    apple: {
-      ar: {
-        title: 'MABCO | مواصفات وأسعار موبايلات أبل (آيفون) 2026',
-        description: 'اكتشف أحدث أسعار ومواصفات موبايلات Apple في سوريا لعام 2026 مع MABCO. تصفح جميع موديلات آيفون المتوفرة بالجملة وبأسعار تنافسية.',
-      },
-      en: {
-        title: 'iPhone Prices 2026 – Apple Mobiles | MABCO',
-        description: 'Explore the latest iPhone prices, specs, and available Apple mobile models for 2026 at MABCO.',
-      },
-    },
-    samsung: {
-      ar: {
-        title: 'MABCO | مواصفات وأسعار هواتف سامسونج 2026',
-        description: 'تصفح أحدث أسعار ومواصفات هواتف سامسونج 2026 في سوريا لدى MABCO، مع موديلات متعددة وأسعار تنافسية.',
-      },
-      en: {
-        title: 'Samsung Smart Phones 2026 – Prices & Specs | MABCO',
-        description: 'Browse Samsung smartphone prices, specs, and latest 2026 models available now at MABCO.',
-      },
-    },
-    nokia: {
-      ar: {
-        title: 'MABCO | هواتف نوكيا 2026 أسعار وموديلات من Nokia',
-        description: 'اكتشف موديلات وأسعار هواتف نوكيا 2026 لدى MABCO مع مواصفات واضحة وخيارات متعددة تناسب مختلف الاستخدامات.',
-      },
-      en: {
-        title: 'Nokia Phones 2026 – Full Price List | MABCO',
-        description: 'See the full Nokia phones price list for 2026 with specs and available models at MABCO.',
-      },
-    },
-    xiaomi: {
-      ar: {
-        title: 'MABCO | موبايلات وأسعار شاومي 2026 – أسعار ومواصفات',
-        description: 'تعرف على أسعار ومواصفات موبايلات شاومي 2026 في سوريا مع أحدث الموديلات المتوفرة من MABCO.',
-      },
-      en: {
-        title: 'Xiaomi Phones 2026 – Prices & Features | MABCO',
-        description: 'Discover Xiaomi phone prices and key features for 2026 models available through MABCO.',
-      },
-    },
-    honor: {
-      ar: {
-        title: 'MABCO | موبايلات هونر | أسعار موبايلات HONOR من MABCO',
-        description: 'تصفح أحدث أسعار ومواصفات موبايلات هونر من MABCO مع موديلات HONOR المتوفرة وخيارات متنوعة.',
-      },
-      en: {
-        title: 'HONOR Mobile Prices 2026 – All Models | MABCO',
-        description: 'Check HONOR mobile prices for 2026 and browse all available models at MABCO.',
-      },
-    },
-  } as const;
-
-  return mapping[key as keyof typeof mapping]?.[language] || null;
-};
-
 const BrandPage: React.FC = () => {
   const { id, category } = useParams<{ id: string; category?: string }>();
   const navigate = useNavigate();
@@ -286,22 +203,25 @@ const BrandPage: React.FC = () => {
 
   useEffect(() => {
     if (!displayBrandName) return;
+
+    const normalizedBrandName = String(displayBrandName).trim();
+    const normalizedCategoryName = String(displayCategoryName || '').trim();
     const title =
       language === 'ar'
-        ? displayCategoryName
-          ? `مابكو | ${displayCategoryName} | ${displayBrandName}`
-          : `مابكو | ${displayBrandName}`
-        : displayCategoryName
-          ? `${displayBrandName} | ${displayCategoryName} | MABCO`
-          : `${displayBrandName} | MABCO`;
+        ? normalizedCategoryName
+          ? `مابكو | ${normalizedCategoryName}  ${normalizedBrandName}`
+          : `مابكو | ${normalizedBrandName}`
+        : normalizedCategoryName
+          ? `MABCO | ${normalizedCategoryName}  ${normalizedBrandName}`
+          : `MABCO | ${normalizedBrandName}`;
     const description =
       language === 'ar'
-        ? displayCategoryName
-          ? `تصفح أحدث منتجات ${displayBrandName} ضمن فئة ${displayCategoryName} على مابكو.`
-          : `تصفح أحدث منتجات ${displayBrandName} على مابكو.`
-        : displayCategoryName
-          ? `Browse the latest ${displayBrandName} products in ${displayCategoryName} on MABCO.`
-          : `Browse the latest ${displayBrandName} products on MABCO.`;
+        ? normalizedCategoryName
+          ? `تصفح أحدث منتجات ${normalizedBrandName} ضمن فئة ${normalizedCategoryName} على مابكو مع الأسعار والمواصفات المتوفرة.`
+          : `تصفح أحدث منتجات ${normalizedBrandName} على مابكو مع الأسعار والمواصفات المتوفرة.`
+        : normalizedCategoryName
+          ? `Browse ${normalizedBrandName} products in ${normalizedCategoryName} on MABCO with available prices and specifications.`
+          : `Browse ${normalizedBrandName} products on MABCO with available prices and specifications.`;
 
     setSeo({
       title,
@@ -310,20 +230,6 @@ const BrandPage: React.FC = () => {
       image: 'https://mabcoonline.com/images/giphy.gif',
     });
   }, [displayBrandName, displayCategoryName, language]);
-
-  useEffect(() => {
-    if (!displayBrandName) return;
-
-    const mappedSeo = getBrandSeoContent(displayBrandName, language);
-    if (!mappedSeo) return;
-
-    setSeo({
-      title: mappedSeo.title,
-      description: mappedSeo.description,
-      url: window.location.href,
-      image: 'https://mabcoonline.com/images/giphy.gif',
-    });
-  }, [displayBrandName, language]);
 
   const compareItems = useCompareStore((s: any) => s.items) as string[];
   const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;

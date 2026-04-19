@@ -130,7 +130,7 @@ const CategoryPage: React.FC = () => {
     const title =
       language === 'ar'
         ? `${displayCategoryName} - مابكو` 
-        : `${displayCategoryName} | MABCO`;
+        : `MABCO | ${displayCategoryName}`;
 
     const description =
       language === 'ar'
