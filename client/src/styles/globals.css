@@ -8,6 +8,47 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Nirmala';
+  src: local('Nirmala UI'), local('Nirmala');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MabcoSans';
+  src: local('Nirmala UI'), local('Nirmala');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-024F,
+    U+0030-0039,
+    U+0660-0669,
+    U+06F0-06F9,
+    U+2000-206F,
+    U+20A0-20CF;
+}
+
+@font-face {
+  font-family: 'MabcoSans';
+  src: url('https://db.onlinewebfonts.com/t/7dfdff9f5cff88cd3898ccd72c83f653.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0600-065F,
+    U+066A-06DC,
+    U+06DD-06E8,
+    U+06EA-06EF,
+    U+06FA-06FF,
+    U+0750-077F,
+    U+08A0-08FF,
+    U+FB50-FDFF,
+    U+FE70-FEFF;
+}
+
 :root {
   --font-size: 16px;
   --background: #ffffff;
@@ -134,8 +175,16 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'TheMixArab', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'MabcoSans', 'Nirmala', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     direction: rtl;
+  }
+
+  input,
+  textarea,
+  select,
+  button,
+  option {
+    font-family: inherit;
   }
 }
 
