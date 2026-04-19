@@ -686,53 +686,42 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   useEffect(() => {
     if (!prod) return;
 
-    const productName =
-      language === 'ar'
-        ? prod.nameAr || prod.name || prod.nameEn || 'منتج مابكو'
-        : prod.nameEn || prod.name || prod.nameAr || 'MABCO Product';
-
+    const englishSeoName =
+      englishProductName ||
+      cleanEnglishProductName(String(prod.nameEn || prod.name || '')) ||
+      'MABCO Product';
+    const arabicSeoName =
+      arabicProductName ||
+      String(prod.nameAr || prod.name || prod.nameEn || '???? ?????').trim();
     const descriptionText =
       language === 'ar'
-        ? String(prod.descriptionAr || prod.description || '').slice(0, 160) ||
-          `منتج ${productName} في مابكو - الجودة والضمان والتوصيل السريع.`
-        : String(prod.description || prod.descriptionAr || '').slice(0, 160) ||
-          `${productName} at MABCO - quality, warranty, and fast delivery.`;
+        ? productCameraMp
+          ? `${arabicSeoName} ?????? ${productCameraMp} ???? ???? | ?????`
+          : `${arabicSeoName} | ?????`
+        : String(prod.descriptionEn || prod.description || '').slice(0, 160) ||
+          (resolvedBrandName && resolvedCategoryName
+            ? `Browse ${englishSeoName} from ${resolvedBrandName} in ${resolvedCategoryName} on MABCO with available prices and specifications.`
+            : `Browse ${englishSeoName} on MABCO with available prices and specifications.`);
 
     const seoImage =
       buildUnifiedImagesFromProduct(prod)[0]?.src ||
       mergeImageSources(prod?.images, prod?.image)[0] ||
       "https://mabcoonline.com/images/giphy.gif";
+
     setSeo({
       title:
         language === 'ar'
-          ? `${productName} - مابكو` 
-          : `${productName} | MABCO`,
+          ? `${arabicSeoName} | ?????`
+          : `MABCO | ${englishSeoName}`,
       description: descriptionText,
       url: window.location.href,
       image: seoImage,
-      keywords: `${productName}, ${resolvedBrandName || ''}`,
+      keywords:
+        language === 'ar'
+          ? `${arabicSeoName}, ${englishSeoName}, ${resolvedBrandName || ''}`
+          : `${englishSeoName}, ${resolvedBrandName || ''}, ${resolvedCategoryName || ''}`,
     });
-  }, [prod, language, resolvedBrandName]);
-
-  useEffect(() => {
-    if (!prod || !arabicProductName) return;
-
-    const seoImage =
-      buildUnifiedImagesFromProduct(prod)[0]?.src ||
-      mergeImageSources(prod?.images, prod?.image)[0] ||
-      "https://mabcoonline.com/images/giphy.gif";
-    const description = productCameraMp
-      ? `${arabicProductName} كاميرا ${productCameraMp} ميغا بكسل | مابكو`
-      : `${arabicProductName} | مابكو`;
-
-    setSeo({
-      title: `${arabicProductName} | مابكو`,
-      description,
-      url: window.location.href,
-      image: seoImage,
-      keywords: `${arabicProductName}, ${englishProductName}, ${resolvedBrandName || ''}`,
-    });
-  }, [arabicProductName, englishProductName, prod, productCameraMp, resolvedBrandName]);
+  }, [arabicProductName, englishProductName, language, prod, productCameraMp, resolvedBrandName, resolvedCategoryName]);
 
   const breadcrumbs = useMemo(() => {
     if (Array.isArray(locationState?.breadcrumbs) && locationState.breadcrumbs.length) {
