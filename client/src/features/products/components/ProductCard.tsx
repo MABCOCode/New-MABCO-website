@@ -21,6 +21,12 @@ export interface ProductCardProps {
   topBadge?: React.ReactNode;
   onProductClick?: (product: Product) => void;
 }
+
+const cleanEnglishProductName = (value: string) =>
+  String(value || '')
+    .replace(/^\s*<?\s*mobiles\s*>?\s*/i, '')
+    .trim();
+
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
   toggleCompare,
@@ -45,6 +51,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
     resolveNumericId((product as any).stk_code);
   const productRef = getProductRef(product);
   const resolvedCartId = productRef || resolvedProductId || `product-${product.name}`;
+  const displayProductName =
+    language === "ar"
+      ? String((product as any).nameAr || product.name || "")
+      : cleanEnglishProductName(String((product as any).nameEn || product.name || ""));
   const parseNumericPrice = (value: unknown): number => {
     if (typeof value === "number") return Number.isFinite(value) ? value : 0;
     if (typeof value === "string") {
@@ -647,7 +657,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             <div className="aspect-square rounded-lg overflow-hidden bg-gray-50 relative">
               <ImageWithFallback
                 src={currentImage}
-                alt={product.name}
+                alt={displayProductName || String(product.name || "")}
                 className={`w-full h-full object-cover transition-all duration-500 ${
                   isHovered ? "scale-110" : "scale-100"
                 }`}
@@ -678,7 +688,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             }`}
             onClick={handleNavigate}
           >
-            {product.name}
+            {displayProductName}
           </h3>
             {hasColors && (
               <div>
@@ -724,6 +734,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
               className={`flex items-center ${hasDiscount ? "justify-between" : "justify-start"}`}
             >
               <div className={language === "ar" ? "text-right" : "text-left"}>
+                <div className="mx-3 text-xs font-semibold text-gray-500">
+                  {language === "ar" ? "السعر" : "Price"}
+                </div>
                 <div className={`mx-3 ${hasOldPrice ?  "":"mb-3" }  flex items-baseline gap-1`}>
                   <span className="font-bold why text-[#009FE3] text-2xl price">
                     {displayPrice}

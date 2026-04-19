@@ -310,7 +310,14 @@ const AppContent: React.FC = () => {
               <Route path="/sitemap" element={<SitemapPage />} />
               <Route path="/account/*" element={<AccountRoutes />} />
               <Route path="/login" element={<Navigate to="/account/login" replace />} />
+              <Route path="/register" element={<Navigate to="/account/signup" replace />} />
               <Route path="/dashboard" element={<Navigate to="/account/dashboard" replace />} />
+              <Route path="/showroom" element={<Navigate to="/showrooms" replace />} />
+              <Route path="/offer/:offerType" element={<Navigate to={`/offers/${location.pathname.split('/').pop() || ''}`} replace />} />
+              <Route path="/ProductsSpecs/:id" element={<Navigate to={`/product/${location.pathname.split('/').pop() || ''}`} replace />} />
+              <Route path="/ProductsSpecs.aspx" element={<Navigate to="/products" replace />} />
+              <Route path="/ShoppingCartView.aspx" element={<Navigate to="/checkout" replace />} />
+              <Route path="/AddToShoppingCart.asp" element={<Navigate to="/checkout" replace />} />
 
               <Route path="/search" element={<SearchPage />} />
               <Route

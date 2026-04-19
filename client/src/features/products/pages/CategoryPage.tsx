@@ -158,7 +158,7 @@ const CategoryPage: React.FC = () => {
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50 mb-8" >
       <div className="sticky top-[72px] z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
+          <h2 className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
             <button
               onClick={() => navigate('/')}
               className={`group flex items-center gap-1.5 text-gray-600 hover:text-[#009FE3] transition-colors duration-200 flex-shrink-0 ${language === 'ar' ? 'flex-row-reverse' : 'flex-row'}`}
@@ -168,7 +168,7 @@ const CategoryPage: React.FC = () => {
             </button>
             <span className="text-gray-300 flex-shrink-0">/</span>
             <span className="text-[#009FE3] font-semibold truncate max-w-[300px]">{displayCategoryName}</span>
-          </div>
+          </h2>
         </div>
       </div>
 

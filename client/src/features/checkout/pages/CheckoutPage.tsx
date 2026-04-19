@@ -108,6 +108,7 @@ import { CartOfferDisplay } from "@/features/offer/components/CartOfferDisplay";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../../../context/CartContext";
 import { useLanguage } from "../../../context/LanguageContext";
+import { setSeo } from "../../../services/seo";
 import {
   applyOfferDiscount,
   formatOfferDiscountLabel,
@@ -157,6 +158,18 @@ export function CheckoutPage() {
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const mapsLoaderRef = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    setSeo({
+      title: language === "ar" ? "سلة التسوق | مابكو" : "Shopping Cart | MABCO",
+      description:
+        language === "ar"
+          ? "صفحة سلة التسوق وطلب المنتجات في مابكو."
+          : "Shopping cart and checkout page for MABCO orders.",
+      url: window.location.href,
+      robots: "noindex, nofollow",
+    });
+  }, [language]);
 
   useEffect(() => {
     let mounted = true;

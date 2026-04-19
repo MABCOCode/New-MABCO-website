@@ -191,66 +191,7 @@ export interface MaintenanceRecord {
   }[];
 }
 
-export const maintenanceRecords: MaintenanceRecord[] = [
-  {
-    serialNumber: "IMEI123456789012345",
-    orderNumber: "MNT-2026-001",
-    deviceType: "iPhone 14 Pro",
-    deviceTypeAr: "ايفون 14 برو",
-    brand: "Apple",
-    issue: "Screen replacement",
-    issueAr: "استبدال الشاشة",
-    status: 8,
-    receivedDate: "2026-02-08T10:00:00",
-    estimatedCompletion: "2026-02-14T00:00:00",
-    technician: "أحمد محمود",
-    notes: "الجهاز بحالة جيدة، الشاشة فقط تحتاج استبدال",
-    timeline: [
-      { status: 1, date: "2026-02-08T10:00:00", note: "استلام الجهاز" },
-      { status: 4, date: "2026-02-09T09:00:00", note: "بدء الصيانة" },
-      { status: 8, date: "2026-02-10T14:30:00", note: "جاري تركيب الشاشة الجديدة" },
-    ],
-  },
-  {
-    serialNumber: "SN987654321",
-    orderNumber: "MNT-2026-002",
-    deviceType: "MacBook Pro 16\"",
-    deviceTypeAr: "ماك بوك برو 16 انش",
-    brand: "Apple",
-    issue: "Battery replacement",
-    issueAr: "استبدال البطارية",
-    status: 14,
-    receivedDate: "2026-02-05T11:00:00",
-    estimatedCompletion: "2026-02-12T00:00:00",
-    technician: "محمد علي",
-    timeline: [
-      { status: 1, date: "2026-02-05T11:00:00" },
-      { status: 4, date: "2026-02-06T09:00:00" },
-      { status: 8, date: "2026-02-08T10:00:00" },
-      { status: 11, date: "2026-02-10T15:00:00" },
-      { status: 12, date: "2026-02-11T09:00:00" },
-      { status: 14, date: "2026-02-11T16:00:00", note: "جاهز للاستلام من الفرع الرئيسي" },
-    ],
-  },
-  {
-    serialNumber: "IMEI999888777666555",
-    orderNumber: "MNT-2026-003",
-    deviceType: "Samsung Galaxy S23",
-    deviceTypeAr: "سامسونج جالكسي S23",
-    brand: "Samsung",
-    issue: "Water damage repair",
-    issueAr: "إصلاح أضرار المياه",
-    status: 4,
-    receivedDate: "2026-02-10T14:00:00",
-    estimatedCompletion: "2026-02-17T00:00:00",
-    technician: "خالد حسن",
-    notes: "تلف بسبب المياه، يحتاج فحص شامل",
-    timeline: [
-      { status: 1, date: "2026-02-10T14:00:00" },
-      { status: 4, date: "2026-02-11T10:00:00", note: "بدء الفحص والتشخيص" },
-    ],
-  },
-];
+export const maintenanceRecords: MaintenanceRecord[] = [];
 
 // Warranty Data
 export interface WarrantyRecord {
@@ -269,52 +210,7 @@ export interface WarrantyRecord {
   purchaseLocation: string;
 }
 
-export const warrantyRecords: WarrantyRecord[] = [
-  {
-    serialNumber: "IMEI123456789012345",
-    imei: "123456789012345",
-    productName: "iPhone 14 Pro Max",
-    productNameAr: "ايفون 14 برو ماكس",
-    brand: "Apple",
-    purchaseDate: "2025-11-15T00:00:00",
-    warrantyPeriod: 12,
-    warrantyExpiry: "2026-11-15T00:00:00",
-    isActive: true,
-    coverageType: "full",
-    claimsUsed: 0,
-    maxClaims: 2,
-    purchaseLocation: "MABCO - دمشق، الفرع الرئيسي",
-  },
-  {
-    serialNumber: "SN987654321",
-    productName: "MacBook Pro 16\" M3",
-    productNameAr: "ماك بوك برو 16 انش M3",
-    brand: "Apple",
-    purchaseDate: "2025-06-10T00:00:00",
-    warrantyPeriod: 24,
-    warrantyExpiry: "2027-06-10T00:00:00",
-    isActive: true,
-    coverageType: "full",
-    claimsUsed: 1,
-    maxClaims: 3,
-    purchaseLocation: "MABCO - حلب",
-  },
-  {
-    serialNumber: "IMEI111222333444555",
-    imei: "111222333444555",
-    productName: "Samsung Galaxy S22",
-    productNameAr: "سامسونج جالكسي S22",
-    brand: "Samsung",
-    purchaseDate: "2024-03-20T00:00:00",
-    warrantyPeriod: 12,
-    warrantyExpiry: "2025-03-20T00:00:00",
-    isActive: false,
-    coverageType: "expired",
-    claimsUsed: 0,
-    maxClaims: 1,
-    purchaseLocation: "MABCO - حمص",
-  },
-];
+export const warrantyRecords: WarrantyRecord[] = [];
 
 // E-Payment Companies
 export interface PaymentCompany {

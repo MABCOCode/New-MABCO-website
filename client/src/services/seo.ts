@@ -12,6 +12,16 @@ export function updateMeta(meta: Record<string,string>) {
   });
 }
 
+export function updateLink(rel: string, href: string) {
+  let el = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
+  if (!el) {
+    el = document.createElement('link');
+    el.setAttribute('rel', rel);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('href', href);
+}
+
 export function updateMetaProperty(property: string, value: string) {
   let el = document.querySelector(`meta[property="${property}"]`);
   if (!el) {
@@ -28,13 +38,17 @@ export function setSeo({
   image,
   url,
   keywords,
+  robots = 'index, follow',
 }: {
   title: string;
   description: string;
   image?: string;
   url?: string;
   keywords?: string;
+  robots?: string;
 }) {
+  const resolvedUrl = url || window.location.href;
+
   if (title) {
     document.title = title;
     const titleElement = document.getElementById('page-title');
@@ -63,5 +77,9 @@ export function setSeo({
   if (keywords) {
     updateMeta({ keywords });
   }
+
+  updateMeta({ robots });
+  updateMetaProperty('og:url', resolvedUrl);
+  updateLink('canonical', resolvedUrl);
 }
 

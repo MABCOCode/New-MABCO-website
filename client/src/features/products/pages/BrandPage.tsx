@@ -10,6 +10,89 @@ import ProductCard from "../components/ProductCard";
 
 const brandProductsCache = new Map<string, any[]>();
 
+const normalizeBrandSeoKey = (value: string) => {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .replace(/[()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (['iphone', 'iphones', 'apple', 'apple iphone', 'أي فون', 'ايفون', 'أيفون', 'أبل'].includes(normalized)) {
+    return 'apple';
+  }
+  if (normalized.includes('samsung') || normalized.includes('سامسونغ') || normalized.includes('سامسونج')) {
+    return 'samsung';
+  }
+  if (normalized.includes('nokia') || normalized.includes('نوكيا')) {
+    return 'nokia';
+  }
+  if (normalized.includes('xiaomi') || normalized.includes('شاومي')) {
+    return 'xiaomi';
+  }
+  if (normalized.includes('honor') || normalized.includes('هونر')) {
+    return 'honor';
+  }
+  return normalized;
+};
+
+const getBrandSeoContent = (brandName: string, language: 'ar' | 'en') => {
+  const key = normalizeBrandSeoKey(brandName);
+  const mapping = {
+    apple: {
+      ar: {
+        title: 'MABCO | مواصفات وأسعار موبايلات أبل (آيفون) 2026',
+        description: 'اكتشف أحدث أسعار ومواصفات موبايلات Apple في سوريا لعام 2026 مع MABCO. تصفح جميع موديلات آيفون المتوفرة بالجملة وبأسعار تنافسية.',
+      },
+      en: {
+        title: 'iPhone Prices 2026 – Apple Mobiles | MABCO',
+        description: 'Explore the latest iPhone prices, specs, and available Apple mobile models for 2026 at MABCO.',
+      },
+    },
+    samsung: {
+      ar: {
+        title: 'MABCO | مواصفات وأسعار هواتف سامسونج 2026',
+        description: 'تصفح أحدث أسعار ومواصفات هواتف سامسونج 2026 في سوريا لدى MABCO، مع موديلات متعددة وأسعار تنافسية.',
+      },
+      en: {
+        title: 'Samsung Smart Phones 2026 – Prices & Specs | MABCO',
+        description: 'Browse Samsung smartphone prices, specs, and latest 2026 models available now at MABCO.',
+      },
+    },
+    nokia: {
+      ar: {
+        title: 'MABCO | هواتف نوكيا 2026 أسعار وموديلات من Nokia',
+        description: 'اكتشف موديلات وأسعار هواتف نوكيا 2026 لدى MABCO مع مواصفات واضحة وخيارات متعددة تناسب مختلف الاستخدامات.',
+      },
+      en: {
+        title: 'Nokia Phones 2026 – Full Price List | MABCO',
+        description: 'See the full Nokia phones price list for 2026 with specs and available models at MABCO.',
+      },
+    },
+    xiaomi: {
+      ar: {
+        title: 'MABCO | موبايلات وأسعار شاومي 2026 – أسعار ومواصفات',
+        description: 'تعرف على أسعار ومواصفات موبايلات شاومي 2026 في سوريا مع أحدث الموديلات المتوفرة من MABCO.',
+      },
+      en: {
+        title: 'Xiaomi Phones 2026 – Prices & Features | MABCO',
+        description: 'Discover Xiaomi phone prices and key features for 2026 models available through MABCO.',
+      },
+    },
+    honor: {
+      ar: {
+        title: 'MABCO | موبايلات هونر | أسعار موبايلات HONOR من MABCO',
+        description: 'تصفح أحدث أسعار ومواصفات موبايلات هونر من MABCO مع موديلات HONOR المتوفرة وخيارات متنوعة.',
+      },
+      en: {
+        title: 'HONOR Mobile Prices 2026 – All Models | MABCO',
+        description: 'Check HONOR mobile prices for 2026 and browse all available models at MABCO.',
+      },
+    },
+  } as const;
+
+  return mapping[key as keyof typeof mapping]?.[language] || null;
+};
+
 const BrandPage: React.FC = () => {
   const { id, category } = useParams<{ id: string; category?: string }>();
   const navigate = useNavigate();
@@ -228,6 +311,20 @@ const BrandPage: React.FC = () => {
     });
   }, [displayBrandName, displayCategoryName, language]);
 
+  useEffect(() => {
+    if (!displayBrandName) return;
+
+    const mappedSeo = getBrandSeoContent(displayBrandName, language);
+    if (!mappedSeo) return;
+
+    setSeo({
+      title: mappedSeo.title,
+      description: mappedSeo.description,
+      url: window.location.href,
+      image: 'https://mabcoonline.com/images/giphy.gif',
+    });
+  }, [displayBrandName, language]);
+
   const compareItems = useCompareStore((s: any) => s.items) as string[];
   const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;
   const openCompare = useCompareStore((s: any) => s.openCompare) as () => void;
@@ -244,7 +341,7 @@ const BrandPage: React.FC = () => {
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50 mb-40">
       <div className="sticky top-[72px] z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
+          <h2 className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
               <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'}`} />
 
             <button
@@ -272,7 +369,7 @@ const BrandPage: React.FC = () => {
             <span className="text-[#009FE3] font-semibold truncate max-w-[300px]">
               {displayBrandName}
             </span>
-          </div>
+          </h2>
         </div>
       </div>
 

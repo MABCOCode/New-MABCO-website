@@ -6,12 +6,14 @@ interface EditableTextProps {
   onSave: (newValue: string) => void;
   className?: string;
   editClassName?: string;
+  displayValue?: string;
   language: "ar" | "en";
   userPermissions: { canEditContent: boolean };
   multiline?: boolean;
   placeholder?: string;
   maxLength?: number;
   label?: string;
+  as?: keyof JSX.IntrinsicElements;
 }
 
 export function EditableText({
@@ -19,18 +21,22 @@ export function EditableText({
   onSave,
   className = "",
   editClassName = "",
+  displayValue,
   language,
   userPermissions,
   multiline = false,
   placeholder = "",
   maxLength = 500,
   label,
+  as = "div",
 }: EditableTextProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(value);
+  const Tag = as as any;
+  const renderedValue = displayValue ?? value;
 
   if (!userPermissions.canEditContent) {
-    return <div className={className}>{value}</div>;
+    return <Tag className={className}>{renderedValue}</Tag>;
   }
 
   const handleSave = () => {
@@ -48,7 +54,7 @@ export function EditableText({
   if (!isEditing) {
     return (
       <div className="relative group/editable">
-        <div className={className}>{value}</div>
+        <Tag className={className}>{renderedValue}</Tag>
         <button
           onClick={() => setIsEditing(true)}
           className={`absolute -top-2 ${language === "ar" ? "-left-2" : "-right-2"} p-1.5 bg-purple-500 text-white rounded-md opacity-100 transition-all duration-200 hover:bg-purple-600 shadow-lg z-10`}

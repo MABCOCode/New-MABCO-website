@@ -125,6 +125,11 @@ const mergeImageSources = (...values: any[]) => {
   return result;
 };
 
+const cleanEnglishProductName = (value: string) =>
+  String(value || "")
+    .replace(/^\s*<?\s*mobiles\s*>?\s*/i, "")
+    .trim();
+
 type UnifiedImage = {
   id: string;
   src: string;
@@ -628,6 +633,56 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     return brandName;
   }, [brandName, language, prod, staticBrands]);
 
+  const arabicProductName = useMemo(
+    () => String(prod?.nameAr || prod?.name || "").trim(),
+    [prod],
+  );
+
+  const englishProductName = useMemo(
+    () => cleanEnglishProductName(String(prod?.nameEn || prod?.name || "").trim()),
+    [prod],
+  );
+
+  const combinedProductHeading = useMemo(() => {
+    const parts = [arabicProductName, englishProductName].filter(Boolean);
+    return parts.join(" + ");
+  }, [arabicProductName, englishProductName]);
+
+  const productImageAlt = useMemo(
+    () => combinedProductHeading || arabicProductName || englishProductName || "MABCO Product",
+    [arabicProductName, combinedProductHeading, englishProductName],
+  );
+
+  const productCameraMp = useMemo(() => {
+    const cameraPattern = /(\d+(?:\.\d+)?)\s*(?:mp|megapixel|ميغا|ميجا)/i;
+    const textPool = [
+      ...(Array.isArray(prod?.specs)
+        ? prod.specs.flatMap((spec: any) => [spec?.title, spec?.titleAr, spec?.value, spec?.valueAr])
+        : []),
+      prod?.description,
+      prod?.descriptionAr,
+    ]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+
+    for (const text of textPool) {
+      const isCameraField = /camera|cam|كاميرا/i.test(text);
+      const match = text.match(cameraPattern);
+      if (isCameraField && match?.[1]) {
+        return match[1];
+      }
+    }
+
+    for (const text of textPool) {
+      const match = text.match(cameraPattern);
+      if (match?.[1]) {
+        return match[1];
+      }
+    }
+
+    return "";
+  }, [prod]);
+
   useEffect(() => {
     if (!prod) return;
 
@@ -658,6 +713,26 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       keywords: `${productName}, ${resolvedBrandName || ''}`,
     });
   }, [prod, language, resolvedBrandName]);
+
+  useEffect(() => {
+    if (!prod || !arabicProductName) return;
+
+    const seoImage =
+      buildUnifiedImagesFromProduct(prod)[0]?.src ||
+      mergeImageSources(prod?.images, prod?.image)[0] ||
+      "https://mabcoonline.com/images/giphy.gif";
+    const description = productCameraMp
+      ? `${arabicProductName} كاميرا ${productCameraMp} ميغا بكسل | مابكو`
+      : `${arabicProductName} | مابكو`;
+
+    setSeo({
+      title: `${arabicProductName} | مابكو`,
+      description,
+      url: window.location.href,
+      image: seoImage,
+      keywords: `${arabicProductName}, ${englishProductName}, ${resolvedBrandName || ''}`,
+    });
+  }, [arabicProductName, englishProductName, prod, productCameraMp, resolvedBrandName]);
 
   const breadcrumbs = useMemo(() => {
     if (Array.isArray(locationState?.breadcrumbs) && locationState.breadcrumbs.length) {
@@ -1708,7 +1783,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               ))}
 
               <span className="text-[#009FE3] font-semibold break-words max-w-full sm:max-w-md">
-                {prod?.name}
+                {combinedProductHeading || arabicProductName || englishProductName || prod?.name}
               </span>
             </div>
 
@@ -1762,7 +1837,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                               {userPermissions.canEditContent ? (
                                 <EditableImage
                                   src={imageEntry.src}
-                                  alt={`${prod?.name} - ${index + 1}`}
+                                  alt={`${productImageAlt} - ${index + 1}`}
                                   onSave={(newImageUrl) => {
                                     updateUnifiedImage(
                                       imageEntry.id,
@@ -1782,7 +1857,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                   )}
                                   <img
                                     src={imageEntry.src}
-                                    alt={`${prod?.name} - ${index + 1}`}
+                                    alt={`${productImageAlt} - ${index + 1}`}
                                     className="w-full h-full object-cover"
                                     onLoad={() =>
                                       markImageLoaded(
@@ -1808,7 +1883,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                             {userPermissions.canEditContent ? (
                                 <EditableImage
                                   src={currentImage || prod?.image}
-                                  alt={prod?.name}
+                                  alt={productImageAlt}
                                   onSave={(newImageUrl) => {
                                   addUnifiedImage(newImageUrl, {
                                     colorKey: hasColors ? displayColorKey : "",
@@ -1826,7 +1901,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                                 )}
                                 <img
                                   src={prod?.image}
-                                  alt={prod?.name}
+                                  alt={productImageAlt}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                   onLoad={() =>
                                     markImageLoaded("main-fallback")
@@ -1956,7 +2031,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                               )}
                               <img
                                 src={imageEntry.src}
-                                alt={`${prod?.name} - Image ${index + 1}`}
+                                alt={`${productImageAlt} - Image ${index + 1}`}
                                 className="w-full h-full object-cover"
                                 onLoad={() =>
                                   markImageLoaded(
@@ -2010,7 +2085,8 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             {/* Product Name - Editable */}
             <div className="mb-4 sm:mb-6">
               <EditableText
-                value={prod?.name}
+                value={arabicProductName || prod?.name}
+                displayValue={combinedProductHeading || arabicProductName || englishProductName || prod?.name}
                 onSave={(newName) => {
                   persistProductContent(prod.id, {
                     ...prod,
@@ -2019,6 +2095,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 }}
                 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight"
                 editClassName="text-2xl sm:text-3xl font-bold"
+                as="h1"
                 language={language}
                 userPermissions={userPermissions}
                 maxLength={150}
@@ -2046,6 +2123,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50/50 rounded-2xl p-6 mb-6 border-2 border-[#009FE3]/20">
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div className="flex-1">
+                  <div className="text-sm font-semibold text-gray-500 mb-2">
+                    {language === "ar" ? "السعر" : "Price"}
+                  </div>
                   <div className="flex items-baseline gap-3 mb-2">
                     <span className="text-4xl sm:text-5xl font-bold text-[#009FE3] price">
                       {displayPrice}
