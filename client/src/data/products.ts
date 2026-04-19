@@ -300,9 +300,9 @@ export const getOfferBadgeText = (offers: ProductOffer[], language: "ar" | "en")
   if (bundle) {
     const numValue = resolveOfferDiscountValue(bundle);
     if (numValue > 0) {
-      return formatOfferDiscountLabel(bundle, language, CURRENCY_LABEL, language === "ar" ? "خصم" : "OFF");
+      return formatOfferDiscountLabel(bundle, language, CURRENCY_LABEL, language === "ar" ? "خصم على المنتجات المرتبطة" : "OFF");
     }
-    return language === "ar" ? "عرض حزمة" : "BUNDLE";
+    return language === "ar" ? "خصم على المنتجات المرتبطة" : "BUNDLE";
   }
   return "";
 };
