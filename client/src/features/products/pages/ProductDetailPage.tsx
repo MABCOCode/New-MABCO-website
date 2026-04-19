@@ -643,10 +643,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     [prod],
   );
 
-  const combinedProductHeading = useMemo(() => {
-    const parts = [arabicProductName, englishProductName].filter(Boolean);
-    return parts.join(" + ");
-  }, [arabicProductName, englishProductName]);
+  const combinedProductHeading = language === 'ar' ? (arabicProductName || englishProductName) : (englishProductName || arabicProductName);
 
   const productImageAlt = useMemo(
     () => combinedProductHeading || arabicProductName || englishProductName || "MABCO Product",
