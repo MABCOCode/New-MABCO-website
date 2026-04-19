@@ -617,18 +617,18 @@ export function OfferTypePage({
                                 if (!currentOffer) return "";
                                 const num = resolveOfferDiscountValue(currentOffer);
                                 if (!Number.isFinite(num) || num <= 0) {
-                                  return language === "ar" ? "حزمة" : "Bundle";
+                                  return language === "ar" ? "خصم على المنتجات المرتبطة" : "Bundle";
                                 }
                                 return formatOfferDiscountLabel(
                                   currentOffer,
                                   language,
                                   CURRENCY_LABEL,
-                                  language === "ar" ? "حزمة" : "Bundle",
+                                  language === "ar" ? "خصم على المنتجات المرتبطة" : "Bundle",
                                 );
                               })()}
                               {false && currentOffer && "discountPercentage" in currentOffer
                                 ? `${currentOffer.discountPercentage}% ${
-                                    language === "ar" ? "على الحزمة" : "Bundle"
+                                    language === "ar" ? "خصم على المنتجات المرتبطة" : "Bundle"
                                   }`
                                 : ""}
                             </span>
