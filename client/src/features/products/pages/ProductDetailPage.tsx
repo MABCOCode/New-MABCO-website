@@ -670,6 +670,18 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     return fallback;
   }, [locationState, resolvedBrandName, resolvedCategoryName]);
 
+  const resolveCategoryHref = (crumbIndex: number, crumb: any): string | null => {
+    if (crumbIndex !== 0) return null;
+    if (crumb?.href) return null;
+    const categoryRef =
+      prod?.cat_code ||
+      prod?.category_code ||
+      prod?.categoryCode ||
+      prod?.catCode;
+    if (!categoryRef) return null;
+    return `/?openCategory=${encodeURIComponent(String(categoryRef))}#categories`;
+  };
+
   const resolveBrandHref = (crumbIndex: number, crumb: any): string | null => {
     if (crumbIndex !== breadcrumbs.length - 1) return null;
     if (crumb?.href) return null;
@@ -1672,8 +1684,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
               {breadcrumbs.map((crumb: any, index: number) => (
                 <div key={`crumb-${index}-${crumb.label}`} className="contents">
                   {(() => {
+                    const categoryHref = resolveCategoryHref(index, crumb);
                     const brandHref = resolveBrandHref(index, crumb);
-                    const href = crumb?.href || brandHref;
+                    const href = crumb?.href || categoryHref || brandHref;
                     if (!href) {
                       return (
                         <span className="text-gray-500 font-medium whitespace-nowrap">
