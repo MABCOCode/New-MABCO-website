@@ -140,7 +140,7 @@ export function EPaymentService({ language, onClose }: EPaymentServiceProps) {
             <Building2 className="w-12 h-12 text-green-600 mx-auto mb-3" />
             <p className="font-bold text-green-900 mb-2">{t[language].visitShowroom}</p>
             <p className="text-green-700">
-              {t[language].callUs}: <span className="font-bold">+963 933 123 4567</span>
+              {t[language].callUs}: <span className="font-bold">+011-9909</span>
             </p>
           </div>
         </div>
