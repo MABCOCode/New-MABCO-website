@@ -203,7 +203,7 @@
                        },
                        {
                            "brand_code":  "81",
-                           "name":  "داي",
+                           "name":  "ديي",
                            "englishName":  "Deye"
                        },
                        {
@@ -260,5 +260,16 @@
                        }
                    ],
         "order":  9
+    },
+     {
+        "cat_code":  "04",
+        "name":  "خدمات الطباعة",
+        "nameEn":  "Printing Services",
+        "iconName":  "Camera",
+        "brands":  [
+                       
+                   ],
+        "order":  10,
+        "showInSlider":  false
     }
 ]

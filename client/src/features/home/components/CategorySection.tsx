@@ -333,7 +333,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                 </div>
               </div>
             ))}
-          {!isLoading && categories.map((category, index) => {
+          {!isLoading && categories.filter((cat: any) => cat.showInSlider !== false).map((category, index) => {
             const IconComponent = category.icon;
             const isSelected = selectedCategory === index;
             
