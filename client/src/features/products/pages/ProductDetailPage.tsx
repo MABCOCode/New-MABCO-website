@@ -943,14 +943,16 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     const colorCode = String(variant?.colorCode || variant?.color_code || "").trim();
     if (colorCode) return `code:${colorCode.toLowerCase()}`;
     
-    // Priority 2: Use hex code if valid
+    // Priority 2: Use color name (to group color name variations like "Graphite Gray")
+    const label = String(name || nameAr || "").trim().toLowerCase();
+    if (label) return `name:${label}`;
+    
+    // Priority 3: Use hex code if valid
     if (hexCode && hexCode !== "#999999") return `hex:${hexCode.toLowerCase()}`;
     
-    // Priority 3: Use color name
-    const label = String(name || nameAr || variant?.stk_code || variant?.stkCode || "")
-      .trim()
-      .toLowerCase();
-    return label ? `name:${label}` : "";
+    // Fallback
+    const fallback = String(variant?.stk_code || variant?.stkCode || "").trim().toLowerCase();
+    return fallback ? `sku:${fallback}` : "";
   };
 
   const normalizedColorVariants = useMemo(() => {
@@ -1033,10 +1035,11 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const availableColorVariants = normalizedColorVariants
     .filter(
       (variant: any) => {
-        // Check if variant has a valid image
-        const hasValidImage = Boolean(
-          String(variant?.image || (Array.isArray(variant?.images) && variant.images[0]) || "").trim()
-        );
+        // Check if variant has a valid image - must be non-empty
+        const hasImage = variant?.image ? String(variant.image).trim() : "";
+        const hasImagesArray = Array.isArray(variant?.images) && variant.images.length > 0;
+        const firstArrayImage = hasImagesArray ? String(variant.images[0]).trim() : "";
+        const hasValidImage = Boolean(hasImage || firstArrayImage);
         
         return (
           variant?.isAvailable !== false &&

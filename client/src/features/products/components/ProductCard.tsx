@@ -92,14 +92,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
     const colorCode = String(variant?.colorCode || variant?.color_code || "").trim();
     if (colorCode) return `code:${colorCode.toLowerCase()}`;
     
-    // Priority 2: Use hex code if valid
+    // Priority 2: Use color name (to group color name variations like "Graphite Gray")
+    const label = String(name || nameAr || "").trim().toLowerCase();
+    if (label) return `name:${label}`;
+    
+    // Priority 3: Use hex code if valid
     if (hexCode && hexCode !== "#999999") return `hex:${hexCode.toLowerCase()}`;
     
-    // Priority 3: Use color name
-    const label = String(name || nameAr || variant?.stk_code || variant?.stkCode || "")
-      .trim()
-      .toLowerCase();
-    return label ? `name:${label}` : "";
+    // Fallback
+    const fallback = String(variant?.stk_code || variant?.stkCode || "").trim().toLowerCase();
+    return fallback ? `sku:${fallback}` : "";
   };
   const normalizedColorVariants = React.useMemo(() => {
     const deduped = new Map<string, any>();
