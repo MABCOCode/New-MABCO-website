@@ -1562,7 +1562,18 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
       ...variant,
       offers: normalizeOffersArray(variant?.offers),
     }));
-    const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
+    const deletedColorVariantCodes = Array.isArray(payload.deletedColorVariantCodes)
+      ? new Set(
+          payload.deletedColorVariantCodes
+            .map((code) => toStringValue(code))
+            .filter(Boolean),
+        )
+      : new Set();
+    const existingVariants = Array.isArray(existing.colorVariants)
+      ? existing.colorVariants.filter(
+          (variant) => !deletedColorVariantCodes.has(toStringValue(variant?.stk_code || variant?.stkCode) || ''),
+        )
+      : [];
     const merged = mergeItemsByStkCode(existingVariants, normalizedIncoming, (variant, match) => {
       const hasExplicitImages = Array.isArray(match.images);
       const images = hasExplicitImages

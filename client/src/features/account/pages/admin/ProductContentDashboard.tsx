@@ -1368,6 +1368,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   
   // Colors State
   const [colors, setColors] = useState(product.colors || []);
+  const [deletedColorKeys, setDeletedColorKeys] = useState<string[]>([]);
   
   // Gallery State
   const [unifiedImages, setUnifiedImages] = useState<UnifiedImage[]>(() =>
@@ -1384,6 +1385,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
 
   useEffect(() => {
     setRemovedImageIds([]);
+    setDeletedColorKeys([]);
     setUnifiedImages(
       buildUnifiedImagesForEditor(
         product,
@@ -1748,6 +1750,22 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
     );
   };
 
+  const deleteColorGroup = (key: string) => {
+    const normalizedKey = normalizeColorKey(key);
+    const colorImageIds = unifiedImages
+      .filter((img) => img.source === "colorVariant" && img.colorKey === normalizedKey)
+      .map((img) => img.id);
+
+    setColors((prev) =>
+      prev.filter((color: any, idx: number) => getColorKey(color, idx) !== key),
+    );
+    setDeletedColorKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    setUnifiedImages((prev) =>
+      prev.filter((img) => !(img.source === "colorVariant" && img.colorKey === normalizedKey)),
+    );
+    setRemovedImageIds((prev) => prev.filter((id) => !colorImageIds.includes(id)));
+  };
+
   const activeGalleryImages = useMemo(
     () => unifiedImages.filter((img) => !removedImageIds.includes(img.id)),
     [unifiedImages, removedImageIds],
@@ -1863,6 +1881,10 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
         brand_code: selectedBrand,
         colorVariants: formattedColors,
       };
+
+      if (deletedColorKeys.length > 0) {
+        updatePayload.deletedColorVariantCodes = deletedColorKeys;
+      }
 
       const hasVariantColors = Array.isArray(formattedColors) && formattedColors.length > 0;
       if (!hasVariantColors) {
@@ -2226,6 +2248,23 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           {colorGroup.isHidden
                             ? (language === "ar" ? "إظهار اللون في الموقع" : "Show color on website")
                             : (language === "ar" ? "إخفاء اللون من الموقع" : "Hide color from website")}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const confirmed = window.confirm(
+                              language === "ar"
+                                ? "Ù‡Ù„ ØªØ±ÙŠØ¯ Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ù„ÙˆÙ† Ù…Ù† Ø§Ù„Ù…Ù†ØªØ¬ØŸ"
+                                : "Are you sure you want to delete this color from the product?",
+                            );
+                            if (!confirmed) return;
+                            deleteColorGroup(colorKey);
+                          }}
+                          className="mb-3 ml-2 inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {language === "ar" ? "Ø­Ø°Ù Ø§Ù„Ù„ÙˆÙ†" : "Delete color"}
                         </button>
 
                         {colorGroup.images?.[0]?.src ? (
