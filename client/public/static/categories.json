@@ -194,7 +194,7 @@
         "cat_code":  "09",
         "name":  "وحدة كهرباء",
         "nameEn":  "POWER STATION",
-        "iconName":  "Battery",
+        "image":  "https://mabcoonline.com/images/09.png",
         "brands":  [
                        {
                            "brand_code":  "12",
