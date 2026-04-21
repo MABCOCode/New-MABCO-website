@@ -120,7 +120,19 @@ export function WarrantyCheckService({
     const rawEnd = String(result?.wty_end_dt || result?.temp1 || "");
     const cleanedEnd = rawEnd.split(/\s+\n|\n/)[0]?.trim();
     const endDate = cleanedEnd || undefined;
-    const isActive = ["N", "21", "24"].includes(code);
+    
+    // Check if the code indicates a valid warranty AND the end date hasn't passed
+    let isActive = ["N", "21", "24"].includes(code);
+    
+    // If code is valid warranty type but NO end date, it's not a registered MABCO device
+    if (isActive && !endDate) {
+      isActive = false;
+    } else if (isActive && endDate) {
+      const now = new Date();
+      const expiry = new Date(endDate);
+      isActive = expiry > now;
+    }
+    
     return {
       statusCode: code,
       statusLabel: label,

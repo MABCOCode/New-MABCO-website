@@ -352,13 +352,21 @@ const CategorySection: React.FC<CategorySectionProps> = ({
               >
                 <div className="flex flex-col items-center text-center">
                   <div
-                    className={`w-12 h-12 md:w-16 md:h-16 rounded-lg flex items-center justify-center mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-300 ${
+                    className={`w-12 h-12 md:w-16 md:h-16 rounded-lg flex items-center justify-center mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-300 overflow-hidden ${
                       isSelected
                         ? "bg-gradient-to-br from-[#009FE3] to-[#007BC7] scale-110"
                         : "bg-gradient-to-br from-[#009FE3] to-[#007BC7]"
                     }`}
                   >
-                    <IconComponent className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                    {category.image ? (
+                      <img 
+                        src={category.image} 
+                        alt={language === 'ar' ? category.name : category.nameEn}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <IconComponent className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                    )}
                   </div>
                   <h3
                     className={`text-xs md:text-sm font-semibold transition-colors ${
