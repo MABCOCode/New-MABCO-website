@@ -1025,13 +1025,21 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   const availableColorVariants = normalizedColorVariants
     .filter(
-      (variant: any) =>
-        variant?.isAvailable !== false &&
-        variant?.inStock !== false &&
-        (typeof variant?.active !== "boolean" || variant.active) &&
-        Boolean(String(variant?.name || variant?.nameAr || "").trim()) &&
-        Boolean(String(variant?.image || (variant?.images && variant.images[0]) || "").trim()) &&
-        (typeof variant?.stock !== "number" || variant.stock > 0),
+      (variant: any) => {
+        // Check if variant has a valid image
+        const hasValidImage = Boolean(
+          String(variant?.image || (Array.isArray(variant?.images) && variant.images[0]) || "").trim()
+        );
+        
+        return (
+          variant?.isAvailable !== false &&
+          variant?.inStock !== false &&
+          (typeof variant?.active !== "boolean" || variant.active) &&
+          Boolean(String(variant?.name || variant?.nameAr || "").trim()) &&
+          hasValidImage &&
+          (typeof variant?.stock !== "number" || variant.stock > 0)
+        );
+      }
     )
     .sort((a: any, b: any) => {
       const aHasOffers = Array.isArray(a?.offers) && a.offers.length > 0 ? 1 : 0;
