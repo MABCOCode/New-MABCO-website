@@ -88,7 +88,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
     return "#999999";
   };
   const buildColorGroupKey = (variant: any, name: string, nameAr: string, hexCode: string) => {
+    // Priority 1: Use explicit color code if available
+    const colorCode = String(variant?.colorCode || variant?.color_code || "").trim();
+    if (colorCode) return `code:${colorCode.toLowerCase()}`;
+    
+    // Priority 2: Use hex code if valid
     if (hexCode && hexCode !== "#999999") return `hex:${hexCode.toLowerCase()}`;
+    
+    // Priority 3: Use color name
     const label = String(name || nameAr || variant?.stk_code || variant?.stkCode || "")
       .trim()
       .toLowerCase();
