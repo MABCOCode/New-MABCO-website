@@ -224,19 +224,19 @@ export const getOfferBadgeText = (offers: ProductOffer[], language: "ar" | "en")
   const bundle = offers.find((o) => o.type === "bundle_discount") as BundleDiscountOffer | undefined;
   if (directDiscount) {
     if (directDiscount.discountType === "percentage") {
-      return `${directDiscount.discountValue}% ${language === "ar" ? "Ø®ØµÙ…" : "OFF"}`;
+      return `${directDiscount.discountValue}% ${language === "ar" ? "حسم" : "OFF"}`;
     }
-    return `${directDiscount.discountValue} ${CURRENCY_LABEL} ${language === "ar" ? "Ø®ØµÙ…" : "OFF"}`;
+    return `${directDiscount.discountValue} ${CURRENCY_LABEL} ${language === "ar" ? "حسم" : "OFF"}`;
   }
-  if (freeProduct) return language === "ar" ? "Ù‡Ø¯ÙŠØ© Ù…Ø¬Ø§Ù†ÙŠØ©" : "FREE GIFT";
+  if (freeProduct) return language === "ar" ? "هدية مجانية" : "FREE GIFT";
   if (coupon) {
-    return `${coupon.couponValue} ${CURRENCY_LABEL} ${language === "ar" ? "ÙƒÙˆØ¨ÙˆÙ†" : "COUPON"}`;
+    return `${coupon.couponValue} ${CURRENCY_LABEL} ${language === "ar" ? "كوبون" : "COUPON"}`;
   }
   if (bundle) {
     if ("discountPercentage" in bundle && typeof bundle.discountPercentage === "number") {
-      return `${bundle.discountPercentage}% ${language === "ar" ? "Ø®ØµÙ…" : "OFF"}`;
+      return `${bundle.discountPercentage}% ${language === "ar" ?  "حسم على المنتجات المرتبطة" : "Discount on related products"}`;
     }
-    return language === "ar" ? "Ø¹Ø±Ø¶ Ø­Ø²Ù…Ø©" : "BUNDLE";
+    return language === "ar" ? "حسم على المنتجات المرتبطة" : "Discount on related products";
   }
   return "";
 };

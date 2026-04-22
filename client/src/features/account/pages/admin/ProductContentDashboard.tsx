@@ -2255,7 +2255,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           onClick={() => {
                             const confirmed = window.confirm(
                               language === "ar"
-                                ? "Ù‡Ù„ ØªØ±ÙŠØ¯ Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ù„ÙˆÙ† Ù…Ù† Ø§Ù„Ù…Ù†ØªØ¬ØŸ"
+                                ? "هل أنت متأكد أنك تريد حذف هذا اللون من المنتج?"
                                 : "Are you sure you want to delete this color from the product?",
                             );
                             if (!confirmed) return;
@@ -2264,7 +2264,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           className="mb-3 ml-2 inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
                         >
                           <Trash2 className="w-4 h-4" />
-                          {language === "ar" ? "Ø­Ø°Ù Ø§Ù„Ù„ÙˆÙ†" : "Delete color"}
+                          {language === "ar" ? "حذف اللون" : "Delete color"}
                         </button>
 
                         {colorGroup.images?.[0]?.src ? (
@@ -2427,7 +2427,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                           <button
                             onClick={() => openEditImage(entry)}
                             className="p-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-                            title={language === "ar" ? "ØªØ¹Ø¯ÙŠÙ„" : "Edit"}
+                            title={language === "ar" ? "تعديل" : "Edit"}
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
@@ -2440,9 +2440,9 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                 });
                               }}
                               className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-semibold"
-                              title={language === "ar" ? "\u062a\u062b\u0628\u064a\u062a" : "Install"}
+                              title={language === "ar" ? "تثبيت" : "Install"}
                             >
-                              {language === "ar" ? "\u062a\u062b\u0628\u064a\u062a" : "Install"}
+                              {language === "ar" ? "تثبيت" : "Install"}
                             </button>
                           )}
                           <label className="p-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
@@ -3099,11 +3099,11 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
             </button>
             <div className="mb-4">
               <h3 className="text-lg font-bold text-gray-900">
-                {language === "ar" ? "ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„ØµÙˆØ±Ø©" : "Edit image"}
+                {language === "ar" ? "تعديل الصورة" : "Edit image"}
               </h3>
               <p className="text-sm text-gray-500">
                 {language === "ar"
-                  ? "ÙŠØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„ØµÙˆØ±Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø© ÙÙ‚Ø·"
+                  ? "سيتم تحديث الصورة المحددة فقط"
                   : "Only the selected image will be updated."}
               </p>
             </div>
@@ -3119,19 +3119,19 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
               )}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  {language === "ar" ? "Ø±Ø§Ø¨Ø· Ø§Ù„ØµÙˆØ±Ø©" : "Image URL"}
+                  {language === "ar" ? "رابط الصورة" : "Image URL"}
                 </label>
                 <input
                   type="text"
                   value={editingImageUrl}
                   onChange={(e) => setEditingImageUrl(e.target.value)}
-                  placeholder={language === "ar" ? "Ø£Ø¯Ø®Ù„ Ø±Ø§Ø¨Ø· Ø§Ù„ØµÙˆØ±Ø©" : "Paste an image URL"}
+                  placeholder={language === "ar" ? "أدخل رابط الصورة" : "Paste an image URL"}
                   className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009FE3] text-sm"
                 />
               </div>
               <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold cursor-pointer hover:bg-gray-200">
                 <Upload className="w-4 h-4" />
-                {language === "ar" ? "Ø¥Ø±ÙØ¹ ØµÙˆØ±Ø©" : "Upload image"}
+                {language === "ar" ? "رفع صورة" : "Upload image"}
                 <input
                   type="file"
                   accept="image/*"
@@ -3151,7 +3151,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                   onClick={closeEditImage}
                   className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300"
                 >
-                  {language === "ar" ? "Ø¥Ù„ØºØ§Ø¡" : "Cancel"}
+                  {language === "ar" ? "إلغاء" : "Cancel"}
                 </button>
                 <button
                   onClick={() => {
@@ -3162,7 +3162,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                   }}
                   className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white font-semibold"
                 >
-                  {language === "ar" ? "Ø­ÙØ¸" : "Save"}
+                  {language === "ar" ? "حفظ" : "Save"}
                 </button>
               </div>
             </div>
