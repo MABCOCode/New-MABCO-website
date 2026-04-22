@@ -856,8 +856,8 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   };
 
   const meta = adminMeta || resolvedAdminMeta || {};
-  const allowAllCategories = Boolean(meta?.allowAllCategories);
-  const allowAllBrands = Boolean(meta?.allowAllBrands);
+  const allowAllCategories = Boolean(meta?.allowAllCategories || isSuperAdmin);
+  const allowAllBrands = Boolean(meta?.allowAllBrands || isSuperAdmin);
   const allowedCategoryIds = Array.isArray(meta?.allowedCategoryIds)
     ? meta.allowedCategoryIds.map(String)
     : [];
@@ -1404,6 +1404,7 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   const [showSpecNameSuggestions, setShowSpecNameSuggestions] = useState<number | null>(null);
   const [specNameSearch, setSpecNameSearch] = useState<{[key: number]: string}>({});
   const [customSpecIcons, setCustomSpecIcons] = useState(() => savedSpecTitlesManager.getCustomIcons());
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   
   // What's in the Box State
   const [whatsInBox, setWhatsInBox] = useState<Array<{id: string, itemEn: string, itemAr: string, quantity: number}>>(
@@ -1526,6 +1527,20 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
   }, []);
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem("session");
+      if (!raw) {
+        setIsSuperAdmin(false);
+        return;
+      }
+      const session = JSON.parse(raw);
+      setIsSuperAdmin(session?.user?.role === "super_admin");
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  }, []);
+
+  useEffect(() => {
     if (selectedBrand && !availableEditorBrands.some((brand) => brand.id === selectedBrand)) {
       setSelectedBrand("");
     }
@@ -1623,6 +1638,25 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
       await savedSpecTitlesManager.addCustomIcon(imageUrl);
       updateSpecIconImage(specId, imageUrl);
     });
+  };
+
+  const deleteCustomSpecIcon = async (iconId: string, iconLabel: string) => {
+    if (!isSuperAdmin) return;
+    const confirmed = window.confirm(
+      language === "ar"
+        ? `هل أنت متأكد من حذف صورة المواصفة "${iconLabel}"؟`
+        : `Are you sure you want to delete the spec image "${iconLabel}"?`,
+    );
+    if (!confirmed) return;
+
+    const deleted = await savedSpecTitlesManager.deleteTitle(iconId);
+    if (!deleted) {
+      window.alert(
+        language === "ar"
+          ? "تعذر حذف صورة المواصفة. حاول مرة أخرى."
+          : "Couldn't delete the spec image. Please try again.",
+      );
+    }
   };
 
   const addBoxItem = () => {
@@ -2756,26 +2790,45 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
                                     </p>
                                     <div className="grid grid-cols-4 gap-2">
                                       {customSpecIcons.map((iconItem) => (
-                                        <button
+                                        <div
                                           key={iconItem.id}
+                                          role="button"
+                                          tabIndex={0}
                                           onClick={() => {
                                             updateSpecIconImage(spec.id, iconItem.iconImage || "");
                                             setShowIconPicker(null);
                                             savedSpecTitlesManager.incrementUsage(iconItem.id);
                                           }}
-                                          className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all ${
+                                          className={`relative flex flex-col items-center gap-2 p-3 rounded-lg transition-all cursor-pointer ${
                                             spec.iconImage === iconItem.iconImage
                                               ? "bg-[#009FE3] text-white"
                                               : "bg-gray-50 hover:bg-gray-100 text-gray-700"
                                           }`}
                                         >
+                                          {isSuperAdmin && (
+                                            <span
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                deleteCustomSpecIcon(
+                                                  iconItem.id,
+                                                  language === "ar"
+                                                    ? iconItem.nameAr || iconItem.nameEn
+                                                    : iconItem.nameEn || iconItem.nameAr,
+                                                );
+                                              }}
+                                              className="absolute top-2 right-2 text-red-500 rounded-full bg-white/90 hover:bg-white p-1 shadow-sm"
+                                              title={language === "ar" ? "حذف" : "Delete"}
+                                            >
+                                              <X className="w-3.5 h-3.5" />
+                                            </span>
+                                          )}
                                           <div className="bg-gradient-to-br from-[#009FE3] to-[#007BC7] p-3 rounded-xl shadow-md flex-shrink-0">
                                             <img src={iconItem.iconImage} alt={iconItem.nameEn} className="w-full h-full object-contain" />
                                           </div>
                                           <span className="text-xs font-medium text-center">
                                             {language === "ar" ? iconItem.nameAr : iconItem.nameEn}
                                           </span>
-                                        </button>
+                                        </div>
                                       ))}
                                     </div>
                                   </>

@@ -665,6 +665,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <div className="relative aspect-square overflow-hidden bg-gray-50">
             <div className="aspect-square rounded-lg overflow-hidden bg-gray-50 relative">
               <ImageWithFallback
+                key={currentImage}
                 src={currentImage}
                 alt={displayProductName || String(product.name || "")}
                 className={`w-full h-full object-cover transition-all duration-500 ${

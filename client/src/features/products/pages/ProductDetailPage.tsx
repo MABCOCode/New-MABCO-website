@@ -1,44 +1,44 @@
 import {
-  ArrowLeft,
-  ArrowRight,
-  Battery,
-  Camera,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Cpu,
-  CreditCard,
-  Edit3,
-  FileText,
-  GitCompare,
-  Headphones,
-  HardDrive,
-  HelpCircle,
-  Laptop,
-  MemoryStick,
-  Minus,
-  Monitor,
-  PackageCheck,
-  Plus,
-  Settings,
-  Shield,
-  ShoppingCart,
-  Smartphone,
-  Sparkles,
-  Tag,
-  TrendingUp,
-  Watch,
-  X
+    ArrowLeft,
+    ArrowRight,
+    Battery,
+    Camera,
+    CheckCircle2,
+    ChevronDown,
+    ChevronRight,
+    Cpu,
+    CreditCard,
+    Edit3,
+    FileText,
+    GitCompare,
+    HardDrive,
+    Headphones,
+    HelpCircle,
+    Laptop,
+    MemoryStick,
+    Minus,
+    Monitor,
+    PackageCheck,
+    Plus,
+    Settings,
+    Shield,
+    ShoppingCart,
+    Smartphone,
+    Sparkles,
+    Tag,
+    TrendingUp,
+    Watch,
+    X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-  type CarouselApi,
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+    type CarouselApi,
 } from "../../../components/ui/carousel";
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ColorSwatch } from "../../../components/ui/ColorSwatch";
@@ -49,10 +49,10 @@ import { KeyFeaturesEditor } from "../../../components/ui/KeyFeaturesEditor";
 import { useCart } from "../../../context/CartContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import {
-  calculateDiscountedPrice,
-  getOfferBadgeText,
-  getOfferPricing,
-  getProductOffers,
+    calculateDiscountedPrice,
+    getOfferBadgeText,
+    getOfferPricing,
+    getProductOffers,
 } from "../../../data/products";
 import { setSeo } from "../../../services/seo";
 import { CURRENCY_LABEL } from "../../../utils/currency";
@@ -729,15 +729,11 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   }, [arabicProductName, englishProductName, language, prod, productCameraMp, resolvedBrandName, resolvedCategoryName]);
 
   const breadcrumbs = useMemo(() => {
-    if (Array.isArray(locationState?.breadcrumbs) && locationState.breadcrumbs.length) {
-      return locationState.breadcrumbs.filter((item: any) => item && item.label);
-    }
-
     const fallback: Array<{ label: string; href?: string }> = [];
     if (resolvedCategoryName) fallback.push({ label: resolvedCategoryName });
     if (resolvedBrandName) fallback.push({ label: resolvedBrandName });
     return fallback;
-  }, [locationState, resolvedBrandName, resolvedCategoryName]);
+  }, [resolvedBrandName, resolvedCategoryName]);
 
   const resolveCategoryHref = (crumbIndex: number, crumb: any): string | null => {
     if (crumbIndex !== 0) return null;
@@ -1963,9 +1959,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 </Carousel>
 
                   {offerBadgeText && offerBadgeInfo && (
-                    <div
-                      className={`absolute top-4 ${language === "ar" ? "left-6" : "right-6"} z-20 flex items-start justify-end`}
-                    >
+                    <div className="absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
                       <div
                         className={`bg-gradient-to-r ${offerBadgeInfo.gradient} text-white px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg flex items-center gap-2 whitespace-nowrap backdrop-blur-sm`}
                       >

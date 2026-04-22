@@ -1,8 +1,13 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElement>) {
   const [didError, setDidError] = useState(false)
   const [didLoad, setDidLoad] = useState(false)
+
+  useEffect(() => {
+    setDidError(false)
+    setDidLoad(false)
+  }, [props.src])
 
   const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     setDidError(true)
