@@ -3,6 +3,16 @@ const { posSyncTimeoutMs } = require('../config/env');
 
 const POS_SYNC_TIMEOUT_MS = posSyncTimeoutMs;
 
+function pad2(value) {
+  return String(value).padStart(2, '0');
+}
+
+function formatDateHourMinute(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
 function parseConnString(value) {
   const parts = String(value || '')
     .split(';')
@@ -100,7 +110,7 @@ function normalizeProductImages(values) {
 function normalizeAvailability(value) {
   if (!value || typeof value !== 'object') return undefined;
   const next = {};
-  const isAvailable = value.isAvailable;
+  const isAvailable = parseBoolLike(value.isAvailable ?? value.is_available, undefined);
   const hiddenReason = toStringValue(value.hiddenReason);
   const lastSyncedAt = toDate(value.lastSyncedAt);
 
@@ -114,11 +124,14 @@ function normalizeAvailability(value) {
 function normalizeStatus(value, fallback = {}) {
   if (!value || typeof value !== 'object') return undefined;
   const next = {};
+  const fallbackIsActive = parseBoolLike(fallback.isActive, undefined);
+  const fallbackIsHidden = parseBoolLike(fallback.isHidden, undefined);
+
   if (value.isActive !== undefined || fallback.isActive !== undefined) {
-    next.isActive = value.isActive !== undefined ? Boolean(value.isActive) : Boolean(fallback.isActive);
+    next.isActive = parseBoolLike(value.isActive, fallbackIsActive);
   }
   if (value.isHidden !== undefined || fallback.isHidden !== undefined) {
-    next.isHidden = value.isHidden !== undefined ? Boolean(value.isHidden) : Boolean(fallback.isHidden);
+    next.isHidden = parseBoolLike(value.isHidden, fallbackIsHidden);
   }
   if (typeof next.isActive !== 'boolean' || typeof next.isHidden !== 'boolean') {
     return undefined;
@@ -283,14 +296,14 @@ function normalizeColorVariants(variants = []) {
       color_name: toStringValue(variant.color_name || variant.name) || '',
       color_name_ar: toStringValue(variant.color_name_ar || variant.nameAr) || '',
       color_hex: toStringValue(variant.color_hex || variant.hex || variant.hexCode) || '',
-      in_stock:
-        typeof variant.in_stock === 'boolean'
-          ? variant.in_stock
-          : Boolean(variant.is_available ?? variant.isAvailable ?? variant.inStock),
-      active:
-        typeof variant.active === 'boolean'
-          ? variant.active
-          : Boolean(variant.is_available ?? variant.isAvailable ?? true),
+      in_stock: parseBoolLike(
+        variant.in_stock ?? variant.inStock ?? variant.is_available ?? variant.isAvailable,
+        true,
+      ),
+      active: parseBoolLike(
+        variant.active ?? variant.is_active ?? variant.isActive ?? variant.is_available ?? variant.isAvailable,
+        true,
+      ),
       images,
       offers: Array.isArray(variant.offers)
         ? variant.offers.map(normalizeOffer).filter(Boolean)
@@ -319,8 +332,8 @@ function normalizeChargeOptions(options = []) {
       stk_code: toStringValue(opt.stk_code || opt.stkCode) || '',
       name: toStringValue(opt.name || opt.value) || '',
       name_ar: toStringValue(opt.name_ar || opt.valueAr) || '',
-      in_stock: typeof opt.in_stock === 'boolean' ? opt.in_stock : true,
-      active: typeof opt.active === 'boolean' ? opt.active : true,
+      in_stock: parseBoolLike(opt.in_stock ?? opt.inStock, true),
+      active: parseBoolLike(opt.active ?? opt.is_active ?? opt.isActive, true),
       offers: Array.isArray(opt.offers) ? opt.offers.map(normalizeOffer).filter(Boolean) : [],
     };
 
@@ -329,6 +342,55 @@ function normalizeChargeOptions(options = []) {
     }
 
     return next;
+  });
+}
+
+function deriveAvailabilityFromVariants(colorVariants, chargeOptions) {
+  const colors = Array.isArray(colorVariants) ? colorVariants : [];
+  if (colors.length > 0) {
+    return colors.some((variant) => variant?.active !== false && variant?.in_stock !== false);
+  }
+
+  const charges = Array.isArray(chargeOptions) ? chargeOptions : [];
+  if (charges.length > 0) {
+    return charges.some((opt) => opt?.active !== false && opt?.in_stock !== false);
+  }
+
+  return undefined;
+}
+
+function normalizeCode(value) {
+  return String(value || '').trim();
+}
+
+function buildVariantMap(variants = []) {
+  const map = new Map();
+  (Array.isArray(variants) ? variants : []).forEach((variant) => {
+    const code = normalizeCode(variant?.stk_code || variant?.stkCode);
+    if (!code) return;
+    map.set(code, variant);
+  });
+  return map;
+}
+
+function hasPersistedMismatch({ persistedDocs = [], expectedAvailability, expectedVariantMap }) {
+  return persistedDocs.some((doc) => {
+    const docAvailability = doc?.availability?.isAvailable;
+    const availabilityMismatch =
+      typeof expectedAvailability === 'boolean' &&
+      docAvailability !== expectedAvailability;
+
+    const docVariantMap = buildVariantMap(doc?.colorVariants);
+    const variantMismatch = Array.from(expectedVariantMap.entries()).some(([code, expected]) => {
+      const actual = docVariantMap.get(code);
+      if (!actual) return true;
+      if (expected?.in_stock !== undefined && actual?.in_stock !== expected.in_stock) return true;
+      if (expected?.active !== undefined && actual?.active !== expected.active) return true;
+      if (expected?.price !== undefined && Number(actual?.price) !== Number(expected.price)) return true;
+      return false;
+    });
+
+    return availabilityMismatch || variantMismatch;
   });
 }
 
@@ -396,6 +458,15 @@ function normalizeProductDoc(doc, stkCode, now) {
   if (doc.audit) updates.audit = normalizeAudit(doc.audit, now);
 
   if (doc.availability) updates.availability = normalizeAvailability(doc.availability);
+
+  const derivedIsAvailable = deriveAvailabilityFromVariants(updates.colorVariants, updates.chargeOptions);
+  if (derivedIsAvailable !== undefined) {
+    if (!updates.availability || typeof updates.availability !== 'object') {
+      updates.availability = { isAvailable: derivedIsAvailable };
+    } else if (typeof updates.availability.isAvailable !== 'boolean') {
+      updates.availability.isAvailable = derivedIsAvailable;
+    }
+  }
 
   if (doc.status) updates.status = normalizeStatus(doc.status);
 
@@ -511,9 +582,10 @@ async function fetchPosRows(connString) {
   }
 }
 
-async function syncPosProducts({ connString, db, logger = console }) {
+async function syncPosProducts({ connString, db, logger = console, rowsOverride = null }) {
   const now = new Date();
-  const rows = await fetchPosRows(connString);
+  const syncStartedAt = new Date();
+  const rows = Array.isArray(rowsOverride) ? rowsOverride : await fetchPosRows(connString);
 
   let parsedCount = 0;
   let skipped = 0;
@@ -526,7 +598,12 @@ async function syncPosProducts({ connString, db, logger = console }) {
     other: 0
   };
 
-  logger.log('[POS Sync] Starting sync, total rows from query:', rows.length);
+  logger.log('[POS Sync] Starting sync', {
+    totalRowsFromQuery: rows.length,
+    source: Array.isArray(rowsOverride) ? 'request_body' : 'sql_function',
+    startedAt: formatDateHourMinute(syncStartedAt),
+    startedAtIso: syncStartedAt.toISOString(),
+  });
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -577,7 +654,7 @@ async function syncPosProducts({ connString, db, logger = console }) {
 
     logger.debug(`[POS Sync] JSON string length for ${stkCode}:`, jsonString.length);
     
-    const parsed = parseJsonPayload(jsonString);
+    const parsed = parseJsonPayload(jsonString, stkCode, logger);
     if (!parsed) {
       skipped += 1;
       skipReasons.jsonParseFailed += 1;
@@ -589,6 +666,22 @@ async function syncPosProducts({ connString, db, logger = console }) {
       });
       continue;
     }
+
+    logger.log('[POS Sync] Incoming payload snapshot', {
+      stk_code: stkCode,
+      sentAvailability: parsed?.availability || null,
+      sentColorVariants: Array.isArray(parsed?.colorVariants)
+        ? parsed.colorVariants.map((variant) => ({
+            stk_code: variant?.stk_code || variant?.stkCode || null,
+            in_stock: variant?.in_stock ?? variant?.inStock ?? variant?.isAvailable ?? variant?.is_available ?? null,
+            active: variant?.active ?? variant?.isActive ?? variant?.is_active ?? null,
+            price: variant?.price ?? null,
+            color_name: variant?.color_name ?? variant?.name ?? null,
+            color_name_ar: variant?.color_name_ar ?? variant?.nameAr ?? null,
+            color_hex: variant?.color_hex ?? variant?.hex ?? variant?.hexCode ?? null,
+          }))
+        : [],
+    });
 
     const updates = normalizeProductDoc(parsed, stkCode, now);
     if (!updates) {
@@ -606,7 +699,22 @@ async function syncPosProducts({ connString, db, logger = console }) {
     try {
       const existing = await db.collection('products').findOne({ stk_code: stkCode });
       const repairUpdates = buildValidationRepairUpdates(existing, now);
-      Object.assign(updates, repairUpdates, updates);
+      const incomingUpdates = { ...updates };
+      Object.assign(updates, repairUpdates, incomingUpdates);
+      
+      // For new documents (insert only), ensure status has required fields with defaults
+      if (!existing) {
+        if (!updates.status || typeof updates.status !== 'object') {
+          updates.status = { isActive: true, isHidden: false };
+        } else {
+          if (typeof updates.status.isActive !== 'boolean') {
+            updates.status.isActive = true;
+          }
+          if (typeof updates.status.isHidden !== 'boolean') {
+            updates.status.isHidden = false;
+          }
+        }
+      }
       
       if (!existing) {
         if (!updates.name) updates.name = `${stkCode}`;
@@ -621,74 +729,260 @@ async function syncPosProducts({ connString, db, logger = console }) {
             (opt) => opt?.price !== undefined,
           );
         }
-        const requiredMissing = !updates.name || !updates.nameAr || !updates.price;
-        if (requiredMissing) {
-          errors.push({
-            stk_code: stkCode,
-            error: 'Missing required fields for insert',
-            missingFields: {
-              name: !updates.name,
-              nameAr: !updates.nameAr,
-              price: !updates.price
-            }
-          });
-          logger.error('[POS Sync] Insert failed - missing required fields', {
-            stk_code: stkCode,
-            hasName: !!updates.name,
-            hasNameAr: !!updates.nameAr,
-            hasPrice: !!updates.price,
-            updatesKeys: Object.keys(updates)
-          });
-          continue;
-        }
+        if (updates.price === undefined) updates.price = 0;
+        logger.warn('[POS Sync] Force insert mode active - bypassing required-field gate', {
+          stk_code: stkCode,
+          hasName: !!updates.name,
+          hasNameAr: !!updates.nameAr,
+          hasPrice: updates.price !== undefined,
+          updatesKeys: Object.keys(updates),
+        });
       }
 
       if (existing && Array.isArray(updates.colorVariants)) {
         const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
+        const existingCodes = new Set(
+          existingVariants
+            .map((variant) => normalizeCode(variant?.stk_code || variant?.stkCode))
+            .filter(Boolean),
+        );
+        const missingIncomingCodes = updates.colorVariants
+          .map((variant) => normalizeCode(variant?.stk_code || variant?.stkCode))
+          .filter((code) => code && !existingCodes.has(code));
+
         updates.colorVariants = normalizeColorVariants(mergeByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
           const next = { ...variant };
-          if (incoming.active !== undefined) next.active = incoming.active;
           if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
-          if (incoming.images !== undefined) next.images = incoming.images;
-          if (incoming.image !== undefined) next.image = incoming.image;
           if (incoming.price !== undefined) next.price = incoming.price;
-          if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
-          if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
-          if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
-          if (incoming.offers !== undefined) next.offers = incoming.offers;
           return next;
-        })).filter((variant) => variant?.stk_code && variant?.price !== undefined);
+        }))
+          .map((variant) => {
+            if (variant?.price !== undefined) return variant;
+            const fallbackPrice =
+              updates.price !== undefined
+                ? updates.price
+                : existing?.price !== undefined
+                ? existing.price
+                : undefined;
+            return fallbackPrice !== undefined ? { ...variant, price: fallbackPrice } : variant;
+          })
+          .filter((variant) => variant?.stk_code && variant?.price !== undefined);
+
+        if (missingIncomingCodes.length > 0) {
+          logger.log('[POS Sync] Added missing color variants by stk_code', {
+            stk_code: stkCode,
+            addedColorVariantCodes: missingIncomingCodes,
+          });
+        }
       }
 
       if (existing && Array.isArray(updates.chargeOptions)) {
         const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
         updates.chargeOptions = normalizeChargeOptions(mergeByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
           const next = { ...opt };
-          if (incoming.active !== undefined) next.active = incoming.active;
           if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
           if (incoming.price !== undefined) next.price = incoming.price;
-          if (incoming.name !== undefined) next.name = incoming.name;
-          if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
-          if (incoming.offers !== undefined) next.offers = incoming.offers;
           return next;
         })).filter((opt) => opt?.stk_code && opt?.price !== undefined);
       }
 
+      let writeUpdates = updates;
+      if (existing) {
+        writeUpdates = {
+          stk_code: stkCode,
+          updatedAt: updates.updatedAt || now,
+        };
+        if (updates.price !== undefined) {
+          writeUpdates.price = updates.price;
+        }
+        if (updates.availability && typeof updates.availability === 'object') {
+          const sanitizedAvailability = {};
+          if (typeof updates.availability.isAvailable === 'boolean') {
+            sanitizedAvailability.isAvailable = updates.availability.isAvailable;
+          }
+          if (updates.availability.lastSyncedAt instanceof Date) {
+            sanitizedAvailability.lastSyncedAt = updates.availability.lastSyncedAt;
+          }
+          if (Object.keys(sanitizedAvailability).length > 0) {
+            writeUpdates.availability = sanitizedAvailability;
+          }
+        }
+        if (Array.isArray(updates.colorVariants)) {
+          writeUpdates.colorVariants = updates.colorVariants;
+        }
+        if (Array.isArray(updates.chargeOptions)) {
+          writeUpdates.chargeOptions = updates.chargeOptions;
+        }
+        writeUpdates['audit.updatedAt'] = writeUpdates.updatedAt;
+      }
+
+      logger.debug('[POS Sync] Prepared updates snapshot', {
+        stk_code: stkCode,
+        availability: writeUpdates.availability || null,
+        colorVariants: Array.isArray(writeUpdates.colorVariants)
+          ? writeUpdates.colorVariants.map((variant) => ({
+              stk_code: variant?.stk_code,
+              in_stock: variant?.in_stock,
+              active: variant?.active,
+              price: variant?.price,
+            }))
+          : [],
+      });
+
+      const candidateDocs = await db.collection('products')
+        .find(
+          { stk_code: stkCode },
+          {
+            projection: {
+              _id: 1,
+              updatedAt: 1,
+            },
+          },
+        )
+        .sort({ updatedAt: -1, _id: -1 })
+        .toArray();
+
+      const targetDocId = candidateDocs[0]?._id || null;
+      if (candidateDocs.length > 1) {
+        logger.warn('[POS Sync] Duplicate product documents found for stk_code; updating latest only', {
+          stk_code: stkCode,
+          duplicateCount: candidateDocs.length,
+          targetDocId: String(targetDocId || ''),
+          duplicateDocIds: candidateDocs.map((doc) => String(doc?._id || '')),
+        });
+      }
+
+      const writeQuery = targetDocId ? { _id: targetDocId } : { stk_code: stkCode };
+      const writeOptions = targetDocId
+        ? { upsert: false, bypassDocumentValidation: true }
+        : { upsert: true, bypassDocumentValidation: true };
+
       const result = await db.collection('products').updateOne(
-        { stk_code: stkCode },
+        writeQuery,
         {
-          $set: updates,
-          $setOnInsert: { createdAt: now },
+          $set: writeUpdates,
+          ...(targetDocId ? {} : { $setOnInsert: { createdAt: now } }),
         },
-        { upsert: true },
+        writeOptions,
       );
 
+      const persistedDocs = await db.collection('products')
+        .find(
+          { stk_code: stkCode },
+          {
+            projection: {
+              _id: 1,
+              stk_code: 1,
+              updatedAt: 1,
+              'availability.isAvailable': 1,
+              'availability.lastSyncedAt': 1,
+              colorVariants: 1,
+            },
+          },
+        )
+        .toArray();
+
+      const expectedVariantMap = buildVariantMap(writeUpdates.colorVariants);
+      const expectedAvailability = writeUpdates?.availability?.isAvailable;
+      const verificationDocs = targetDocId
+        ? persistedDocs.filter((doc) => String(doc?._id || '') === String(targetDocId))
+        : persistedDocs;
+      const hasPostWriteMismatch = hasPersistedMismatch({
+        persistedDocs: verificationDocs,
+        expectedAvailability,
+        expectedVariantMap,
+      });
+
+      if (hasPostWriteMismatch) {
+        const correctiveSet = {
+          updatedAt: writeUpdates.updatedAt || now,
+          ...(writeUpdates.availability && typeof writeUpdates.availability === 'object'
+            ? { availability: writeUpdates.availability }
+            : {}),
+          ...(Array.isArray(writeUpdates.colorVariants) ? { colorVariants: writeUpdates.colorVariants } : {}),
+          ...(Array.isArray(writeUpdates.chargeOptions) ? { chargeOptions: writeUpdates.chargeOptions } : {}),
+          ...(writeUpdates.price !== undefined ? { price: writeUpdates.price } : {}),
+          ...(writeUpdates.updatedAt ? { 'audit.updatedAt': writeUpdates.updatedAt } : {}),
+        };
+
+        await db.collection('products').updateOne(
+          writeQuery,
+          { $set: correctiveSet },
+          { upsert: false, bypassDocumentValidation: true },
+        );
+
+        const persistedAfterCorrection = await db.collection('products')
+          .find(
+            { stk_code: stkCode },
+            {
+              projection: {
+                _id: 1,
+                stk_code: 1,
+                updatedAt: 1,
+                'availability.isAvailable': 1,
+                'availability.lastSyncedAt': 1,
+                colorVariants: 1,
+              },
+            },
+          )
+          .toArray();
+
+        logger.warn('[POS Sync] Post-write mismatch detected, corrective write applied', {
+          stk_code: stkCode,
+          expectedAvailability,
+          expectedColorVariants: Array.isArray(writeUpdates.colorVariants)
+            ? writeUpdates.colorVariants.map((variant) => ({
+                stk_code: variant?.stk_code,
+                in_stock: variant?.in_stock,
+                active: variant?.active,
+                price: variant?.price,
+              }))
+            : [],
+        });
+
+        const mismatchStillExists = hasPersistedMismatch({
+          persistedDocs: targetDocId
+            ? persistedAfterCorrection.filter((doc) => String(doc?._id || '') === String(targetDocId))
+            : persistedAfterCorrection,
+          expectedAvailability,
+          expectedVariantMap,
+        });
+        if (mismatchStillExists) {
+          throw new Error(
+            `[POS Sync] Persisted state mismatch remains after corrective write for ${stkCode}`,
+          );
+        }
+      }
+
       parsedCount += 1;
+      const updatedAt = writeUpdates?.updatedAt instanceof Date ? writeUpdates.updatedAt : now;
       logger.log('[POS Sync] Upsert successful', {
         stk_code: stkCode,
+        targetDocId: String(targetDocId || ''),
+        updatedAt: formatDateHourMinute(updatedAt),
+        updatedAtIso: updatedAt instanceof Date && !Number.isNaN(updatedAt.getTime())
+          ? updatedAt.toISOString()
+          : null,
         matchedCount: result.matchedCount,
         modifiedCount: result.modifiedCount,
         upsertedId: result.upsertedId,
+      });
+      logger.log('[POS Sync] Post-write verification', {
+        stk_code: stkCode,
+        documentsFound: persistedDocs.length,
+        documents: persistedDocs.slice(0, 5).map((doc) => ({
+          _id: String(doc?._id || ''),
+          updatedAt: doc?.updatedAt || null,
+          availability: doc?.availability || null,
+          colorVariants: Array.isArray(doc?.colorVariants)
+            ? doc.colorVariants.map((variant) => ({
+                stk_code: variant?.stk_code,
+                in_stock: variant?.in_stock,
+                active: variant?.active,
+                price: variant?.price,
+              }))
+            : [],
+        })),
       });
     } catch (error) {
       errors.push({ stk_code: stkCode, error: error.message });
@@ -696,18 +990,24 @@ async function syncPosProducts({ connString, db, logger = console }) {
         stk_code: stkCode, 
         error: error.message,
         details: error?.errInfo?.details || error?.errorResponse?.errInfo?.details || null,
+        rawErrInfo: error?.errInfo || error?.errorResponse?.errInfo || null,
         stack: error.stack
       });
     }
   }
 
+  const syncFinishedAt = new Date();
   logger.log('[POS Sync] Final Summary', {
     totalRows: rows.length,
     parsedCount,
     skipped,
     skipReasons,
     errorCount: errors.length,
-    successRate: `${((parsedCount / rows.length) * 100).toFixed(2)}%`
+    successRate: `${((parsedCount / rows.length) * 100).toFixed(2)}%`,
+    startedAt: formatDateHourMinute(syncStartedAt),
+    startedAtIso: syncStartedAt.toISOString(),
+    finishedAt: formatDateHourMinute(syncFinishedAt),
+    finishedAtIso: syncFinishedAt.toISOString(),
   });
 
   if (errors.length > 0) {

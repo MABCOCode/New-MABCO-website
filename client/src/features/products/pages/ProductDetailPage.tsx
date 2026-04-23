@@ -43,7 +43,6 @@ import {
 import { ChargeOptionSlider } from "../../../components/ui/ChargeOptionSlider";
 import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import { EditableImage } from "../../../components/ui/EditableImage";
-import { EditableText } from "../../../components/ui/EditableText";
 import { InlineProductEditor } from "../../../components/ui/InlineProductEditor";
 import { KeyFeaturesEditor } from "../../../components/ui/KeyFeaturesEditor";
 import { useCart } from "../../../context/CartContext";
@@ -576,11 +575,20 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   }, [id]);
 
   const prod = localProduct ?? product;
+  const [isEditingProductName, setIsEditingProductName] = useState(false);
+  const [editingEnglishName, setEditingEnglishName] = useState("");
+  const [editingArabicName, setEditingArabicName] = useState("");
   const hasBoxItems = Boolean(
     (Array.isArray(prod?.inTheBox) && prod.inTheBox.length > 0) ||
     (Array.isArray(prod?.boxItems) && prod.boxItems.length > 0) ||
     (Array.isArray(prod?.box) && prod.box.length > 0)
   );
+
+  useEffect(() => {
+    setEditingEnglishName(cleanEnglishProductName(String(prod?.nameEn || prod?.name || "").trim()));
+    setEditingArabicName(String(prod?.nameAr || prod?.name || "").trim());
+    setIsEditingProductName(false);
+  }, [prod?.id, prod?.name, prod?.nameAr, prod?.nameEn]);
 
   useEffect(() => {
     let mounted = true;
@@ -2090,25 +2098,90 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
           <div className="lg:col-span-7">
             {/* Product Name - Editable */}
             <div className="mb-4 sm:mb-6">
-              <EditableText
-                value={arabicProductName || prod?.name}
-                displayValue={combinedProductHeading || arabicProductName || englishProductName || prod?.name}
-                onSave={(newName) => {
-                  persistProductContent(prod.id, {
-                    ...prod,
-                    name: newName,
-                  });
-                }}
-                className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight"
-                editClassName="text-2xl sm:text-3xl font-bold"
-                as="h1"
-                language={language}
-                userPermissions={userPermissions}
-                maxLength={150}
-                placeholder={
-                  language === "ar" ? "اسم المنتج..." : "Product name..."
-                }
-              />
+              {userPermissions.canEditContent ? (
+                isEditingProductName ? (
+                  <div className="space-y-3 animate-fadeIn">
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-gray-600">
+                        {language === "ar" ? "الاسم الإنجليزي" : "English name"}
+                      </label>
+                      <input
+                        type="text"
+                        value={editingEnglishName}
+                        onChange={(e) => setEditingEnglishName(e.target.value.slice(0, 150))}
+                        placeholder={language === "ar" ? "اسم المنتج بالإنجليزية..." : "Product name in English..."}
+                        className="w-full rounded-xl border-2 border-[#009FE3]/40 px-4 py-3 text-2xl sm:text-3xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#009FE3]"
+                        dir="ltr"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-gray-600">
+                        {language === "ar" ? "الاسم العربي" : "Arabic name"}
+                      </label>
+                      <input
+                        type="text"
+                        value={editingArabicName}
+                        onChange={(e) => setEditingArabicName(e.target.value.slice(0, 150))}
+                        placeholder={language === "ar" ? "اسم المنتج بالعربية..." : "Product name in Arabic..."}
+                        className="w-full rounded-xl border-2 border-[#009FE3]/40 px-4 py-3 text-2xl sm:text-3xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#009FE3]"
+                        dir="rtl"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextEnglishName = editingEnglishName.trim();
+                          const nextArabicName = editingArabicName.trim();
+                          if (!nextEnglishName || !nextArabicName) return;
+                          persistProductContent(prod.id, {
+                            ...prod,
+                            name: nextEnglishName,
+                            nameAr: nextArabicName,
+                          });
+                          setIsEditingProductName(false);
+                        }}
+                        disabled={isSaving || !editingEnglishName.trim() || !editingArabicName.trim()}
+                        className="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 font-bold text-white transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        {language === "ar" ? "حفظ الاسمين" : "Save both names"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingEnglishName(cleanEnglishProductName(String(prod?.nameEn || prod?.name || "").trim()));
+                          setEditingArabicName(String(prod?.nameAr || prod?.name || "").trim());
+                          setIsEditingProductName(false);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-lg bg-gray-200 px-4 py-2 font-bold text-gray-700 transition-colors hover:bg-gray-300"
+                      >
+                        <X className="h-4 w-4" />
+                        {language === "ar" ? "إلغاء" : "Cancel"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative group/editable">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight">
+                      {combinedProductHeading || arabicProductName || englishProductName || prod?.name}
+                    </h1>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProductName(true)}
+                      className={`absolute -top-2 ${language === "ar" ? "-left-2" : "-right-2"} rounded-md bg-[#009FE3] p-1.5 text-white shadow-lg transition-all duration-200 hover:bg-[#007BC7] z-10`}
+                      title={language === "ar" ? "تعديل الاسمين" : "Edit both names"}
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </button>
+                  </div>
+                )
+              ) : (
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight">
+                  {combinedProductHeading || arabicProductName || englishProductName || prod?.name}
+                </h1>
+              )}
               {(resolvedBrandName || resolvedCategoryName) && (
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-600">
                   {resolvedCategoryName && (

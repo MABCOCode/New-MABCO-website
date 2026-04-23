@@ -13,6 +13,78 @@ const { validateProductContent } = require('../utils/productContentValidation');
 
 const router = express.Router();
 const POS_SYNC_TIMEOUT_MS = posSyncTimeoutMs;
+const posSyncJobState = {
+  isRunning: false,
+  runId: 0,
+  activePromise: null,
+  lastStartedAt: null,
+  lastFinishedAt: null,
+  lastDurationMs: null,
+  lastResult: null,
+  lastError: null,
+};
+
+function parseBooleanFlag(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'n'].includes(normalized)) return false;
+  return fallback;
+}
+
+function getPosSyncStatus() {
+  return {
+    isRunning: posSyncJobState.isRunning,
+    runId: posSyncJobState.runId || null,
+    lastStartedAt: posSyncJobState.lastStartedAt,
+    lastFinishedAt: posSyncJobState.lastFinishedAt,
+    lastDurationMs: posSyncJobState.lastDurationMs,
+    lastResult: posSyncJobState.lastResult,
+    lastError: posSyncJobState.lastError,
+  };
+}
+
+function startPosSyncJob({ connString, db, logger = console, rowsOverride = null }) {
+  if (posSyncJobState.isRunning) {
+    return { started: false, alreadyRunning: true, runId: posSyncJobState.runId };
+  }
+
+  const runId = Date.now();
+  posSyncJobState.isRunning = true;
+  posSyncJobState.runId = runId;
+  posSyncJobState.lastStartedAt = new Date();
+  posSyncJobState.lastFinishedAt = null;
+  posSyncJobState.lastDurationMs = null;
+  posSyncJobState.lastError = null;
+
+  const startedAtMs = Date.now();
+  posSyncJobState.activePromise = (async () => {
+    try {
+      const result = await syncPosProducts({ connString, db, logger, rowsOverride });
+      posSyncJobState.lastResult = result;
+      return result;
+    } catch (error) {
+      posSyncJobState.lastError = error?.message || String(error);
+      throw error;
+    } finally {
+      posSyncJobState.lastFinishedAt = new Date();
+      posSyncJobState.lastDurationMs = Date.now() - startedAtMs;
+      posSyncJobState.isRunning = false;
+      posSyncJobState.activePromise = null;
+    }
+  })();
+
+  posSyncJobState.activePromise.catch((error) => {
+    logger.error('[POS Sync] background job failed', {
+      runId,
+      error: error?.message || String(error),
+      stack: error?.stack,
+    });
+  });
+
+  return { started: true, alreadyRunning: false, runId };
+}
 
 const DEFAULT_SAVED_SPEC_TITLES = [
   { id: 'processor', nameEn: 'Processor', nameAr: 'المعالج', icon: 'Cpu', usageCount: 50, category: 'performance' },
@@ -1039,14 +1111,96 @@ router.post('/pos/sync-products', requirePosSyncToken, asyncHandler(async (req, 
   }
 
   const db = getDb();
+  const rootBodyLooksLikeProduct =
+    req.body &&
+    typeof req.body === 'object' &&
+    (req.body.stk_code || req.body.STK_CODE || req.body.stock_code || req.body.StockCode);
+
+  const bodyPayload =
+    req.body?.payload ||
+    req.body?.product ||
+    req.body?.json ||
+    (rootBodyLooksLikeProduct ? req.body : null);
+  const normalizedBodyPayload =
+    bodyPayload && typeof bodyPayload === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(bodyPayload);
+          } catch {
+            return null;
+          }
+        })()
+      : bodyPayload && typeof bodyPayload === 'object'
+      ? bodyPayload
+      : null;
+
+  const rowsOverride = normalizedBodyPayload
+    ? [
+        {
+          stk_code:
+            normalizedBodyPayload.stk_code ||
+            normalizedBodyPayload.STK_CODE ||
+            normalizedBodyPayload.stock_code ||
+            normalizedBodyPayload.StockCode ||
+            '',
+          json: JSON.stringify(normalizedBodyPayload),
+        },
+      ]
+    : null;
   const connString = posSyncConnString || req.body?.connString;
 
-  if (!connString) {
+  if (!rowsOverride && !connString) {
     return res.status(400).json({ success: false, message: 'POS connection string required' });
   }
 
-  const result = await syncPosProducts({ connString, db, logger: console });
-  res.json({ success: true, data: result });
+  const waitForCompletion = parseBooleanFlag(req.query.wait ?? req.body?.wait, false);
+
+  if (waitForCompletion) {
+    if (posSyncJobState.isRunning) {
+      return res.status(409).json({
+        success: false,
+        message: 'POS sync is already running',
+        data: getPosSyncStatus(),
+      });
+    }
+
+    const job = startPosSyncJob({ connString, db, logger: console, rowsOverride });
+    try {
+      const result = await posSyncJobState.activePromise;
+      return res.json({
+        success: true,
+        data: {
+          runId: job.runId,
+          source: rowsOverride ? 'request_body' : 'sql_function',
+          result,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error?.message || 'POS sync failed',
+        data: getPosSyncStatus(),
+      });
+    }
+  }
+
+  const job = startPosSyncJob({ connString, db, logger: console, rowsOverride });
+  const statusCode = job.started ? 202 : 202;
+  return res.status(statusCode).json({
+    success: true,
+    message: job.started ? 'POS sync started in background' : 'POS sync already in progress',
+    data: {
+      ...getPosSyncStatus(),
+      source: rowsOverride ? 'request_body' : 'sql_function',
+    },
+  });
+}));
+
+router.get('/pos/sync-products/status', requirePosSyncToken, asyncHandler(async (req, res) => {
+  res.json({
+    success: true,
+    data: getPosSyncStatus(),
+  });
 }));
 
 router.get('/products', asyncHandler(async (req, res) => {
@@ -1244,9 +1398,10 @@ router.put('/products/json', requireAdminToken, asyncHandler(async (req, res) =>
         updates.colorVariants = normalizeColorVariantsArray(mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
           const next = { ...variant };
           if (incoming.active !== undefined) next.active = incoming.active;
-        if (incoming.images !== undefined) next.images = incoming.images;
-        if (incoming.image !== undefined) next.image = incoming.image;
-        if (incoming.price !== undefined) next.price = incoming.price;
+          if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
+          if (incoming.images !== undefined) next.images = incoming.images;
+          if (incoming.image !== undefined) next.image = incoming.image;
+          if (incoming.price !== undefined) next.price = incoming.price;
         if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
           if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
           if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
@@ -1405,6 +1560,7 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
       updates.colorVariants = normalizeColorVariantsArray(mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
         const next = { ...variant };
         if (incoming.active !== undefined) next.active = incoming.active;
+        if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
         if (incoming.images !== undefined) next.images = incoming.images;
         if (incoming.image !== undefined) next.image = incoming.image;
         if (incoming.price !== undefined) next.price = incoming.price;
@@ -1584,6 +1740,7 @@ router.put('/products/:id', asyncHandler(async (req, res) => {
       return {
         ...variant,
         active: typeof match.active === 'boolean' ? match.active : variant.active,
+        in_stock: match.in_stock !== undefined ? match.in_stock : variant.in_stock,
         images: hasExplicitImages ? images : variant.images,
         image: hasExplicitImages ? (images[0] || '') : variant.image,
         price: match.price !== undefined ? match.price : variant.price,

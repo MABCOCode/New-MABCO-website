@@ -475,7 +475,19 @@ const buildGroupedColors = (colors: any[]) => {
 };
 
 const formatColorVariantsForPublish = (colors: any[]) => {
-  const grouped = new Map<string, { stk_code: string; active: boolean; images: string[] }>();
+  const grouped = new Map<
+    string,
+    {
+      stk_code: string;
+      active: boolean;
+      in_stock: boolean;
+      price?: number;
+      color_name?: string;
+      color_name_ar?: string;
+      color_hex?: string;
+      images: string[];
+    }
+  >();
 
   (Array.isArray(colors) ? colors : []).forEach((color: any, index: number) => {
     const stkCode = String(color?.stkCode || color?.stk_code || "").trim();
@@ -492,15 +504,29 @@ const formatColorVariantsForPublish = (colors: any[]) => {
     const existing = grouped.get(groupKey);
 
     if (!existing) {
+      const parsedPrice = Number(color?.price);
       grouped.set(groupKey, {
         stk_code: stkCode,
         active: !color?.isHidden,
+        in_stock: color?.inStock !== false,
+        ...(Number.isFinite(parsedPrice) ? { price: parsedPrice } : {}),
+        ...(color?.name ? { color_name: String(color.name) } : {}),
+        ...(color?.nameAr ? { color_name_ar: String(color.nameAr) } : {}),
+        ...(color?.code ? { color_hex: String(color.code) } : {}),
         images: dedupedImages,
       });
       return;
     }
 
     existing.active = existing.active || !color?.isHidden;
+    existing.in_stock = existing.in_stock || color?.inStock !== false;
+    if (existing.price === undefined) {
+      const parsedPrice = Number(color?.price);
+      if (Number.isFinite(parsedPrice)) existing.price = parsedPrice;
+    }
+    if (!existing.color_name && color?.name) existing.color_name = String(color.name);
+    if (!existing.color_name_ar && color?.nameAr) existing.color_name_ar = String(color.nameAr);
+    if (!existing.color_hex && color?.code) existing.color_hex = String(color.code);
     existing.images = Array.from(new Set([...existing.images, ...dedupedImages]));
   });
 
@@ -521,6 +547,16 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   const [filterCategories, setFilterCategories] = useState<FilterCategoryOption[]>([]);
   const [filterBrands, setFilterBrands] = useState<FilterBrandOption[]>([]);
   const { t, language } = useLanguage();
+  const isSuperAdminUser = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("session");
+      if (!raw) return false;
+      const session = JSON.parse(raw);
+      return session?.user?.role === "super_admin";
+    } catch {
+      return false;
+    }
+  }, []);
 
   const mapProduct = (product: any) => {
     const nameEn =
@@ -572,6 +608,7 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
           name: color?.name || color?.color_name || "",
           nameAr: color?.nameAr || color?.color_name_ar || color?.name || color?.color_name || "",
           code: color?.color_hex || color?.hexCode || color?.hex || "",
+          price: color?.price,
           image: imageEntries[0]?.src || "",
           images: imageEntries,
           stkCode,
@@ -855,9 +892,16 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
     }
   };
 
-  const meta = adminMeta || resolvedAdminMeta || {};
-  const allowAllCategories = Boolean(meta?.allowAllCategories || isSuperAdmin);
-  const allowAllBrands = Boolean(meta?.allowAllBrands || isSuperAdmin);
+  const meta = isSuperAdminUser
+    ? {
+        allowAllCategories: true,
+        allowAllBrands: true,
+        allowedCategoryIds: [],
+        allowedBrandIds: [],
+      }
+    : adminMeta || resolvedAdminMeta || {};
+  const allowAllCategories = Boolean(meta?.allowAllCategories );
+  const allowAllBrands = Boolean(meta?.allowAllBrands );
   const allowedCategoryIds = Array.isArray(meta?.allowedCategoryIds)
     ? meta.allowedCategoryIds.map(String)
     : [];
@@ -1913,6 +1957,13 @@ function ProductContentEditor({ product, onClose, onSave }: ProductContentEditor
         brand: selectedBrandOption?.nameEn || "",
         brandAr: selectedBrandOption?.nameAr || "",
         brand_code: selectedBrand,
+        price: Number.isFinite(Number(product.price)) ? Number(product.price) : undefined,
+        availability: {
+          isAvailable: Array.isArray(formattedColors) && formattedColors.length > 0
+            ? formattedColors.some((color) => color?.in_stock !== false)
+            : product?.isAvailable !== false,
+          hiddenReason: product?.hiddenReason || "",
+        },
         colorVariants: formattedColors,
       };
 
