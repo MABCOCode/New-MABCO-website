@@ -1470,6 +1470,8 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
     return cleaned;
   };
 
+  const hasText = (value) => typeof value === 'string' && value.trim().length > 0;
+
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ success: false, message: 'No items provided' });
   }
@@ -1489,132 +1491,237 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
       continue;
     }
 
-    const query = ObjectId.isValid(String(identifier))
-      ? { _id: new ObjectId(String(identifier)) }
-      : {
-          $or: [
-            { stk_code: String(identifier) },
-            { id: String(identifier) },
-            { slug: String(identifier) },
-          ],
-        };
-
-    const updates = stripUndefined({ ...payload });
-    delete updates._id;
-    updates.updatedAt = now;
-    if (typeof updates.audit === 'undefined') {
-      updates['audit.updatedAt'] = now;
-    }
-
-    if (updates.offers !== undefined) {
-      updates.offers = normalizeOffersArray(updates.offers);
-    }
-    if (Array.isArray(updates.colorVariants)) {
-      updates.colorVariants = normalizeColorVariantsArray(updates.colorVariants);
-    }
-    if (Array.isArray(updates.chargeOptions)) {
-      updates.chargeOptions = normalizeChargeOptionsArray(updates.chargeOptions);
-    }
-    const statusPayload = updates.status;
-    if (updates.status !== undefined) {
-      delete updates.status;
-    }
-    if (updates.nameAr !== undefined) updates.nameAr = toStringValue(updates.nameAr);
-    if (updates.category !== undefined) updates.category = toStringValue(updates.category);
-    if (updates.categoryAr !== undefined) updates.categoryAr = toStringValue(updates.categoryAr);
-    if (updates.cat_code !== undefined) updates.cat_code = toStringValue(updates.cat_code);
-    if (updates.brand !== undefined) updates.brand = toStringValue(updates.brand);
-    if (updates.brandAr !== undefined) updates.brandAr = toStringValue(updates.brandAr);
-    if (updates.brand_code !== undefined) updates.brand_code = toStringValue(updates.brand_code);
-    if (updates.slug !== undefined) updates.slug = toStringValue(updates.slug);
-    if (updates.image !== undefined) updates.image = toStringValue(updates.image);
-    if (updates.images !== undefined) updates.images = normalizeProductImages(updates.images);
-    if (updates.cat_codes !== undefined) updates.cat_codes = normalizeStringArray(updates.cat_codes);
-    if (updates.brand_codes !== undefined) updates.brand_codes = normalizeStringArray(updates.brand_codes);
-    if (updates.price !== undefined) updates.price = toFiniteNumber(updates.price);
-    if (updates.availability !== undefined) updates.availability = normalizeAvailabilityPayload(updates.availability);
-    if (updates.audit !== undefined) updates.audit = normalizeAuditObject(updates.audit, now);
-
-    const existing = await db.collection('products').findOne(query);
-    Object.assign(updates, buildValidationRepairUpdates(existing, now), updates);
-    if (!existing) {
-      const requiredMissing = !updates.name || !updates.nameAr || !updates.price || !updates.stk_code;
-      if (requiredMissing) {
-        results.push({
-          success: false,
-          identifier,
-          error: 'Missing required fields for insert',
-          missingFields: {
-            name: !updates.name,
-            nameAr: !updates.nameAr,
-            price: !updates.price,
-            stk_code: !updates.stk_code,
-          },
-        });
-        continue;
-      }
-    }
-
-    if (Array.isArray(updates.colorVariants) && existing) {
-      const existingVariants = Array.isArray(existing.colorVariants) ? existing.colorVariants : [];
-      updates.colorVariants = normalizeColorVariantsArray(mergeItemsByStkCode(existingVariants, updates.colorVariants, (variant, incoming) => {
-        const next = { ...variant };
-        if (incoming.active !== undefined) next.active = incoming.active;
-        if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
-        if (incoming.images !== undefined) next.images = incoming.images;
-        if (incoming.image !== undefined) next.image = incoming.image;
-        if (incoming.price !== undefined) next.price = incoming.price;
-        if (incoming.color_name !== undefined) next.color_name = incoming.color_name;
-        if (incoming.color_name_ar !== undefined) next.color_name_ar = incoming.color_name_ar;
-          if (incoming.color_hex !== undefined) next.color_hex = incoming.color_hex;
-          if (incoming.offers !== undefined) next.offers = incoming.offers;
-          return next;
-        })).filter((variant) => variant?.stk_code && variant?.price !== undefined);
-      } else if (Array.isArray(updates.colorVariants) && !existing) {
-        updates.colorVariants = updates.colorVariants.filter(
-          (variant) => variant?.stk_code && variant?.price !== undefined,
-        );
-      }
-
-      if (Array.isArray(updates.chargeOptions) && existing) {
-        const existingOptions = Array.isArray(existing.chargeOptions) ? existing.chargeOptions : [];
-        updates.chargeOptions = normalizeChargeOptionsArray(mergeItemsByStkCode(existingOptions, updates.chargeOptions, (opt, incoming) => {
-          const next = { ...opt };
-          if (incoming.active !== undefined) next.active = incoming.active;
-        if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
-        if (incoming.price !== undefined) next.price = incoming.price;
-        if (incoming.name !== undefined) next.name = incoming.name;
-          if (incoming.name_ar !== undefined) next.name_ar = incoming.name_ar;
-          if (incoming.offers !== undefined) next.offers = incoming.offers;
-          return next;
-        })).filter((opt) => opt?.stk_code && opt?.price !== undefined);
-      } else if (Array.isArray(updates.chargeOptions) && !existing) {
-        updates.chargeOptions = updates.chargeOptions.filter(
-          (opt) => opt?.stk_code && opt?.price !== undefined,
-        );
-      }
-
-    const statusUpdate = pickStatusPayload(statusPayload);
-    if (statusUpdate) {
-      if (existing) {
-        if (statusUpdate.hasActive) updates['status.isActive'] = statusUpdate.isActive;
-        if (statusUpdate.hasHidden) updates['status.isHidden'] = statusUpdate.isHidden;
-      } else if (statusUpdate.hasActive && statusUpdate.hasHidden) {
-        updates.status = {
-          isActive: statusUpdate.isActive,
-          isHidden: statusUpdate.isHidden,
-        };
-      }
-    }
-
     try {
-      const updateDoc = { $set: updates };
+      const baseQuery = ObjectId.isValid(String(identifier))
+        ? { _id: new ObjectId(String(identifier)) }
+        : {
+            $or: [
+              { stk_code: String(identifier) },
+              { id: String(identifier) },
+              { slug: String(identifier) },
+            ],
+          };
+
+      // Normalize the incoming payload first. For existing products we will only write
+      // POS-regulated fields (price + availability + variant stock/price), so we don't
+      // overwrite website edits like images/specs/names.
+      const incoming = stripUndefined({ ...payload });
+      delete incoming._id;
+      incoming.updatedAt = now;
+      if (incoming.price !== undefined) incoming.price = toFiniteNumber(incoming.price);
+      if (incoming.availability !== undefined) incoming.availability = normalizeAvailabilityPayload(incoming.availability);
+      if (incoming.audit !== undefined) incoming.audit = normalizeAuditObject(incoming.audit, now);
+      if (Array.isArray(incoming.colorVariants)) incoming.colorVariants = normalizeColorVariantsArray(incoming.colorVariants);
+      if (Array.isArray(incoming.chargeOptions)) incoming.chargeOptions = normalizeChargeOptionsArray(incoming.chargeOptions);
+
+      const incomingStkCode = toStringValue(incoming?.stk_code || incoming?.id) || null;
+
+      // If stk_code exists, prefer updating the most-recent product document for that stk_code.
+      // This matches the POS sync behavior in case duplicates exist.
+      let writeQuery = baseQuery;
+      let existing = null;
+      if (incomingStkCode) {
+        const candidates = await db.collection('products')
+          .find(
+            { stk_code: String(incomingStkCode) },
+            { projection: { _id: 1, updatedAt: 1 } },
+          )
+          .sort({ updatedAt: -1, _id: -1 })
+          .limit(1)
+          .toArray();
+        const targetId = candidates[0]?._id || null;
+        if (targetId) {
+          writeQuery = { _id: targetId };
+          existing = await db.collection('products').findOne(writeQuery);
+        }
+      }
       if (!existing) {
+        existing = await db.collection('products').findOne(baseQuery);
+      }
+
+      const fallbackPrice =
+        incoming.price !== undefined
+          ? incoming.price
+          : existing?.price !== undefined
+          ? existing.price
+          : undefined;
+
+      const mergePosColorVariants = (existingDoc, incomingVariants) => {
+        const existingVariants = Array.isArray(existingDoc?.colorVariants) ? existingDoc.colorVariants : [];
+        const next = existingVariants.map((v) => ({ ...v }));
+        const indexByCode = new Map();
+        next.forEach((variant, idx) => {
+          const code = toStringValue(variant?.stk_code || variant?.stkCode) || '';
+          if (code) indexByCode.set(code, idx);
+        });
+
+        const missingCodes = [];
+        for (const inc of Array.isArray(incomingVariants) ? incomingVariants : []) {
+          const code = toStringValue(inc?.stk_code || inc?.stkCode) || '';
+          if (!code) continue;
+
+          const idx = indexByCode.get(code);
+          if (idx === undefined) {
+            missingCodes.push(code);
+            const created = {
+              stk_code: code,
+              ...(inc?.in_stock !== undefined ? { in_stock: inc.in_stock } : {}),
+              ...(typeof inc?.active === 'boolean' ? { active: inc.active } : {}),
+              ...(inc?.price !== undefined ? { price: inc.price } : fallbackPrice !== undefined ? { price: fallbackPrice } : {}),
+              ...(hasText(inc?.color_name) ? { color_name: toStringValue(inc.color_name) } : {}),
+              ...(hasText(inc?.color_name_ar) ? { color_name_ar: toStringValue(inc.color_name_ar) } : {}),
+              ...(hasText(inc?.color_hex) ? { color_hex: toStringValue(inc.color_hex) } : {}),
+              ...(inc?.offers !== undefined ? { offers: normalizeOffersArray(inc.offers) } : {}),
+            };
+            next.push(created);
+            indexByCode.set(code, next.length - 1);
+            continue;
+          }
+
+          const base = next[idx] || {};
+          const updated = { ...base };
+          if (inc?.in_stock !== undefined) updated.in_stock = inc.in_stock;
+          if (typeof inc?.active === 'boolean') updated.active = inc.active;
+          if (inc?.price !== undefined) updated.price = inc.price;
+          // Only fill missing descriptive fields; don't overwrite website-managed color metadata.
+          if (!hasText(updated.color_name) && hasText(inc?.color_name)) updated.color_name = toStringValue(inc.color_name);
+          if (!hasText(updated.color_name_ar) && hasText(inc?.color_name_ar)) updated.color_name_ar = toStringValue(inc.color_name_ar);
+          if (!hasText(updated.color_hex) && hasText(inc?.color_hex)) updated.color_hex = toStringValue(inc.color_hex);
+          if (inc?.offers !== undefined) updated.offers = normalizeOffersArray(inc.offers);
+          if (updated.price === undefined && fallbackPrice !== undefined) updated.price = fallbackPrice;
+          next[idx] = updated;
+        }
+
+        if (missingCodes.length > 0) {
+          console.log('[admin.products.json.bulk] added missing colorVariants', {
+            requestId,
+            identifier: String(identifier),
+            stk_code: String(incomingStkCode || ''),
+            addedColorVariantCodes: missingCodes,
+          });
+        }
+
+        return normalizeColorVariantsArray(next)
+          .map((variant) => {
+            // Ensure price is always present for schema compatibility when possible.
+            if (variant?.price === undefined && fallbackPrice !== undefined) {
+              return { ...variant, price: fallbackPrice };
+            }
+            return variant;
+          })
+          .filter((variant) => variant?.stk_code && variant?.price !== undefined);
+      };
+
+      const mergePosChargeOptions = (existingDoc, incomingOptions) => {
+        const existingOptions = Array.isArray(existingDoc?.chargeOptions) ? existingDoc.chargeOptions : [];
+        const next = existingOptions.map((o) => ({ ...o }));
+        const indexByCode = new Map();
+        next.forEach((opt, idx) => {
+          const code = toStringValue(opt?.stk_code || opt?.stkCode) || '';
+          if (code) indexByCode.set(code, idx);
+        });
+
+        for (const inc of Array.isArray(incomingOptions) ? incomingOptions : []) {
+          const code = toStringValue(inc?.stk_code || inc?.stkCode) || '';
+          if (!code) continue;
+          const idx = indexByCode.get(code);
+          if (idx === undefined) {
+            const created = {
+              stk_code: code,
+              ...(inc?.in_stock !== undefined ? { in_stock: inc.in_stock } : {}),
+              ...(typeof inc?.active === 'boolean' ? { active: inc.active } : {}),
+              ...(inc?.price !== undefined ? { price: inc.price } : {}),
+              ...(inc?.offers !== undefined ? { offers: normalizeOffersArray(inc.offers) } : {}),
+            };
+            next.push(created);
+            indexByCode.set(code, next.length - 1);
+            continue;
+          }
+          const base = next[idx] || {};
+          const updated = { ...base };
+          if (inc?.in_stock !== undefined) updated.in_stock = inc.in_stock;
+          if (typeof inc?.active === 'boolean') updated.active = inc.active;
+          if (inc?.price !== undefined) updated.price = inc.price;
+          if (inc?.offers !== undefined) updated.offers = normalizeOffersArray(inc.offers);
+          next[idx] = updated;
+        }
+
+        return normalizeChargeOptionsArray(next).filter((opt) => opt?.stk_code && opt?.price !== undefined);
+      };
+
+      let mergedColorVariants = null;
+      if (Array.isArray(incoming.colorVariants)) {
+        mergedColorVariants = existing
+          ? mergePosColorVariants(existing, incoming.colorVariants)
+          : incoming.colorVariants.filter((variant) => variant?.stk_code);
+      }
+
+      let mergedChargeOptions = null;
+      if (Array.isArray(incoming.chargeOptions)) {
+        mergedChargeOptions = existing
+          ? mergePosChargeOptions(existing, incoming.chargeOptions)
+          : incoming.chargeOptions.filter((opt) => opt?.stk_code);
+      }
+
+      const sanitizedAvailability = {};
+      const incomingAvailability = incoming?.availability && typeof incoming.availability === 'object'
+        ? incoming.availability
+        : null;
+      if (incomingAvailability) {
+        if (typeof incomingAvailability.isAvailable === 'boolean') {
+          sanitizedAvailability.isAvailable = incomingAvailability.isAvailable;
+        }
+        if (incomingAvailability.lastSyncedAt instanceof Date) {
+          sanitizedAvailability.lastSyncedAt = incomingAvailability.lastSyncedAt;
+        }
+      }
+      if (sanitizedAvailability.isAvailable === undefined && Array.isArray(mergedColorVariants)) {
+        // If POS didn't send isAvailable, infer it from color variants stock.
+        sanitizedAvailability.isAvailable = mergedColorVariants.some((variant) => variant?.in_stock !== false);
+      }
+      if (sanitizedAvailability.lastSyncedAt === undefined && (incomingAvailability || mergedColorVariants || mergedChargeOptions)) {
+        sanitizedAvailability.lastSyncedAt = now;
+      }
+
+      // For existing products: only update POS-regulated fields to avoid overwriting website edits.
+      let writeUpdates = incoming;
+      if (existing) {
+        writeUpdates = {
+          stk_code: existing?.stk_code || incoming?.stk_code || String(identifier),
+          updatedAt: now,
+        };
+        if (incoming.price !== undefined) writeUpdates.price = incoming.price;
+        if (Object.keys(sanitizedAvailability).length > 0) writeUpdates.availability = sanitizedAvailability;
+        if (Array.isArray(mergedColorVariants)) writeUpdates.colorVariants = mergedColorVariants;
+        if (Array.isArray(mergedChargeOptions)) writeUpdates.chargeOptions = mergedChargeOptions;
+        writeUpdates['audit.updatedAt'] = now;
+      } else {
+        // For inserts we keep the normalized payload, but still prefer merged arrays.
+        if (Array.isArray(mergedColorVariants)) writeUpdates.colorVariants = mergedColorVariants;
+        if (Array.isArray(mergedChargeOptions)) writeUpdates.chargeOptions = mergedChargeOptions;
+        if (Object.keys(sanitizedAvailability).length > 0) writeUpdates.availability = {
+          ...(writeUpdates.availability && typeof writeUpdates.availability === 'object' ? writeUpdates.availability : {}),
+          ...sanitizedAvailability,
+        };
+        if (typeof writeUpdates.audit === 'undefined') {
+          writeUpdates['audit.updatedAt'] = now;
+        }
+      }
+
+      const updateDoc = { $set: writeUpdates };
+      const willUpsert = !existing;
+      if (willUpsert) {
         updateDoc.$setOnInsert = { createdAt: now };
       }
+
       stripConflictingParentPaths(updateDoc.$set, ['status', 'audit', 'availability']);
-      await db.collection('products').updateOne(query, updateDoc, { upsert: true });
-      const updated = await db.collection('products').findOne(query);
+      await db.collection('products').updateOne(
+        writeQuery,
+        updateDoc,
+        { upsert: willUpsert, bypassDocumentValidation: true },
+      );
+
+      const updated = await db.collection('products').findOne(writeQuery);
       if (updated) {
         await db.collection('admin_actions').insertOne({
           actorUserId: req.adminToken?.userId || new ObjectId('000000000000000000000000'),

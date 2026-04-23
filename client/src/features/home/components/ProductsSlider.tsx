@@ -111,6 +111,10 @@ const ProductsSlider: React.FC<ProductsSliderProps> = ({
   };
 
   useEffect(() => {
+    // Skip height calculation on mobile to prevent layout shifts
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) return;
+
     const updateMaxHeight = () => {
       if (cardRefs.current.length === 0) return;
 

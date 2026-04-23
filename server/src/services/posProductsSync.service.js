@@ -667,21 +667,22 @@ async function syncPosProducts({ connString, db, logger = console, rowsOverride 
       continue;
     }
 
-    logger.log('[POS Sync] Incoming payload snapshot', {
-      stk_code: stkCode,
-      sentAvailability: parsed?.availability || null,
-      sentColorVariants: Array.isArray(parsed?.colorVariants)
-        ? parsed.colorVariants.map((variant) => ({
-            stk_code: variant?.stk_code || variant?.stkCode || null,
-            in_stock: variant?.in_stock ?? variant?.inStock ?? variant?.isAvailable ?? variant?.is_available ?? null,
-            active: variant?.active ?? variant?.isActive ?? variant?.is_active ?? null,
-            price: variant?.price ?? null,
-            color_name: variant?.color_name ?? variant?.name ?? null,
-            color_name_ar: variant?.color_name_ar ?? variant?.nameAr ?? null,
-            color_hex: variant?.color_hex ?? variant?.hex ?? variant?.hexCode ?? null,
-          }))
-        : [],
-    });
+      logger.log('[POS Sync] Incoming payload snapshot', {
+        stk_code: stkCode,
+        sentAvailability: parsed?.availability || null,
+        sentColorVariants: Array.isArray(parsed?.colorVariants)
+          ? parsed.colorVariants.map((variant) => ({
+              stk_code: variant?.stk_code || variant?.stkCode || null,
+              in_stock: variant?.in_stock ?? variant?.inStock ?? variant?.isAvailable ?? variant?.is_available ?? null,
+              active: variant?.active ?? variant?.isActive ?? variant?.is_active ?? null,
+              price: variant?.price ?? null,
+              offersCount: Array.isArray(variant?.offers) ? variant.offers.length : 0,
+              color_name: variant?.color_name ?? variant?.name ?? null,
+              color_name_ar: variant?.color_name_ar ?? variant?.nameAr ?? null,
+              color_hex: variant?.color_hex ?? variant?.hex ?? variant?.hexCode ?? null,
+            }))
+          : [],
+      });
 
     const updates = normalizeProductDoc(parsed, stkCode, now);
     if (!updates) {
@@ -754,6 +755,8 @@ async function syncPosProducts({ connString, db, logger = console, rowsOverride 
           const next = { ...variant };
           if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
           if (incoming.price !== undefined) next.price = incoming.price;
+          // Sync POS offers at the color level.
+          if (incoming.offers !== undefined) next.offers = incoming.offers;
           return next;
         }))
           .map((variant) => {
@@ -782,6 +785,7 @@ async function syncPosProducts({ connString, db, logger = console, rowsOverride 
           const next = { ...opt };
           if (incoming.in_stock !== undefined) next.in_stock = incoming.in_stock;
           if (incoming.price !== undefined) next.price = incoming.price;
+          if (incoming.offers !== undefined) next.offers = incoming.offers;
           return next;
         })).filter((opt) => opt?.stk_code && opt?.price !== undefined);
       }
@@ -825,6 +829,7 @@ async function syncPosProducts({ connString, db, logger = console, rowsOverride 
               in_stock: variant?.in_stock,
               active: variant?.active,
               price: variant?.price,
+              offersCount: Array.isArray(variant?.offers) ? variant.offers.length : 0,
             }))
           : [],
       });

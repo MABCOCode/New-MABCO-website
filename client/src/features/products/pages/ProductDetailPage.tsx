@@ -946,14 +946,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     // Priority 1: Use explicit color code if available
     const colorCode = String(variant?.colorCode || variant?.color_code || "").trim();
     if (colorCode) return `code:${colorCode.toLowerCase()}`;
-    
-    // Priority 2: Use color name (to group color name variations like "Graphite Gray")
+
+    // Priority 2: Use the actual display hex so same-color duplicates collapse together
+    if (hexCode && hexCode !== "#999999") return `hex:${hexCode.toLowerCase()}`;
+
+    // Priority 3: Fall back to label only when we truly have no usable color code
     const label = String(name || nameAr || "").trim().toLowerCase();
     if (label) return `name:${label}`;
-    
-    // Priority 3: Use hex code if valid
-    if (hexCode && hexCode !== "#999999") return `hex:${hexCode.toLowerCase()}`;
-    
+
     // Fallback
     const fallback = String(variant?.stk_code || variant?.stkCode || "").trim().toLowerCase();
     return fallback ? `sku:${fallback}` : "";
@@ -963,13 +963,15 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     const variants = Array.isArray(prod?.colorVariants) ? prod.colorVariants : [];
     const deduped = new Map<string, any>();
     const scoreVariant = (variant: any) => {
+      const hasOffers = Array.isArray(variant?.offers) && variant.offers.length > 0;
       const hasImage = Boolean(
         String(variant.image || (variant.images && variant.images[0]) || "").trim(),
       );
       const isActive = typeof variant.active !== "boolean" || variant.active;
       const isAvailable = variant.isAvailable !== false;
       const inStock = variant.inStock !== false;
-      return (hasImage ? 4 : 0) + (isActive ? 2 : 0) + (isAvailable && inStock ? 1 : 0);
+      // Prefer variants with offers inside the same color group so the UI shows the offer color/image.
+      return (hasOffers ? 8 : 0) + (hasImage ? 4 : 0) + (isActive ? 2 : 0) + (isAvailable && inStock ? 1 : 0);
     };
 
     const getVariantImages = (variant: any) => {
@@ -1191,16 +1193,63 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
 
   const displayColorKey = normalizeColorKey(displayColor);
   const productImageEntries = unifiedImages.filter((img) => !img.colorKey);
-  const variantImageEntries = displayColorKey
-    ? unifiedImages.filter((img) => img.colorKey === displayColorKey)
-    : [];
 
-  const currentImageEntries =
-    variantImageEntries.length > 0
-      ? variantImageEntries
-      : productImageEntries.length > 0
-      ? productImageEntries
-      : unifiedImages;
+  const currentImageEntries = useMemo(() => {
+    // When colors exist, do NOT show a slider for a color (duplicates can create multiple entries).
+    // Show a single "best" image for that color:
+    // 1) Prefer an image that belongs to a variant with offers.
+    // 2) Otherwise, the first valid image for the selected color.
+    if (hasColors && displayColorKey) {
+      const variantsRaw = Array.isArray(prod?.colorVariants) ? prod.colorVariants : [];
+      const toVariantKey = (variant: any) =>
+        String(
+          variant?.stk_code ||
+            variant?.stkCode ||
+            variant?.id ||
+            variant?.code ||
+            "",
+        ).trim();
+
+      const variantByKey = new Map<string, any>();
+      variantsRaw.forEach((v: any) => {
+        const k = toVariantKey(v);
+        if (k) variantByKey.set(k, v);
+      });
+
+      const candidates = unifiedImages.filter((img) => img.colorKey === displayColorKey && String(img?.src || "").trim());
+      if (candidates.length > 0) {
+        const best = candidates
+          .slice()
+          .sort((a, b) => {
+            const aVar = variantByKey.get(String(a?.variantKey || "")) || null;
+            const bVar = variantByKey.get(String(b?.variantKey || "")) || null;
+            const aHasOffers = Array.isArray(aVar?.offers) && aVar.offers.length > 0 ? 1 : 0;
+            const bHasOffers = Array.isArray(bVar?.offers) && bVar.offers.length > 0 ? 1 : 0;
+            return bHasOffers - aHasOffers;
+          })[0];
+        return best ? [best] : [];
+      }
+
+      // Fall back to the selected variant image if unified images are missing.
+      const fallbackSrc = String(currentColorVariant?.image || currentColorVariant?.images?.[0] || "").trim();
+      if (fallbackSrc) {
+        return [
+          {
+            id: `color-fallback-${displayColorKey}`,
+            src: fallbackSrc,
+            color: displayColor,
+            colorKey: displayColorKey,
+            variantKey: String(currentColorVariant?.stk_code || currentColorVariant?.stkCode || ""),
+          } as any,
+        ];
+      }
+
+      return [];
+    }
+
+    // No colors: keep the existing product image carousel behavior.
+    return productImageEntries.length > 0 ? productImageEntries : unifiedImages;
+  }, [hasColors, displayColorKey, displayColor, currentColorVariant, productImageEntries, unifiedImages, prod]);
 
   const currentImages = currentImageEntries.map((img) => img.src);
   const currentImage =
@@ -1225,16 +1274,25 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     currentColorVariant && typeof currentColorVariant.price !== "undefined"
       ? numericPrice(currentColorVariant.price)
       : 0;
-  const baseProductPrice = numericPrice(prod?.price);
+  const uniqueColorPrices = Array.from(
+    new Set(
+      availableColorVariants
+        .map((variant: any) =>
+          typeof variant?.price !== "undefined" ? numericPrice(variant.price) : 0,
+        )
+        .filter((price: number) => price > 0)
+        .map((price: number) => price.toFixed(4)),
+    ),
+  );
   const sourcePriceForSelection = currentChargeOption
     ? numericPrice(currentChargeOption.price)
     : colorPriceValue > 0
     ? colorPriceValue
     : typeof prod?.basePrice === "number"
     ? prod.basePrice
-    : baseProductPrice;
+    : numericPrice(prod?.price);
   const hasColorPriceDiff =
-    colorPriceValue > 0 && Math.abs(colorPriceValue - baseProductPrice) > 0.0001;
+    colorPriceValue > 0 && uniqueColorPrices.length > 1;
 
   const selectedVariantOffers = currentChargeOption?.offers
     ? getProductOffers({ offers: currentChargeOption.offers } as any)

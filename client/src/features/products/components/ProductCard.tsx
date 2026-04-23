@@ -91,14 +91,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
     // Priority 1: Use explicit color code if available
     const colorCode = String(variant?.colorCode || variant?.color_code || "").trim();
     if (colorCode) return `code:${colorCode.toLowerCase()}`;
-    
-    // Priority 2: Use color name (to group color name variations like "Graphite Gray")
+
+    // Priority 2: Use the actual display hex so same-color duplicates collapse together
+    if (hexCode && hexCode !== "#999999") return `hex:${hexCode.toLowerCase()}`;
+
+    // Priority 3: Fall back to label only when we truly have no usable color code
     const label = String(name || nameAr || "").trim().toLowerCase();
     if (label) return `name:${label}`;
-    
-    // Priority 3: Use hex code if valid
-    if (hexCode && hexCode !== "#999999") return `hex:${hexCode.toLowerCase()}`;
-    
+
     // Fallback
     const fallback = String(variant?.stk_code || variant?.stkCode || "").trim().toLowerCase();
     return fallback ? `sku:${fallback}` : "";
@@ -238,10 +238,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const currentColorVariant = visibleColorVariants.find((v) => v.name === displayColor) || null;
   const currentImage = currentColorVariant?.image || product.image;
 
-  const hasColors = visibleColorVariants.length > 0;
+  const hasColors = visibleColorVariants.length > 1;
+  const hasVisibleColorVariants = visibleColorVariants.length > 0;
   const hasChargeOptions = normalizedChargeOptions.length > 0;
-  const hasAnyVariants = safeColorVariants.length > 0 || safeChargeOptions.length > 0;
-  const hasValidVariants = hasColors || hasChargeOptions;
   const hasValidImage =
     Boolean(String(product.image || "").trim()) ||
     visibleColorVariants.length > 0 ||
@@ -269,10 +268,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
     hasValidImage &&
     hasPrice &&
     hasDetails;
-  
-  if (hasAnyVariants && !hasValidVariants) {
-    return null;
-  }
   
   if (!hasRequiredData) {
     return null;
@@ -414,7 +409,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   const handleAddToCart = () => {
-    const chosenColor = hasColors ? selectedColor : undefined;
+    const chosenColor = hasVisibleColorVariants ? selectedColor : undefined;
     const chosenVariant = visibleColorVariants.find((v) => v.name === chosenColor) || null;
     const chosenColorHex = chosenVariant?.hexCode || null;
     const chosenVariantImage = chosenVariant?.image || null;
@@ -424,15 +419,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
       currentChargeOption?.name ||
       currentChargeOption?.name_ar ||
       null;
-    const availableOffersRaw = hasValidVariants
-      ? (currentChargeOption && Array.isArray((currentChargeOption as any).offers)
-          ? (currentChargeOption as any).offers
-          : chosenVariant && Array.isArray((chosenVariant as any).offers)
-          ? (chosenVariant as any).offers
-          : null)
-      : Array.isArray((product as any).offers)
-      ? (product as any).offers
-      : null;
+    const availableOffersRaw =
+      currentChargeOption && Array.isArray((currentChargeOption as any).offers)
+        ? (currentChargeOption as any).offers
+        : chosenVariant && Array.isArray((chosenVariant as any).offers)
+        ? (chosenVariant as any).offers
+        : Array.isArray((product as any).offers)
+        ? (product as any).offers
+        : null;
 
     const variantPriceValue =
       chosenVariant && typeof chosenVariant.price !== "undefined"
@@ -485,20 +479,18 @@ const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   React.useEffect(() => {
-    if (!hasColors) return;
-    const exists = visibleColorVariants.some((v: any) => v.name === selectedColor);
-    if (!exists) {
+    if (!hasVisibleColorVariants) return;
+    // Keep user's selection stable. Only auto-pick a preferred color when there is no selection
+    // or the currently selected color no longer exists in the available list.
+    if (!selectedColor) {
       setSelectedColor(preferredOfferColor || visibleColorVariants[0]?.name || "");
       return;
     }
-    if (preferredOfferColor && selectedColor !== preferredOfferColor) {
-      const current = visibleColorVariants.find((v: any) => v.name === selectedColor);
-      const currentOffers = Array.isArray(current?.offers) ? current.offers : [];
-      if (currentOffers.length === 0) {
-        setSelectedColor(preferredOfferColor);
-      }
+    const exists = visibleColorVariants.some((v: any) => v.name === selectedColor);
+    if (!exists) {
+      setSelectedColor(preferredOfferColor || visibleColorVariants[0]?.name || "");
     }
-  }, [hasColors, visibleColorVariants, selectedColor, preferredOfferColor]);
+  }, [hasVisibleColorVariants, visibleColorVariants, selectedColor, preferredOfferColor]);
 
   const colorPriceValue = currentColorVariant ? parseNumericPrice(currentColorVariant.price) : 0;
   const selectedSourcePrice = currentChargeOption
@@ -506,14 +498,26 @@ const ProductCard: React.FC<ProductCardProps> = ({
     : colorPriceValue > 0
     ? colorPriceValue
     : parseNumericPrice(product.price);
-  const baseProductPrice = parseNumericPrice(product.price);
-  const hasColorPriceDiff = colorPriceValue > 0 && Math.abs(colorPriceValue - baseProductPrice) > 0.0001;
+  const uniqueColorPrices = Array.from(
+    new Set(
+      visibleColorVariants
+        .map((variant: any) => parseNumericPrice(variant?.price))
+        .filter((price) => price > 0)
+        .map((price) => price.toFixed(4)),
+    ),
+  );
+  const hasColorPriceDiff = colorPriceValue > 0 && uniqueColorPrices.length > 1;
   const selectedVariantOffers = currentChargeOption?.offers
     ? getProductOffers({ offers: (currentChargeOption as any).offers } as any)
     : currentColorVariant?.offers
     ? getProductOffers({ offers: (currentColorVariant as any).offers } as any)
     : [];
-  const displayOffers = hasValidVariants ? selectedVariantOffers : getProductOffers(product as any);
+  const displayOffers =
+    selectedVariantOffers.length > 0
+      ? selectedVariantOffers
+      : currentColorVariant // If a color is selected, don't show product-level offers
+      ? []
+      : getProductOffers(product as any);
   const hasOffers = displayOffers.length > 0;
   const singleOffer = React.useMemo(() => displayOffers.length === 1, [displayOffers]);
   const offerDialogPricing = getOfferPricing(
@@ -700,7 +704,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           >
             {displayProductName}
           </h3>
-            {hasColors && (
+            {hasVisibleColorVariants && (
               <div>
                 <ColorSwatch
                   variants={visibleColorVariants}

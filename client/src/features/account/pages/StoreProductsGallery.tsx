@@ -7,6 +7,9 @@ interface StoreProduct {
   sku: string;
   name: string;
   nameAr: string;
+  description: string;
+  descriptionAr: string;
+  colorSkus: string[];
   image: string;
   price: number;
   category: string;
@@ -19,6 +22,18 @@ interface StoreProductsGalleryProps {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
+
+const toSearchableString = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (value && typeof value === "object") {
+    return Object.values(value)
+      .map((entry) => toSearchableString(entry).trim())
+      .filter(Boolean)
+      .join(" ");
+  }
+  return "";
+};
 
 export function StoreProductsGallery({ onClose }: StoreProductsGalleryProps) {
   const { t, language } = useLanguage();
@@ -68,6 +83,19 @@ export function StoreProductsGallery({ onClose }: StoreProductsGalleryProps) {
           }
           return product.image || "";
         };
+        const resolveColorSkus = (product: any) => {
+          const colors = Array.isArray(product?.colors)
+            ? product.colors
+            : Array.isArray(product?.colorVariants)
+              ? product.colorVariants
+              : [];
+
+          return colors
+            .map((color: any) =>
+              toSearchableString(color?.stk_Code || color?.stk_code || color?.stkCode).trim()
+            )
+            .filter(Boolean);
+        };
 
         setProducts(
           items
@@ -77,6 +105,9 @@ export function StoreProductsGallery({ onClose }: StoreProductsGalleryProps) {
               sku: p.stk_code || p.id,
               name: p.name || "",
               nameAr: p.nameAr || p.name || "",
+              description: toSearchableString(p.description),
+              descriptionAr: toSearchableString(p.descriptionAr || p.description_ar),
+              colorSkus: resolveColorSkus(p),
               image: resolveProductImage(p),
               price: p.price || 0,
               category: p.category || "",
@@ -101,13 +132,19 @@ export function StoreProductsGallery({ onClose }: StoreProductsGalleryProps) {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query) ||
-          p.nameAr.includes(query) ||
-          p.sku.toLowerCase().includes(query) ||
-          p.brand.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter((p) => {
+        const searchableFields = [
+          p.name,
+          p.nameAr,
+          p.description,
+          p.descriptionAr,
+          p.sku,
+          p.brand,
+          ...p.colorSkus,
+        ];
+
+        return searchableFields.some((field) => field.toLowerCase().includes(query));
+      });
     }
 
     // Filter by category
@@ -148,7 +185,7 @@ export function StoreProductsGallery({ onClose }: StoreProductsGalleryProps) {
               <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder={t("admin.searchProducts") || "Search by name, SKU, or brand..."}
+                placeholder={t("admin.searchProducts") || "Search by name, description, SKU, color SKU, or brand..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

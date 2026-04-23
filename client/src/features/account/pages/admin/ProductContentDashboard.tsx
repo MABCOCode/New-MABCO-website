@@ -970,7 +970,12 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
   }, [availableCategoryFilters, selectedCategoryFilter]);
 
   useEffect(() => {
-    if (selectedBrandFilter && !availableBrandFilters.some((brand) => brand.id === selectedBrandFilter)) {
+    // Keep the special "No Brand" filter value even though it's not a real brand id.
+    if (
+      selectedBrandFilter &&
+      selectedBrandFilter !== NO_BRAND_FILTER_VALUE &&
+      !availableBrandFilters.some((brand) => brand.id === selectedBrandFilter)
+    ) {
       setSelectedBrandFilter("");
     }
   }, [availableBrandFilters, selectedBrandFilter]);
@@ -1019,11 +1024,33 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
         ? brandMissing
         : inferredBrandCode === selectedBrandFilter);
     const q = searchQuery.trim().toLowerCase();
+    const searchTerms = q.split(/\s+/).filter(Boolean); // Split into individual words
+    
+    // Helper function to check if any search term matches a value
+    const matchesAnyTerm = (value: string | undefined): boolean => {
+      if (!value) return false;
+      const lowerValue = String(value).toLowerCase();
+      return searchTerms.length === 0 || searchTerms.some(term => lowerValue.includes(term));
+    };
+    
+    // Helper function to check if any search term matches an array of objects
+    const matchesColorTerms = (colors: any[]): boolean => {
+      if (!Array.isArray(colors)) return false;
+      return searchTerms.length === 0 || colors.some((color) =>
+        matchesAnyTerm(color.stk_code) || 
+        matchesAnyTerm(color.color_name) || 
+        matchesAnyTerm(color.color_name_ar)
+      );
+    };
+    
     const matchesSearch =
       !q ||
-      product.sku.toLowerCase().includes(q) ||
-      product.nameEn.toLowerCase().includes(q) ||
-      product.nameAr.toLowerCase().includes(q);
+      matchesAnyTerm(product.sku) ||
+      matchesAnyTerm(product.nameEn) ||
+      matchesAnyTerm(product.nameAr) ||
+      matchesAnyTerm(product.existingContent?.descriptionEn) ||
+      matchesAnyTerm(product.existingContent?.descriptionAr) ||
+      matchesColorTerms(product.colors);
     return matchesScope && matchesCategoryFilter && matchesBrandFilter && matchesSearch;
   });
 

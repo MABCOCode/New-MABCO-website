@@ -37,6 +37,22 @@ export function ColorSwatch({
 }: ColorSwatchProps) {
   const [showAll, setShowAll] = useState(false);
   const [hoveredColorName, setHoveredColorName] = useState<string | null>(null);
+
+  const dedupedVariants = variants.reduce((acc, variant) => {
+    const hex = String(variant.hexCode || "").trim().toLowerCase();
+    const name = String(variant.name || variant.nameAr || "").trim().toLowerCase();
+    const key = hex && hex !== "#999999" ? `hex:${hex}` : `name:${name}`;
+    if (!key || key === "name:") return acc;
+    if (!acc.some((item) => {
+      const itemHex = String(item.hexCode || "").trim().toLowerCase();
+      const itemName = String(item.name || item.nameAr || "").trim().toLowerCase();
+      const itemKey = itemHex && itemHex !== "#999999" ? `hex:${itemHex}` : `name:${itemName}`;
+      return itemKey === key;
+    })) {
+      acc.push(variant);
+    }
+    return acc;
+  }, [] as ColorVariant[]);
   
   const sizeClasses = {
     sm: "w-5 h-5",
@@ -44,7 +60,7 @@ export function ColorSwatch({
     lg: "w-10 h-10",
   };
 
-  const availableVariants = variants.filter((variant) => {
+  const availableVariants = dedupedVariants.filter((variant) => {
     if (variant.isAvailable !== undefined) return variant.isAvailable;
     if (variant.inStock !== undefined) return variant.inStock;
     if (typeof variant.stock === "number") return variant.stock > 0;
