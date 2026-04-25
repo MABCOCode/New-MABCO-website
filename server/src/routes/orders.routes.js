@@ -94,24 +94,38 @@ router.post('/', asyncHandler(async (req, res) => {
       .collection('users')
       .find(
         {
-          role: { $in: ['admin', 'super_admin'] },
+          role: 'admin',
           'adminMeta.canManageOrders': true,
         },
-        { projection: { _id: 1 } },
+        { projection: { _id: 1, fcmTokens: 1 } },
       )
       .toArray();
     const adminIds = admins.map((a) => a._id);
+    const tokenSet = new Set();
 
     const adminTokens = await db
       .collection('device_tokens')
       .find({
         userId: { $in: adminIds },
+        role: 'admin',
         canManageOrders: true,
         'preferences.allowAdminNewOrders': { $ne: false },
       })
       .toArray();
 
-    const tokens = adminTokens.map((row) => row.token).filter(Boolean);
+    adminTokens.forEach((row) => {
+      if (row?.token) tokenSet.add(String(row.token));
+    });
+
+    admins.forEach((adminUser) => {
+      if (Array.isArray(adminUser?.fcmTokens)) {
+        adminUser.fcmTokens.forEach((token) => {
+          if (token) tokenSet.add(String(token));
+        });
+      }
+    });
+
+    const tokens = Array.from(tokenSet).filter(Boolean);
     if (tokens.length > 0) {
       const title = payload.locale === 'ar' ? 'طلب جديد' : 'New Order';
       const body = payload.locale === 'ar'

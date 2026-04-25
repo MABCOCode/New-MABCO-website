@@ -1,4 +1,4 @@
-import { Calendar, ChevronRight, Clock, Home, MapPin, Phone, X } from "lucide-react";
+import { Calendar, ChevronRight, Clock, Home, Locate, MapPin, Phone, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
@@ -27,6 +27,11 @@ interface ShowroomsPageProps {
   onBack?: () => void;
 }
 
+interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
 // Showrooms are now served from a static JSON file under /static/showrooms.json
 
 import { useLanguage } from '../../../context/LanguageContext';
@@ -39,6 +44,10 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
   const [selectedMap, setSelectedMap] = useState<{ lat: string; lng: string; name: string } | null>(null);
   const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
   const [showroomsData, setShowroomsData] = useState<Showroom[]>([]);
+  const [currentUserPosition, setCurrentUserPosition] = useState<Coordinates | null>(null);
+  const [nearestShowroomCode, setNearestShowroomCode] = useState<string | null>(null);
+  const [nearestLoading, setNearestLoading] = useState(false);
+  const [nearestError, setNearestError] = useState<string | null>(null);
   const t = translations[language];
 
   useEffect(() => {
@@ -151,6 +160,88 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
     setSelectedImage({ url, name });
   };
 
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+
+  const calculateDistanceKm = (from: Coordinates, to: Coordinates) => {
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(to.lat - from.lat);
+    const dLng = toRadians(to.lng - from.lng);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(from.lat)) *
+        Math.cos(toRadians(to.lat)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadiusKm * c;
+  };
+
+  const showroomsWithDistance = showroomsData.map((showroom) => {
+    const latitude = Number(showroom.Latitude);
+    const longitude = Number(showroom.Longitude);
+    if (
+      !currentUserPosition ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+      return { ...showroom, distanceKm: null as number | null };
+    }
+
+    return {
+      ...showroom,
+      distanceKm: calculateDistanceKm(currentUserPosition, {
+        lat: latitude,
+        lng: longitude,
+      }),
+    };
+  });
+
+  const nearestShowroom = showroomsWithDistance
+    .filter((showroom) => typeof showroom.distanceKm === "number")
+    .sort((a, b) => (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER))[0];
+
+  const handleFindNearestShowroom = () => {
+    if (!navigator.geolocation) {
+      setNearestError(
+        language === "ar"
+          ? "المتصفح لا يدعم تحديد الموقع الجغرافي."
+          : "Your browser does not support geolocation.",
+      );
+      return;
+    }
+
+    setNearestLoading(true);
+    setNearestError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCurrentUserPosition({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setNearestLoading(false);
+      },
+      () => {
+        setNearestLoading(false);
+        setNearestError(
+          language === "ar"
+            ? "تعذر تحديد موقعك الحالي."
+            : "Unable to determine your current location.",
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000,
+      },
+    );
+  };
+
+  useEffect(() => {
+    if (nearestShowroom?.Loc_code) {
+      setNearestShowroomCode(nearestShowroom.Loc_code);
+    }
+  }, [nearestShowroom?.Loc_code]);
+
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-gray-50">
       {/* Breadcrumb - Sticky */}
@@ -174,6 +265,72 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
 
       {/* Showrooms Grid */}
       <div className="max-w-7xl mx-auto px-4 py-12">
+        <div className="mb-8 rounded-2xl border border-[#009FE3]/15 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">
+                {language === "ar" ? "البحث عن أقرب معرض" : "Find Nearest Showroom"}
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                {language === "ar"
+                  ? "استخدم موقعك الحالي لمعرفة أقرب صالة عرض."
+                  : "Use your current location to find the closest showroom."}
+              </p>
+            </div>
+            <button
+              onClick={handleFindNearestShowroom}
+              disabled={nearestLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#009FE3] px-5 py-3 font-semibold text-white transition-colors hover:bg-[#0080b8] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Locate className="h-5 w-5" />
+              {nearestLoading
+                ? language === "ar"
+                  ? "جاري التحديد..."
+                  : "Locating..."
+                : language === "ar"
+                ? "اختيار أقرب معرض"
+                : "Choose Nearest Showroom"}
+            </button>
+          </div>
+          {nearestError && (
+            <p className="mt-3 text-sm font-medium text-red-600">{nearestError}</p>
+          )}
+          {nearestShowroom && (
+            <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-green-700">
+                    {language === "ar" ? "أقرب معرض" : "Nearest Showroom"}
+                  </p>
+                  <h3 className="mt-1 text-lg font-bold text-gray-900">
+                    {nearestShowroom.Loc_name}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {nearestShowroom.City_name}
+                    {typeof nearestShowroom.distanceKm === "number" &&
+                      ` • ${nearestShowroom.distanceKm.toFixed(1)} ${
+                        language === "ar" ? "كم" : "km"
+                      }`}
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    openMapDialog(
+                      nearestShowroom.Latitude,
+                      nearestShowroom.Longitude,
+                      nearestShowroom.Loc_name,
+                    )
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#009FE3] px-4 py-2 font-semibold text-[#009FE3] transition-colors hover:bg-[#009FE3] hover:text-white"
+                >
+                  <MapPin className="h-4 w-4" />
+                  {t.showrooms_view_on_map}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {isLoading && (
           <div className="mb-16">
             <div className="h-9 w-56 skeleton-line shimmer-surface mb-6" />
@@ -218,7 +375,11 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
               {showroomsByCity[city].map((showroom) => (
                 <div
                   key={showroom.Loc_code}
-                  className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-100"
+                  className={`bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border ${
+                    nearestShowroomCode === showroom.Loc_code
+                      ? "border-[#009FE3] ring-2 ring-[#009FE3]/15"
+                      : "border-gray-100"
+                  }`}
                 >
                   {/* Showroom Image */}
                   <div 
@@ -231,7 +392,14 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                     />
                     <div className="absolute top-4 left-4 right-4">
-                      <h3 className="text-xl text-white drop-shadow-lg inline-block bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">{showroom.Loc_name}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-xl text-white drop-shadow-lg inline-block bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">{showroom.Loc_name}</h3>
+                        {nearestShowroomCode === showroom.Loc_code && (
+                          <span className="inline-flex items-center rounded-lg bg-[#009FE3] px-3 py-1 text-xs font-bold text-white">
+                            {language === "ar" ? "الأقرب إليك" : "Nearest to You"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {/* Hover overlay to indicate clickable */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">

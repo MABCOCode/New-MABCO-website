@@ -83,13 +83,24 @@ export function AdminOrderManagement() {
 
     // Search filter
     if (searchQuery) {
-      filtered = filtered.filter(
-        (order) =>
-          order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (order.customer?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (order.customer?.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          order.id.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const normalizedQuery = searchQuery.toLowerCase();
+      const normalizedDigitsQuery = searchQuery.replace(/\D/g, "");
+
+      filtered = filtered.filter((order) => {
+        const customerPhone = order.customer?.phone || "";
+        const normalizedPhoneDigits = customerPhone.replace(/\D/g, "");
+
+        return (
+          order.orderNumber.toLowerCase().includes(normalizedQuery) ||
+          (order.customer?.name || "").toLowerCase().includes(normalizedQuery) ||
+          (order.customer?.email || "").toLowerCase().includes(normalizedQuery) ||
+          customerPhone.toLowerCase().includes(normalizedQuery) ||
+          (normalizedDigitsQuery
+            ? normalizedPhoneDigits.includes(normalizedDigitsQuery)
+            : false) ||
+          order.id.toLowerCase().includes(normalizedQuery)
+        );
+      });
     }
 
     // Status filter
@@ -187,6 +198,38 @@ export function AdminOrderManagement() {
     return "";
   };
 
+  const getDeliveryTypeLabel = (value?: Order["fulfillmentType"]) => {
+    if (value === "pickup") {
+      return language === "ar" ? "استلام من المعرض" : "Showroom Pickup";
+    }
+    if (value === "delivery") {
+      return language === "ar" ? "توصيل" : "Delivery";
+    }
+    return "";
+  };
+
+  const getDeliveryInfo = (order: Order) => {
+    if (order.fulfillmentType === "pickup") {
+      return [
+        order.showroom?.name,
+        order.showroom?.city,
+        order.showroom?.address,
+        order.showroom?.phone,
+      ]
+        .filter(Boolean)
+        .join(" - ");
+    }
+
+    return [
+      order.customer?.address?.street,
+      order.customer?.address?.city,
+      order.customer?.address?.state,
+      order.customer?.address?.zipCode,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  };
+
   const getOrderItemStockCode = (item: Order["items"][number]) =>
     item.color
       ? item.variantSku || item.stkCode || item.chargeOptionSku || ""
@@ -229,7 +272,7 @@ export function AdminOrderManagement() {
   };
 
   const handleExport = () => {
-    const exportedRows = filteredOrders.flatMap((order) => {
+    const exportedGroups = filteredOrders.map((order) => {
       const offerDiscountValue =
         Number(order.pricing.discount || 0) ||
         (Array.isArray(order.appliedOffers)
@@ -242,12 +285,23 @@ export function AdminOrderManagement() {
       const shippingPaidBy = order.pricing.shippingPaidBy ?? null;
       const shippingCompanyValue =
         shippingPaidBy === "company" ? Number(order.pricing.shipping || 0) : 0;
+      const orderSubtotal = Number(order.pricing.subtotal || 0);
+      const fallbackSubtotal = Array.isArray(order.items)
+        ? order.items.reduce(
+            (sum, item) => sum + Number(item?.price || 0) * Number(item?.quantity || 0),
+            0,
+          )
+        : 0;
+      const effectiveSubtotal = orderSubtotal || fallbackSubtotal;
 
       const baseRow = {
+        order_no: order.orderNumber ?? "",
         customer_name: order.customer?.name ?? "",
         customer_phone_no: order.customer?.phone ?? "",
         order_date: order.orderDate,
         order_current_status: getStatusLabel(order.status),
+        delivery_type: getDeliveryTypeLabel(order.fulfillmentType),
+        delivery_info: getDeliveryInfo(order),
         invoice_no: order.invoiceNo ?? "",
         order_price: Number(order.pricing.total || 0),
         delivery_paid_by: getShippingPaidByLabel(shippingPaidBy),
@@ -255,35 +309,59 @@ export function AdminOrderManagement() {
       };
 
       if (!Array.isArray(order.items) || order.items.length === 0) {
-        return [
-          {
-            ...baseRow,
-            order_stock: "",
-            offer_no: Array.isArray(order.appliedOffers)
-              ? order.appliedOffers
-                  .map((offer) => offer?.offer_no)
-                  .filter(Boolean)
-                  .join(", ")
-              : "",
-            offer_discount: offerDiscountValue,
-          },
-        ];
+        return {
+          rowSpan: 1,
+          rows: [
+            {
+              ...baseRow,
+              order_stock: "",
+              item_price: 0,
+              item_discount: 0,
+              offer_no: Array.isArray(order.appliedOffers)
+                ? order.appliedOffers
+                    .map((offer) => offer?.offer_no)
+                    .filter(Boolean)
+                    .join(", ")
+                : "",
+              offer_discount: offerDiscountValue,
+            },
+          ],
+        };
       }
 
-      return order.items.map((item) => ({
-        ...baseRow,
-        order_stock: getOrderItemStockCode(item),
-        offer_no: collectOfferNos(order, item).join(", "),
-        offer_discount: offerDiscountValue,
-      }));
+      return {
+        rowSpan: order.items.length,
+        rows: order.items.map((item) => {
+          const itemLineTotal =
+            Number(item?.price || 0) * Number(item?.quantity || 0);
+          const itemDiscount =
+            effectiveSubtotal > 0
+              ? (itemLineTotal / effectiveSubtotal) * offerDiscountValue
+              : 0;
+
+          return {
+            ...baseRow,
+            order_stock: getOrderItemStockCode(item),
+            item_price: Number(item?.price || 0),
+            item_discount: itemDiscount,
+            offer_no: collectOfferNos(order, item).join(", "),
+            offer_discount: offerDiscountValue,
+          };
+        }),
+      };
     });
 
     const headerLabels = [
+      language === "ar" ? "رقم الطلب" : "Order No",
       language === "ar" ? "اسم العميل" : "Customer Name",
       language === "ar" ? "رقم هاتف العميل" : "Customer Phone",
       language === "ar" ? "تاريخ الطلب" : "Order Date",
       language === "ar" ? "الحالة الحالية" : "Current Status",
+      language === "ar" ? "نوع التوصيل" : "Delivery Type",
+      language === "ar" ? "معلومات التوصيل" : "Delivery Info",
       language === "ar" ? "Stock Code" : "Stock Code",
+      language === "ar" ? "سعر القطعة" : "Item Price",
+      language === "ar" ? "خصم القطعة" : "Item Discount",
       language === "ar" ? "رقم الفاتورة" : "Invoice No",
       language === "ar" ? "قيمة الطلب" : "Order Price",
       language === "ar" ? "رقم العرض" : "Offer No",
@@ -292,11 +370,16 @@ export function AdminOrderManagement() {
       language === "ar" ? "قيمة تحمل الشركة" : "Company Delivery Value",
     ];
     const headers = [
+      "order_no",
       "customer_name",
       "customer_phone_no",
       "order_date",
       "order_current_status",
+      "delivery_type",
+      "delivery_info",
       "order_stock",
+      "item_price",
+      "item_discount",
       "invoice_no",
       "order_price",
       "offer_no",
@@ -333,51 +416,96 @@ export function AdminOrderManagement() {
       [language === "ar" ? "عدد النتائج" : "Result Count", String(filteredOrders.length)],
     ];
 
-    const tableRows = exportedRows
-      .map((row, index) => {
-        const bg = index % 2 === 0 ? "#ffffff" : "#f8fbff";
-        return `
-          <tr style="background:${bg}">
-            ${headers
+    const mergedHeaders = new Set([
+      "order_no",
+      "customer_name",
+      "customer_phone_no",
+      "order_date",
+      "order_current_status",
+      "delivery_type",
+      "delivery_info",
+      "invoice_no",
+      "order_price",
+      "offer_discount",
+      "delivery_paid_by",
+      "delivery_company_value",
+    ]);
+
+    const formatCellValue = (header: string, rawValue: unknown) => {
+      if (header === "order_stock") {
+        return escapeHtml(toExcelNumber(rawValue));
+      }
+      if (
+        header === "item_price" ||
+        header === "item_discount" ||
+        header === "order_price" ||
+        header === "offer_discount" ||
+        header === "delivery_company_value"
+      ) {
+        return escapeHtml(`$${Number(rawValue || 0).toLocaleString("en-US")}`);
+      }
+      return escapeHtml(rawValue);
+    };
+
+    const getCellStyle = (header: string) => {
+      const isMoney =
+        header === "item_price" ||
+        header === "item_discount" ||
+        header === "order_price" ||
+        header === "offer_discount" ||
+        header === "delivery_company_value";
+      const isStatus = header === "order_current_status";
+      const isOffer = header === "offer_no";
+      const isStock = header === "order_stock";
+      const isOrderNo = header === "order_no";
+
+      return [
+        "padding:12px 14px",
+        "border:1px solid #d8e1ec",
+        "vertical-align:middle",
+        "font-size:14pt",
+        "font-family:Calibri, Arial, sans-serif",
+        isMoney
+          ? 'font-weight:700;color:#0f766e;background:#ecfdf5;mso-number-format:"\\0024#,##0.00"'
+          : "",
+        isStatus ? "font-weight:700;color:#1d4ed8;background:#eff6ff" : "",
+        isOffer ? "color:#7c3aed;background:#f5f3ff" : "",
+        isStock
+          ? 'font-family:Calibri, Arial, sans-serif;background:#fff7ed;color:#9a3412;mso-number-format:"0"'
+          : "",
+        isOrderNo ? "font-weight:700;background:#eff6ff;color:#0f172a" : "",
+      ]
+        .filter(Boolean)
+        .join(";");
+    };
+
+    const tableRows = exportedGroups
+      .map((group, groupIndex) => {
+        const bg = groupIndex % 2 === 0 ? "#ffffff" : "#f8fbff";
+        return group.rows
+          .map((row, rowIndex) => {
+            const cells = headers
               .map((header) => {
+                if (mergedHeaders.has(header) && rowIndex > 0) return "";
                 const rawValue = (row as Record<string, unknown>)[header];
-                const value =
-                  header === "order_stock"
-                    ? escapeHtml(toExcelNumber(rawValue))
-                    : header === "order_price" ||
-                      header === "offer_discount" ||
-                      header === "delivery_company_value"
-                    ? escapeHtml(`$${Number(rawValue || 0).toLocaleString("en-US")}`)
-                    : escapeHtml(rawValue);
-                const isMoney =
-                  header === "order_price" ||
-                  header === "offer_discount" ||
-                  header === "delivery_company_value";
-                const isStatus = header === "order_current_status";
-                const isOffer = header === "offer_no";
-                const isStock = header === "order_stock";
-                const style = [
-                  "padding:12px 14px",
-                  "border:1px solid #d8e1ec",
-                  "vertical-align:middle",
-                  "font-size:14pt",
-                  "font-family:Calibri, Arial, sans-serif",
-                  isMoney
-                    ? 'font-weight:700;color:#0f766e;background:#ecfdf5;mso-number-format:"\\0024#,##0.00"'
-                    : "",
-                  isStatus ? "font-weight:700;color:#1d4ed8;background:#eff6ff" : "",
-                  isOffer ? "color:#7c3aed;background:#f5f3ff" : "",
-                  isStock
-                    ? 'font-family:Calibri, Arial, sans-serif;background:#fff7ed;color:#9a3412;mso-number-format:"0"'
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join(";");
-                return `<td style="${style}">${value}</td>`;
+                const rowSpanAttr =
+                  mergedHeaders.has(header) && group.rowSpan > 1
+                    ? ` rowspan="${group.rowSpan}"`
+                    : "";
+                return `<td${rowSpanAttr} style="${getCellStyle(header)}">${formatCellValue(
+                  header,
+                  rawValue,
+                )}</td>`;
               })
-              .join("")}
-          </tr>
-        `;
+              .join("");
+
+            return `
+              <tr style="background:${bg}">
+                ${cells}
+              </tr>
+            `;
+          })
+          .join("");
       })
       .join("");
 
@@ -631,7 +759,12 @@ export function AdminOrderManagement() {
               </div>
 
               {/* Status Filter */}
-              <div className="relative">
+              <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex flex-col">
+                    <label className="mb-1 text-xs font-semibold text-gray-500">
+                    {language === "ar" ? "حالة الطلب" : "Order Status"}
+                  </label>
+
                 <select
                   value={statusFilter}
                   onChange={(e) =>
@@ -650,9 +783,14 @@ export function AdminOrderManagement() {
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
+              </div>
 
               {/* Date Filter */}
-              <div className="relative">
+              <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex flex-col">
+                    <label className="mb-1 text-xs font-semibold text-gray-500">
+                    {language === "ar" ? "فترة محددة" : "Quick Date Filter"}
+                  </label>
                 <select
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value as any)}
@@ -664,6 +802,7 @@ export function AdminOrderManagement() {
                   <option value="month">{t("admin.orders.thisMonth")}</option>
                 </select>
                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+              </div>
               </div>
 
               <div className="flex flex-wrap items-end gap-3">

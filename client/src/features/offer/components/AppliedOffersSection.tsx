@@ -86,6 +86,8 @@ export function AppliedOffersSection({
   const translation = translations[language];
 
   const displayCurrency = currencyLabel || CURRENCY_LABEL;
+  const iconAlignmentClass =
+    language === "ar" ? "lg:justify-end" : "lg:justify-start";
 
   const formatPrice = (price: number) => price.toLocaleString("en-US");
 
@@ -248,8 +250,8 @@ export function AppliedOffersSection({
 
     return (
       <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6 border-2 border-red-200">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="flex w-full justify-center sm:w-auto sm:justify-start">
+        <div className="flex flex-col gap-4">
+          <div className={`flex w-full justify-center ${iconAlignmentClass}`}>
             <div className="bg-gradient-to-br from-red-500 to-pink-600 p-3 rounded-xl shadow-lg">
               <Tag className="w-6 h-6 text-white" />
             </div>
@@ -316,8 +318,8 @@ export function AppliedOffersSection({
 
     return (
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="flex w-full justify-center sm:w-auto sm:justify-start">
+        <div className="flex flex-col gap-4">
+          <div className={`flex w-full justify-center ${iconAlignmentClass}`}>
             <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
               <Ticket className="w-6 h-6 text-white" />
             </div>
@@ -430,8 +432,8 @@ export function AppliedOffersSection({
 
     return (
       <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-200">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="flex w-full justify-center sm:w-auto sm:justify-start">
+        <div className="flex flex-col gap-4">
+          <div className={`flex w-full justify-center ${iconAlignmentClass}`}>
             <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-xl shadow-lg">
               <Gift className="w-6 h-6 text-white" />
             </div>
@@ -503,8 +505,8 @@ export function AppliedOffersSection({
 
     return (
       <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-6 border-2 border-purple-200">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="flex w-full justify-center sm:w-auto sm:justify-start">
+        <div className="flex flex-col gap-4">
+          <div className={`flex w-full justify-center ${iconAlignmentClass}`}>
             <div className="bg-gradient-to-br from-purple-500 to-violet-600 p-3 rounded-xl shadow-lg">
               <Package className="w-6 h-6 text-white" />
             </div>

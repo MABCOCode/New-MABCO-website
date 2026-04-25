@@ -11,11 +11,12 @@ import {
 } from "lucide-react";
 import translations from "../../../i18n/translations";
 import { CURRENCY_LABEL } from "../../../utils/currency";
+import { getProductOffers, products } from "../../../data/products";
 import {
-  getProductOffers,
-  products,
-} from "../../../data/products";
-import { applyOfferDiscount, formatOfferDiscountLabel, getOfferSavings } from "../../../utils/offerPricing";
+  applyOfferDiscount,
+  formatOfferDiscountLabel,
+  getOfferSavings,
+} from "../../../utils/offerPricing";
 import type {
   ProductOffer,
   DirectDiscountOffer,
@@ -47,7 +48,6 @@ export function CartOfferDisplay({
   appliedCoupons = new Map(),
   bundleItems = new Map(),
   onAddBundleItem,
-  onApplyCoupon,
 }: CartOfferDisplayProps) {
   const offers = offersOverride?.length
     ? getProductOffers({ offers: offersOverride } as any)
@@ -56,6 +56,9 @@ export function CartOfferDisplay({
 
   const product = products.find((p) => p.id === productId);
   const displayCurrency = currencyLabel || CURRENCY_LABEL;
+  const translation = translations[language];
+  const iconAlignmentClass =
+    language === "ar" ? "lg:justify-end" : "lg:justify-start";
 
   const formatPrice = (price: number) => price.toLocaleString("en-US");
   const numericPrice = (value: unknown) => {
@@ -87,52 +90,74 @@ export function CartOfferDisplay({
       case "direct_discount":
         return "from-red-500 to-pink-500";
       case "coupon":
-        return "from-blue-500 to-purple-500";
+        return "from-blue-500 to-indigo-600";
       case "free_product":
-        return "from-green-500 to-emerald-500";
+        return "from-green-500 to-emerald-600";
       case "bundle_discount":
-        return "from-purple-500 to-violet-500";
+        return "from-purple-500 to-violet-600";
       default:
         return "from-gray-500 to-gray-600";
     }
   };
-  const translation = translations[language];
 
+  const getCardClasses = (type: string) => {
+    switch (type) {
+      case "direct_discount":
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-pink-50 p-6";
+      case "coupon":
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-6";
+      case "free_product":
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-6";
+      case "bundle_discount":
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-violet-50 p-6";
+      default:
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-gray-200 bg-white p-6";
+    }
+  };
+
+  const renderIcon = (type: string) => {
+    const Icon = getOfferIcon(type);
+    const gradient = getOfferGradient(type);
+
+    return (
+      <div className={`flex w-full justify-center ${iconAlignmentClass}`}>
+        <div
+          className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} shadow-lg`}
+        >
+          <Icon className="h-6 w-6 text-white" />
+        </div>
+      </div>
+    );
+  };
 
   const renderDirectDiscount = (offer: DirectDiscountOffer) => {
-    const Icon = getOfferIcon("direct_discount");
-    const gradient = getOfferGradient("direct_discount");
-
     const basePriceValue =
       typeof basePrice === "number" ? basePrice : numericPrice(product?.price);
     const savingsAmount = getOfferSavings(basePriceValue, offer) * quantity;
 
     return (
-      <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-xl p-3 border-2 border-red-200">
-        <div className="flex items-start gap-3">
-          <div
-            className={`flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
-          >
-            <Icon className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
-              <h4 className="font-bold text-sm text-gray-900">
+      <div className={getCardClasses("direct_discount")}>
+        <div className="flex flex-col gap-4">
+          {renderIcon("direct_discount")}
+          <div className="w-full min-w-0">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <h4 className="text-lg font-bold text-red-700">
                 {language === "ar" ? offer.titleAr : offer.titleEn}
               </h4>
-              <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
-                <CheckCircle className="w-3 h-3 text-green-600" />
+              <div className="inline-flex items-center gap-1 self-start rounded-full bg-green-100 px-3 py-1">
+                <CheckCircle className="h-3 w-3 text-green-600" />
                 <span className="text-xs font-bold text-green-700">
                   {translation.cart_offer_auto_applied}
                 </span>
               </div>
             </div>
-            <p className="text-xs text-gray-600 mb-2">
+            <p className="mb-4 text-sm text-gray-700">
               {language === "ar" ? offer.descriptionAr : offer.descriptionEn}
             </p>
-            <div className="flex items-center gap-2">
-              <div className="bg-green-500 text-white px-3 py-1 rounded-lg text-xs font-bold">
-                {translation.cart_offer_savings}: {formatPrice(savingsAmount)} {displayCurrency}
+            <div className="rounded-xl border border-red-200 bg-white p-4">
+              <div className="inline-flex items-center rounded-lg bg-green-500 px-3 py-2 text-sm font-bold text-white">
+                {translation.cart_offer_savings}: {formatPrice(savingsAmount)}{" "}
+                {displayCurrency}
               </div>
             </div>
           </div>
@@ -142,42 +167,40 @@ export function CartOfferDisplay({
   };
 
   const renderCoupon = (offer: CouponOffer) => {
-    const Icon = getOfferIcon("coupon");
-    const gradient = getOfferGradient("coupon");
     const isApplied = appliedCoupons.has(productId);
 
     return (
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-3 border-2 border-blue-200">
-        <div className="flex items-start gap-3">
-          <div
-            className={`flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
-          >
-            <Icon className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
-              <h4 className="font-bold text-sm text-gray-900">
+      <div className={getCardClasses("coupon")}>
+        <div className="flex flex-col gap-4">
+          {renderIcon("coupon")}
+          <div className="w-full min-w-0">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <h4 className="text-lg font-bold text-blue-700">
                 {language === "ar" ? offer.titleAr : offer.titleEn}
               </h4>
-              <div className="flex items-center gap-1 bg-blue-100 px-2 py-1 rounded-full">
-                <Ticket className="w-3 h-3 text-blue-600" />
+              <div className="inline-flex items-center gap-1 self-start rounded-full bg-blue-100 px-3 py-1">
+                <Ticket className="h-3 w-3 text-blue-600" />
                 <span className="text-xs font-bold text-blue-700">
                   {formatOfferDiscountLabel(offer, language, displayCurrency)}
                 </span>
               </div>
             </div>
-            <p className="text-xs text-gray-600 mb-2">
+            <p className="mb-4 text-sm text-gray-700">
               {language === "ar" ? offer.descriptionAr : offer.descriptionEn}
             </p>
-            <div className="flex items-center gap-2 text-xs text-blue-600">
-              <AlertCircle className="w-4 h-4" />
-              <span className="font-medium">{translation.cart_offer_coupon_will_apply}</span>
-            </div>
-            {isApplied && (
-              <div className="mt-2 text-xs text-green-700 font-semibold">
-                {translation.cart_offer_applied}
+            <div className="rounded-xl border border-blue-200 bg-white p-4">
+              <div className="flex items-center gap-2 text-sm text-blue-600">
+                <AlertCircle className="h-4 w-4" />
+                <span className="font-medium">
+                  {translation.cart_offer_coupon_will_apply}
+                </span>
               </div>
-            )}
+              {isApplied && (
+                <div className="mt-3 text-sm font-semibold text-green-700">
+                  {translation.cart_offer_applied}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -185,51 +208,52 @@ export function CartOfferDisplay({
   };
 
   const renderFreeProduct = (offer: FreeProductOffer) => {
-    const Icon = getOfferIcon("free_product");
-    const gradient = getOfferGradient("free_product");
     const freeProduct = products.find((p) => p.id === offer.freeProductId);
 
     return (
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-3 border-2 border-green-200">
-        <div className="flex items-start gap-3">
-          <div
-            className={`flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center animate-pulse`}
-          >
-            <Icon className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
-              <h4 className="font-bold text-sm text-gray-900">
+      <div className={getCardClasses("free_product")}>
+        <div className="flex flex-col gap-4">
+          {renderIcon("free_product")}
+          <div className="w-full min-w-0">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <h4 className="text-lg font-bold text-green-700">
                 {language === "ar" ? offer.titleAr : offer.titleEn}
               </h4>
-              <div className="flex items-center gap-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1 rounded-full">
-                <Gift className="w-3 h-3" />
-                <span className="text-xs font-bold">{translation.cart_offer_free}</span>
+              <div className="inline-flex items-center gap-1 self-start rounded-full bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 text-white">
+                <Gift className="h-3 w-3" />
+                <span className="text-xs font-bold">
+                  {translation.cart_offer_free}
+                </span>
               </div>
             </div>
-            <p className="text-xs text-gray-600 mb-2">
+            <p className="mb-4 text-sm text-gray-700">
               {language === "ar" ? offer.descriptionAr : offer.descriptionEn}
             </p>
             {freeProduct && (
-              <div className="flex items-center gap-2 mt-2 p-2 bg-white rounded-lg">
-                <img
-                  src={freeProduct.image}
-                  alt={freeProduct.name}
-                  className="w-10 h-10 rounded object-cover"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-gray-900 truncate">
-                    {language === "ar" && freeProduct.nameAr
-                      ? freeProduct.nameAr
-                      : freeProduct.name}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {formatPrice(numericPrice(freeProduct.price))} {displayCurrency} × {quantity}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
-                  <CheckCircle className="w-3 h-3 text-green-600" />
-                  <span className="text-xs font-bold text-green-700">{translation.cart_offer_applied}</span>
+              <div className="rounded-xl border border-green-200 bg-white p-4">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={freeProduct.image}
+                    alt={freeProduct.name}
+                    className="h-12 w-12 rounded-lg object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-900">
+                      {language === "ar" && freeProduct.nameAr
+                        ? freeProduct.nameAr
+                        : freeProduct.name}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {formatPrice(numericPrice(freeProduct.price))}{" "}
+                      {displayCurrency} x {quantity}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 rounded-full bg-green-100 px-3 py-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    <span className="text-xs font-bold text-green-700">
+                      {translation.cart_offer_applied}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -240,36 +264,37 @@ export function CartOfferDisplay({
   };
 
   const renderBundleDiscount = (offer: BundleDiscountOffer) => {
-    const Icon = getOfferIcon("bundle_discount");
-    const gradient = getOfferGradient("bundle_discount");
     const appliedBundleItems = bundleItems.get(productId) || [];
 
     return (
-      <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-3 border-2 border-purple-200">
-        <div className="flex items-start gap-3">
-          <div
-            className={`flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
-          >
-            <Icon className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
-              <h4 className="font-bold text-sm text-gray-900">
+      <div className={getCardClasses("bundle_discount")}>
+        <div className="flex flex-col gap-4">
+          {renderIcon("bundle_discount")}
+          <div className="w-full min-w-0">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <h4 className="text-lg font-bold text-purple-700">
                 {language === "ar" ? offer.titleAr : offer.titleEn}
               </h4>
-              <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">
-                {formatOfferDiscountLabel(offer, language, displayCurrency, language === "ar" ? "خصم" : "OFF")}
+              <div className="inline-flex self-start rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
+                {formatOfferDiscountLabel(
+                  offer,
+                  language,
+                  displayCurrency,
+                  language === "ar" ? "ط®طµظ…" : "OFF",
+                )}
               </div>
             </div>
-            <p className="text-xs text-gray-600 mb-2">
+            <p className="mb-4 text-sm text-gray-700">
               {language === "ar" ? offer.descriptionAr : offer.descriptionEn}
             </p>
-            <div className="flex items-center gap-2 text-xs text-purple-600 mb-2">
-              <ShoppingBag className="w-4 h-4" />
-              <span className="font-medium">{translation.cart_offer_choose_products}</span>
+            <div className="mb-3 flex items-center gap-2 text-sm text-purple-600">
+              <ShoppingBag className="h-4 w-4" />
+              <span className="font-medium">
+                {translation.cart_offer_choose_products}
+              </span>
             </div>
 
-            <div className="mt-2 space-y-2">
+            <div className="space-y-3 rounded-xl border border-purple-200 bg-white p-4">
               {offer.relatedProductIds.slice(0, 3).map((relatedId) => {
                 const relatedProduct = products.find((p) => p.id === relatedId);
                 if (!relatedProduct) return null;
@@ -283,21 +308,21 @@ export function CartOfferDisplay({
                 return (
                   <div
                     key={relatedId}
-                    className="flex items-center gap-2 p-2 bg-white rounded-lg border border-purple-100"
+                    className="flex items-center gap-3 rounded-xl border border-purple-100 bg-purple-50/40 p-3"
                   >
                     <img
                       src={relatedProduct.image}
                       alt={relatedProduct.name}
-                      className="w-8 h-8 rounded object-cover"
+                      className="h-10 w-10 rounded-lg object-cover"
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-900 truncate">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-gray-900">
                         {language === "ar" && relatedProduct.nameAr
                           ? relatedProduct.nameAr
                           : relatedProduct.name}
                       </p>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-purple-600">
+                        <span className="text-sm font-bold text-purple-600">
                           {formatPrice(discountedPrice)} {displayCurrency}
                         </span>
                         <span className="text-xs text-gray-400 line-through">
@@ -306,15 +331,15 @@ export function CartOfferDisplay({
                       </div>
                     </div>
                     {isAdded ? (
-                      <div className="flex-shrink-0 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">
+                      <div className="flex-shrink-0 rounded bg-green-100 px-2 py-1 text-xs font-bold text-green-700">
                         {translation.cart_offer_applied}
                       </div>
                     ) : (
                       <button
                         onClick={() => onAddBundleItem?.(productId, relatedId)}
-                        className="flex-shrink-0 bg-gradient-to-r from-purple-500 to-violet-500 text-white p-2 rounded-lg hover:scale-105 transition-transform"
+                        className="flex-shrink-0 rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 p-2 text-white transition-transform hover:scale-105"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="h-4 w-4" />
                       </button>
                     )}
                   </div>
@@ -328,22 +353,27 @@ export function CartOfferDisplay({
   };
 
   return (
-    <div className="mt-3 space-y-2">
-      <div className="flex items-center gap-2 mb-2">
-        <Tag className="w-4 h-4 text-[#009FE3]" />
-        <h3 className="text-sm font-bold text-gray-900">{translation.cart_offer_available_offers}</h3>
-        <div className="h-px flex-1 bg-gradient-to-r from-[#009FE3]/30 to-transparent"></div>
+    <div className="mt-3 space-y-3">
+      <div className="mb-2 flex items-center gap-2">
+        <Tag className="h-4 w-4 text-[#009FE3]" />
+        <h3 className="text-sm font-bold text-gray-900">
+          {translation.cart_offer_available_offers}
+        </h3>
+        <div className="h-px flex-1 bg-gradient-to-r from-[#009FE3]/30 to-transparent" />
       </div>
 
       {offers.map((offer, index) => (
         <div key={index}>
-          {offer.type === "direct_discount" && renderDirectDiscount(offer as DirectDiscountOffer)}
-          {offer.type === "coupon" && renderCoupon(offer as CouponOffer)}
-          {offer.type === "free_product" && renderFreeProduct(offer as FreeProductOffer)}
-          {offer.type === "bundle_discount" && renderBundleDiscount(offer as BundleDiscountOffer)}
+          {offer.type === "direct_discount" &&
+            renderDirectDiscount(offer as DirectDiscountOffer)}
+          {offer.type === "coupon" &&
+            renderCoupon(offer as CouponOffer)}
+          {offer.type === "free_product" &&
+            renderFreeProduct(offer as FreeProductOffer)}
+          {offer.type === "bundle_discount" &&
+            renderBundleDiscount(offer as BundleDiscountOffer)}
         </div>
       ))}
     </div>
   );
 }
-

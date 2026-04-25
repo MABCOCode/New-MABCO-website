@@ -63,6 +63,9 @@ interface Showroom {
   address: string;
   phone: string;
   hours: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  distanceKm?: number | null;
   nameAr?: string;
   cityAr?: string;
   addressAr?: string;
@@ -80,6 +83,8 @@ interface RawShowroom {
   Winter_from_date: string;
   Winter_to_date: string;
   week_end: string;
+  Latitude?: string;
+  Longitude?: string;
 }
 
 interface CheckoutPageProps {
@@ -97,6 +102,11 @@ interface LocationData {
   city: string;
   area: string;
   country: string;
+}
+
+interface Coordinates {
+  lat: number;
+  lng: number;
 }
 
 
@@ -125,6 +135,14 @@ export function CheckoutPage() {
   const { cartItems, clearCart, addToCart, removeFromCart } = useCart();
   const asText = (value: string | string[] | undefined) =>
     Array.isArray(value) ? value.join(" ") : value ?? "";
+  const normalizeSessionPhone = (value: unknown) => {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("963")) digits = digits.slice(3);
+    if (digits.startsWith("9") && digits.length === 9) digits = `0${digits}`;
+    return digits || raw;
+  };
 
   // State
   const [fulfillmentType, setFulfillmentType] = useState<"delivery" | "pickup" | null>(null);
@@ -142,6 +160,7 @@ export function CheckoutPage() {
     deliveryInstructions: "",
   });
   const [locationData, setLocationData] = useState<LocationData | null>(null);
+  const [currentUserPosition, setCurrentUserPosition] = useState<Coordinates | null>(null);
   const [selectedShowroom, setSelectedShowroom] = useState<Showroom | null>(null);
   const [showroomSearch, setShowroomSearch] = useState("");
   const [showrooms, setShowrooms] = useState<Showroom[]>([]);
@@ -158,6 +177,47 @@ export function CheckoutPage() {
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const mapsLoaderRef = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    const sessionRaw = localStorage.getItem("session");
+    const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+    const user = session?.user;
+    if (!user) return;
+
+    const sessionName =
+      user?.name ||
+      user?.fullName ||
+      [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+    const sessionPhone = normalizeSessionPhone(
+      user?.phone || user?.mobile || user?.phoneNumber,
+    );
+    const sessionEmail = user?.email || "";
+
+    setFormData((prev) => ({
+      ...prev,
+      fullName: prev.fullName || sessionName || "",
+      phone: prev.phone || sessionPhone || "",
+      email: prev.email || sessionEmail,
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCurrentUserPosition({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => undefined,
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000,
+      },
+    );
+  }, []);
 
   useEffect(() => {
     setSeo({
@@ -233,6 +293,8 @@ export function CheckoutPage() {
                 "",
               phone: chosen.Phone || ar?.Phone || en?.Phone || "",
               hours,
+              latitude: chosen.Latitude ? Number(chosen.Latitude) : null,
+              longitude: chosen.Longitude ? Number(chosen.Longitude) : null,
               nameAr: ar?.Loc_name,
               cityAr: ar?.City_name,
               addressAr: ar?.Address,
@@ -548,6 +610,22 @@ export function CheckoutPage() {
     getCurrentLocation();
   };
 
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+
+  const calculateDistanceKm = (from: Coordinates, to: Coordinates) => {
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(to.lat - from.lat);
+    const dLng = toRadians(to.lng - from.lng);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(from.lat)) *
+        Math.cos(toRadians(to.lat)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadiusKm * c;
+  };
+
   // Calculate prices
   const parsePrice = (price: string | number | undefined) => {
     if (price === null || typeof price === "undefined") return 0;
@@ -648,10 +726,39 @@ export function CheckoutPage() {
     return "";
   };
 
+  const showroomReferenceLocation =
+    fulfillmentType === "delivery" && locationData
+      ? { lat: locationData.lat, lng: locationData.lng }
+      : currentUserPosition;
+
+  const showroomsWithDistance = showrooms
+    .map((showroom) => {
+      if (
+        !showroomReferenceLocation ||
+        typeof showroom.latitude !== "number" ||
+        typeof showroom.longitude !== "number"
+      ) {
+        return { ...showroom, distanceKm: null };
+      }
+
+      return {
+        ...showroom,
+        distanceKm: calculateDistanceKm(showroomReferenceLocation, {
+          lat: showroom.latitude,
+          lng: showroom.longitude,
+        }),
+      };
+    });
+
   // Filter showrooms
-  const filteredShowrooms = showrooms
+  const filteredShowrooms = showroomsWithDistance
     .slice()
     .sort((a, b) => {
+      if (typeof a.distanceKm === "number" && typeof b.distanceKm === "number") {
+        return a.distanceKm - b.distanceKm;
+      }
+      if (typeof a.distanceKm === "number") return -1;
+      if (typeof b.distanceKm === "number") return 1;
       const cityCompare = a.city.localeCompare(b.city);
       if (cityCompare !== 0) return cityCompare;
       return a.name.localeCompare(b.name);
@@ -673,6 +780,45 @@ export function CheckoutPage() {
         .toLowerCase()
         .includes(showroomSearch.toLowerCase())
     );
+  const nearestShowroom = filteredShowrooms.find(
+    (showroom) => typeof showroom.distanceKm === "number",
+  );
+
+  useEffect(() => {
+    if (!selectedShowroom?.id) return;
+    const refreshedShowroom = showrooms.find(
+      (showroom) => showroom.id === selectedShowroom.id,
+    );
+    if (refreshedShowroom) {
+      setSelectedShowroom(refreshedShowroom);
+    }
+  }, [showrooms, selectedShowroom?.id]);
+
+  const handleSelectNearestShowroom = () => {
+    if (nearestShowroom) {
+      setSelectedShowroom(nearestShowroom);
+      if (showroomSliderRef.current) {
+        showroomSliderRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return;
+    }
+
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCurrentUserPosition({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => undefined,
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000,
+      },
+    );
+  };
 
   const clearCouponOffer = (productId: number | string) => {
     setAppliedCoupons((prev) => {
@@ -1566,6 +1712,13 @@ export function CheckoutPage() {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
+                            onClick={handleSelectNearestShowroom}
+                            className="rounded-full bg-[#009FE3] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0080b8]"
+                          >
+                            {language === "ar" ? "اختيار أقرب معرض" : "Choose Nearest"}
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => {
                               if (showroomSliderRef.current) {
                                 showroomSliderRef.current.scrollBy({ top: -240, behavior: "smooth" });
@@ -1591,36 +1744,69 @@ export function CheckoutPage() {
                         </div>
                       </div>
 
-                      <div className="overflow-hidden" style={{ height: "420px" }}>
-                        <div
-                          ref={showroomSliderRef}
-                          className="space-y-3 overflow-y-auto pr-1 scrollbar-hide snap-y snap-mandatory"
-                          style={{ height: "100%" }}
-                        >
+                        <div className="overflow-hidden" style={{ height: "520px" }}>
+                          <div
+                            ref={showroomSliderRef}
+                            className="space-y-3 overflow-y-auto pr-1 scrollbar-hide snap-y snap-mandatory"
+                            style={{ height: "100%" }}
+                          >
                         {filteredShowrooms.map((showroom) => (
                           <button
                             key={showroom.id}
-                            onClick={() => setSelectedShowroom(showroom)}
+                            onClick={() => {
+                              setSelectedShowroom(showroom);
+                            }}
                             className={`w-full p-4 rounded-xl border-2 transition-all duration-300 snap-start overflow-hidden ${
                               selectedShowroom?.id === showroom.id
                                 ? "border-[#009FE3] bg-blue-50 shadow-md"
                                 : "border-gray-200 hover:border-[#009FE3]/50 hover:bg-gray-50"
                             }`}
-                            style={{ height: "130px", direction: isArabic ? "rtl" : "ltr", textAlign: isArabic ? "right" : "left" }}
+                            style={{ minHeight: "180px", direction: isArabic ? "rtl" : "ltr", textAlign: isArabic ? "right" : "left" }}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className={`flex-1 ${isArabic ? "text-right" : "text-left"}`}>
                                 <h3 className="font-bold text-gray-900 mb-1 truncate">{showroom.name}</h3>
                                 <p className="text-xs text-gray-500 mb-2 truncate">{showroom.city}</p>
-                                <div className="text-sm text-gray-600 space-y-1">
-                                  <p className="flex items-center gap-2">
-                                    <MapPin className="w-4 h-4" />
-                                    <span className="truncate">{showroom.address}</span>
+                                {typeof showroom.distanceKm === "number" && (
+                                  <p className="mb-2 text-xs font-semibold text-[#009FE3]">
+                                    {language === "ar"
+                                      ? `الأقرب: ${showroom.distanceKm.toFixed(1)} كم`
+                                      : `Nearest: ${showroom.distanceKm.toFixed(1)} km`}
+                                  </p>
+                                )}
+                                <div className="text-sm text-gray-600 space-y-2">
+                                  <p className="flex items-start gap-2">
+                                    <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                                    <span className="line-clamp-3">{showroom.address}</span>
                                   </p>
                                   <p className="flex items-center gap-2">
-                                    <Phone className="w-4 h-4" />
-                                    <span className="truncate">{showroom.phone}</span>
+                                    <Phone className="h-4 w-4 flex-shrink-0" />
+                                    <span className="break-all">{showroom.phone}</span>
                                   </p>
+                                  {showroom.hours && (
+                                    <p className="flex items-start gap-2">
+                                      <Clock className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                                      <span className="line-clamp-2">{showroom.hours}</span>
+                                    </p>
+                                  )}
+                                  {showroom.week_end && (
+                                    <p className="flex items-center gap-2">
+                                      <Calendar className="h-4 w-4 flex-shrink-0" />
+                                      <span>{showroom.week_end}</span>
+                                    </p>
+                                  )}
+                                  {showroom.loc_code && (
+                                    <p className="text-xs font-semibold text-gray-500">
+                                      {language === "ar" ? "رمز المعرض:" : "Showroom Code:"} {showroom.loc_code}
+                                    </p>
+                                  )}
+                                  {typeof showroom.distanceKm === "number" && (
+                                    <p className="text-xs font-semibold text-[#009FE3]">
+                                      {language === "ar"
+                                        ? `المسافة التقريبية: ${showroom.distanceKm.toFixed(1)} كم`
+                                        : `Approx. distance: ${showroom.distanceKm.toFixed(1)} km`}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                               {selectedShowroom?.id === showroom.id && (
