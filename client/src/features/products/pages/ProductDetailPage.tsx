@@ -855,12 +855,25 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
           ).trim();
         const nextColorVariants = baseVariants.map((variant: any) => {
           const key = toVariantKey(variant);
+          const colorLabel =
+            variant?.name ||
+            variant?.color_name ||
+            variant?.nameAr ||
+            variant?.color_name_ar ||
+            "";
+          const colorKey = normalizeColorKey(colorLabel);
           if (!key) return variant;
           const variantImages = unifiedImages
             .filter(
               (img) =>
                 img.source === "colorVariant" &&
-                String(img.variantKey || "") === key,
+                (
+                  String(img.variantKey || "") === key ||
+                  (
+                    !img.variantKey &&
+                    String(img.colorKey || "") === colorKey
+                  )
+                ),
             )
             .map((img) => img.src);
           if (variantImages.length === 0) return variant;
@@ -1442,6 +1455,15 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     closeOfferDialog();
   };
 
+  const applyOfferWithoutSelection = (offer: any) => {
+    if (offer?.type === "direct_discount") {
+      handleDirectDiscount(offer);
+      return;
+    }
+    addPrimaryWithOffer(offer);
+    closeOfferDialog();
+  };
+
   const handleAddRelatedProduct = (
     offer: any,
     relatedProduct: any,
@@ -1478,6 +1500,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       .map((code: any) => String(code).trim())
       .filter(Boolean);
   };
+
+  const offerHasSelectableProducts = (offer: any) =>
+    offer?.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
 
   const loadOfferProducts = async (offer: any) => {
     const codes = extractOfferStkCodes(offer);
@@ -1597,6 +1622,15 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const addUnifiedImage = (newUrl: string, meta?: { colorKey?: string; color?: string }) => {
     const colorKey = normalizeColorKey(meta?.colorKey || meta?.color || "");
     const color = meta?.color || "";
+    const variantKey = colorKey
+      ? String(
+          currentColorVariant?.stk_code ||
+            currentColorVariant?.stkCode ||
+            currentColorVariant?.id ||
+            currentColorVariant?.code ||
+            "",
+        ).trim()
+      : "";
     if (!isBase64Image(newUrl)) {
       const existingBase64Index = unifiedImages.findIndex(
         (img) =>
@@ -1618,6 +1652,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       color: color || undefined,
       colorKey: colorKey || undefined,
       source: colorKey ? "colorVariant" : "product.images",
+      variantKey: variantKey || undefined,
     };
     persistUnifiedImages(dedupeUnifiedImages([...unifiedImages, nextImage]));
   };
@@ -1639,28 +1674,33 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     const offer = displayOffers[0];
     if (!offer) return;
     setSelectedOffer(offer);
-    const hasOfferProducts = offer.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
-    if (offer.type === "coupon") {
-      addPrimaryWithOffer(offer);
-      closeOfferDialog();
+    const hasOfferProducts = offerHasSelectableProducts(offer);
+    if (!hasOfferProducts) {
+      applyOfferWithoutSelection(offer);
       return;
     }
-    if (offer.type === "free_product" && !hasOfferProducts) {
-      addPrimaryWithOffer(offer);
-      closeOfferDialog();
-      return;
-    }
-    if (offer.type === "direct_discount" && !hasOfferProducts) {
-      handleDirectDiscount(offer);
-      return;
-    }
-    if (hasOfferProducts) {
-      loadOfferProducts(offer);
-    } else {
-      setOfferProducts([]);
-    }
+    loadOfferProducts(offer);
     setShowOfferProducts(true);
   }, [offerDialogOpen, singleOffer, displayOffers, selectedOffer]);
+
+  useEffect(() => {
+    if (!offerDialogOpen || !selectedOffer || !showOfferProducts) return;
+    if (offerProductsLoading || offerProductsError) return;
+    if (offerProducts.length > 0) return;
+    if (
+      selectedOffer.type === "free_product" ||
+      selectedOffer.type === "bundle_discount"
+    ) {
+      applyOfferWithoutSelection(selectedOffer);
+    }
+  }, [
+    offerDialogOpen,
+    selectedOffer,
+    showOfferProducts,
+    offerProductsLoading,
+    offerProductsError,
+    offerProducts,
+  ]);
 
   if (!prod && isLoadingProduct) {
     return (
@@ -3037,12 +3077,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
             <div className="space-y-6">
               {displayOffers.map((offer: any, idx: number) => {
                 const isSelected = selectedOffer === offer;
-                const hasOfferProducts = offer.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
-                const needsProducts =
-                  hasOfferProducts ||
-                  (offer.type !== "direct_discount" &&
-                    offer.type !== "coupon" &&
-                    offer.type !== "free_product");
+                const hasOfferProducts = offerHasSelectableProducts(offer);
                 return (
                   <div
                     key={`offer-dialog-${offer.type}-${idx}`}
@@ -3068,26 +3103,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                         <button
                           onClick={() => {
                           setSelectedOffer(offer);
-                          if (offer.type === "coupon") {
-                            addPrimaryWithOffer(offer);
-                            closeOfferDialog();
+                          if (!hasOfferProducts) {
+                            applyOfferWithoutSelection(offer);
                             return;
                           }
-                          if (offer.type === "free_product" && !hasOfferProducts) {
-                            addPrimaryWithOffer(offer);
-                            closeOfferDialog();
-                            return;
-                          }
-                          if (!needsProducts && offer.type === "direct_discount") {
-                            handleDirectDiscount(offer);
-                            return;
-                          }
-                            if (hasOfferProducts) {
-                              loadOfferProducts(offer);
-                            } else {
-                              setOfferProducts([]);
-                            }
-                            setShowOfferProducts(true);
+                          loadOfferProducts(offer);
+                          setShowOfferProducts(true);
                           }}
                           className={`px-4 py-2 rounded-lg text-sm font-bold ${
                             offer.type === "direct_discount"

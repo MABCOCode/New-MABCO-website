@@ -297,7 +297,7 @@ const BrandPage: React.FC = () => {
         </div>
 
         {isLoadingProducts ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, idx) => (
               <div key={`brand-product-skeleton-${idx}`} className="rounded-2xl border border-gray-200 p-3 md:p-4 bg-white">
                 <div className="aspect-square rounded-xl shimmer-surface mb-3" />
@@ -310,7 +310,7 @@ const BrandPage: React.FC = () => {
         ) : products.length === 0 ? (
           <div className="py-12 text-center text-gray-600">{language === 'ar' ? 'لا توجد منتجات' : 'No products found'}</div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {products.map((p) => (
               <ProductCard
                 key={getProductRef(p) || String(p.id)}

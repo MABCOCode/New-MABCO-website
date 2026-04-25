@@ -1,16 +1,16 @@
 // components/ProductsSlider.tsx
-import React, { useRef, useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
 } from "../../../components/ui/carousel";
-import ProductCard from "../../products/components/ProductCard";
-import { Product } from "../../../types/product";
 import { getOfferBadgeText, getProductOffers } from "../../../data/products";
+import { Product } from "../../../types/product";
 import { getPrimaryOfferBadgeAppearance } from "../../../utils/offerBadgeAppearance";
+import ProductCard from "../../products/components/ProductCard";
 
 interface ProductsSliderProps {
   language: "ar" | "en";

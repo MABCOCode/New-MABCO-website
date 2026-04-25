@@ -179,8 +179,9 @@ const HomePage: React.FC = () => {
     }
   }, [location.state, location.pathname, navigate]);
 
-  // Reflow product cards on resize/zoom without remounting hero/category sliders.
+  // Reflow product cards on desktop resize/zoom without remounting mobile sliders.
   useEffect(() => {
+    const MOBILE_WIDTH = 768;
     let lastZoomLevel = window.devicePixelRatio;
     let lastWidth = window.innerWidth;
     let lastHeight = window.innerHeight;
@@ -194,6 +195,17 @@ const HomePage: React.FC = () => {
       const sizeChanged =
         Math.abs(currentWidth - lastWidth) > 50 ||
         Math.abs(currentHeight - lastHeight) > 50;
+      const wasMobile = lastWidth < MOBILE_WIDTH;
+      const isMobile = currentWidth < MOBILE_WIDTH;
+
+      // Mobile browsers fire frequent resize events as chrome/address bars
+      // expand and collapse. Ignore those so sliders don't remount.
+      if (wasMobile && isMobile) {
+        lastZoomLevel = currentZoomLevel;
+        lastWidth = currentWidth;
+        lastHeight = currentHeight;
+        return;
+      }
 
       if (zoomChanged || sizeChanged) {
         lastZoomLevel = currentZoomLevel;
@@ -211,10 +223,12 @@ const HomePage: React.FC = () => {
       }
     };
 
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("orientationchange", () => {
+    const handleOrientationChange = () => {
       setTimeout(handleResize, 200);
-    });
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleOrientationChange);
 
     const initialTimeout = setTimeout(() => {
       handleResize();
@@ -222,7 +236,7 @@ const HomePage: React.FC = () => {
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", handleResize);
+      window.removeEventListener("orientationchange", handleOrientationChange);
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
       }

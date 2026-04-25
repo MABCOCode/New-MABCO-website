@@ -354,6 +354,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
   };
 
+  const offerHasSelectableProducts = (offer: any) =>
+    offer?.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
+
   const closeOfferDialog = () => {
     setOfferDialogOpen(false);
     setSelectedOffer(null);
@@ -381,6 +384,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
         : parseNumericPrice(product.price);
     const discounted = Math.round(applyOfferDiscount(base, offer));
     addPrimaryWithOffer(offer, { price: discounted, oldPrice: base });
+    closeOfferDialog();
+  };
+
+  const applyOfferWithoutSelection = (offer: any) => {
+    if (offer?.type === "direct_discount") {
+      handleDirectDiscount(offer);
+      return;
+    }
+    addPrimaryWithOffer(offer);
     closeOfferDialog();
   };
 
@@ -549,28 +561,33 @@ const ProductCard: React.FC<ProductCardProps> = ({
     const offer = displayOffers[0];
     if (!offer) return;
     setSelectedOffer(offer);
-    const hasOfferProducts = offer.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
-    if (offer.type === "coupon") {
-      addPrimaryWithOffer(offer);
-      closeOfferDialog();
+    const hasOfferProducts = offerHasSelectableProducts(offer);
+    if (!hasOfferProducts) {
+      applyOfferWithoutSelection(offer);
       return;
     }
-    if (offer.type === "free_product" && !hasOfferProducts) {
-      addPrimaryWithOffer(offer);
-      closeOfferDialog();
-      return;
-    }
-    if (offer.type === "direct_discount" && !hasOfferProducts) {
-      handleDirectDiscount(offer);
-      return;
-    }
-    if (hasOfferProducts) {
-      loadOfferProducts(offer);
-    } else {
-      setOfferProducts([]);
-    }
+    loadOfferProducts(offer);
     setShowOfferProducts(true);
   }, [offerDialogOpen, singleOffer, displayOffers, selectedOffer]);
+
+  React.useEffect(() => {
+    if (!offerDialogOpen || !selectedOffer || !showOfferProducts) return;
+    if (offerProductsLoading || offerProductsError) return;
+    if (offerProducts.length > 0) return;
+    if (
+      selectedOffer.type === "free_product" ||
+      selectedOffer.type === "bundle_discount"
+    ) {
+      applyOfferWithoutSelection(selectedOffer);
+    }
+  }, [
+    offerDialogOpen,
+    selectedOffer,
+    showOfferProducts,
+    offerProductsLoading,
+    offerProductsError,
+    offerProducts,
+  ]);
   const currentPriceNum = hasDirectDiscount ? offerPricing.currentPrice : selectedSourcePrice;
   const oldPriceNum = offerPricing.originalPrice;
   const hasOldPrice = hasDirectDiscount && offerPricing.hasDiscount;
@@ -814,12 +831,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             <div className="space-y-6">
               {displayOffers.map((offer: any, idx: number) => {
                 const isSelected = selectedOffer === offer;
-                const hasOfferProducts = offer.type !== "coupon" && extractOfferStkCodes(offer).length > 0;
-                const needsProducts =
-                  hasOfferProducts ||
-                  (offer.type !== "direct_discount" &&
-                    offer.type !== "coupon" &&
-                    offer.type !== "free_product");
+                const hasOfferProducts = offerHasSelectableProducts(offer);
                 return (
                   <div
                     key={`offer-dialog-${offer.type}-${idx}`}
@@ -845,25 +857,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         <button
                           onClick={() => {
                             setSelectedOffer(offer);
-                            if (offer.type === "coupon") {
-                              addPrimaryWithOffer(offer);
-                              closeOfferDialog();
+                            if (!hasOfferProducts) {
+                              applyOfferWithoutSelection(offer);
                               return;
                             }
-                            if (offer.type === "free_product" && !hasOfferProducts) {
-                              addPrimaryWithOffer(offer);
-                              closeOfferDialog();
-                              return;
-                            }
-                            if (!needsProducts && offer.type === "direct_discount") {
-                              handleDirectDiscount(offer);
-                              return;
-                            }
-                            if (hasOfferProducts) {
-                              loadOfferProducts(offer);
-                            } else {
-                              setOfferProducts([]);
-                            }
+                            loadOfferProducts(offer);
                             setShowOfferProducts(true);
                           }}
                           className={`px-4 py-2 rounded-lg text-sm font-bold ${

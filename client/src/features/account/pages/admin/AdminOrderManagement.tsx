@@ -1,31 +1,27 @@
-import { useState, useMemo, useEffect } from "react";
-import { useLanguage } from "../../../../context/LanguageContext";
 import {
-  Package,
-  Search,
-  Filter,
-  Eye,
-  Download,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Truck,
-  ChevronDown,
-  Calendar,
-  DollarSign,
-  ShoppingBag,
   BarChart3,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  DollarSign,
+  Download,
+  Eye,
+  Package,
   RefreshCw,
+  Search,
+  ShoppingBag,
+  TrendingUp
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "../../../../context/LanguageContext";
+import { fetchAdminOrders, updateAdminOrder } from "../../api/adminDataApi";
 import {
   Order,
   OrderStatus,
-  orderStatusConfig,
-  paymentStatusConfig,
+  orderStatusConfig
 } from "../../types/orderAdmin";
 import { OrderDetailsModal } from "./OrderDetailsModal";
-import { fetchAdminOrders, updateAdminOrder } from "../../api/adminDataApi";
 
 export function AdminOrderManagement() {
   const { t, language } = useLanguage();
@@ -35,6 +31,8 @@ export function AdminOrderManagement() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updateSuccessOpen, setUpdateSuccessOpen] = useState(false);
@@ -99,25 +97,22 @@ export function AdminOrderManagement() {
       filtered = filtered.filter((order) => order.status === statusFilter);
     }
 
-    // Date filter
-    if (dateFilter !== "all") {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
+    // Date range filter
+    if (dateFrom || dateTo) {
       filtered = filtered.filter((order) => {
         const orderDate = new Date(order.orderDate);
-        
-        if (dateFilter === "today") {
-          return orderDate >= today;
-        } else if (dateFilter === "week") {
-          const weekAgo = new Date(today);
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          return orderDate >= weekAgo;
-        } else if (dateFilter === "month") {
-          const monthAgo = new Date(today);
-          monthAgo.setMonth(monthAgo.getMonth() - 1);
-          return orderDate >= monthAgo;
+        if (Number.isNaN(orderDate.getTime())) return false;
+
+        if (dateFrom) {
+          const from = new Date(`${dateFrom}T00:00:00`);
+          if (orderDate < from) return false;
         }
+
+        if (dateTo) {
+          const to = new Date(`${dateTo}T23:59:59.999`);
+          if (orderDate > to) return false;
+        }
+
         return true;
       });
     }
@@ -125,7 +120,7 @@ export function AdminOrderManagement() {
     return filtered.sort((a, b) => 
       new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
     );
-  }, [orders, searchQuery, statusFilter, dateFilter]);
+  }, [orders, searchQuery, statusFilter, dateFrom, dateTo]);
 
   const handleUpdateStatus = async (
     orderId: string,
@@ -170,28 +165,332 @@ export function AdminOrderManagement() {
     return amount.toLocaleString("en-US");
   };
 
-  const handleExport = () => {
-    // In a real app, this would generate a CSV or Excel file
-    const csvContent = [
-      ["Order ID", "Customer", "Date", "Status", "Total"],
-      ...filteredOrders.map((order) => [
-        order.orderNumber,
-        order.customer?.name ?? "",
-        formatDate(order.orderDate),
-        order.status,
-        order.pricing.total,
-      ]),
-    ]
-      .map((row) => row.join(","))
-      .join("\n");
+  const formatDateForInput = (date: Date) => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
+  const getStatusLabel = (status: OrderStatus) =>
+    language === "ar"
+      ? orderStatusConfig[status].labelAr
+      : orderStatusConfig[status].labelEn;
+
+  const getShippingPaidByLabel = (value?: "customer" | "company" | null) => {
+    if (value === "company") {
+      return language === "ar" ? "على الشركة" : "Company";
+    }
+    if (value === "customer") {
+      return language === "ar" ? "على الزبون" : "Customer";
+    }
+    return "";
+  };
+
+  const getOrderItemStockCode = (item: Order["items"][number]) =>
+    item.color
+      ? item.variantSku || item.stkCode || item.chargeOptionSku || ""
+      : item.chargeOptionSku || item.stkCode || item.variantSku || "";
+
+  const collectOfferNos = (order: Order, item: Order["items"][number]) => {
+    const values = [
+      ...(Array.isArray(item.offerNos) ? item.offerNos : []),
+      ...(Array.isArray(order.appliedOffers)
+        ? order.appliedOffers
+            .map((offer) => offer?.offer_no)
+            .filter(Boolean)
+            .map((value) => String(value))
+        : []),
+    ];
+    return Array.from(new Set(values));
+  };
+
+  const escapeCsvCell = (value: unknown) => {
+    const text = String(value ?? "");
+    if (/[",\n]/.test(text)) {
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+  };
+
+  const escapeHtml = (value: unknown) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const toExcelNumber = (value: unknown) => {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    const digits = raw.replace(/[^\d.-]/g, "");
+    return digits || raw;
+  };
+
+  const handleExport = () => {
+    const exportedRows = filteredOrders.flatMap((order) => {
+      const offerDiscountValue =
+        Number(order.pricing.discount || 0) ||
+        (Array.isArray(order.appliedOffers)
+          ? order.appliedOffers.reduce(
+              (sum, offer) => sum + Number(offer?.discountAmount || 0),
+              0,
+            )
+          : 0);
+
+      const shippingPaidBy = order.pricing.shippingPaidBy ?? null;
+      const shippingCompanyValue =
+        shippingPaidBy === "company" ? Number(order.pricing.shipping || 0) : 0;
+
+      const baseRow = {
+        customer_name: order.customer?.name ?? "",
+        customer_phone_no: order.customer?.phone ?? "",
+        order_date: order.orderDate,
+        order_current_status: getStatusLabel(order.status),
+        invoice_no: order.invoiceNo ?? "",
+        order_price: Number(order.pricing.total || 0),
+        delivery_paid_by: getShippingPaidByLabel(shippingPaidBy),
+        delivery_company_value: shippingCompanyValue,
+      };
+
+      if (!Array.isArray(order.items) || order.items.length === 0) {
+        return [
+          {
+            ...baseRow,
+            order_stock: "",
+            offer_no: Array.isArray(order.appliedOffers)
+              ? order.appliedOffers
+                  .map((offer) => offer?.offer_no)
+                  .filter(Boolean)
+                  .join(", ")
+              : "",
+            offer_discount: offerDiscountValue,
+          },
+        ];
+      }
+
+      return order.items.map((item) => ({
+        ...baseRow,
+        order_stock: getOrderItemStockCode(item),
+        offer_no: collectOfferNos(order, item).join(", "),
+        offer_discount: offerDiscountValue,
+      }));
+    });
+
+    const headerLabels = [
+      language === "ar" ? "اسم العميل" : "Customer Name",
+      language === "ar" ? "رقم هاتف العميل" : "Customer Phone",
+      language === "ar" ? "تاريخ الطلب" : "Order Date",
+      language === "ar" ? "الحالة الحالية" : "Current Status",
+      language === "ar" ? "Stock Code" : "Stock Code",
+      language === "ar" ? "رقم الفاتورة" : "Invoice No",
+      language === "ar" ? "قيمة الطلب" : "Order Price",
+      language === "ar" ? "رقم العرض" : "Offer No",
+      language === "ar" ? "خصم العرض" : "Offer Discount",
+      language === "ar" ? "التوصيل على" : "Delivery Paid By",
+      language === "ar" ? "قيمة تحمل الشركة" : "Company Delivery Value",
+    ];
+    const headers = [
+      "customer_name",
+      "customer_phone_no",
+      "order_date",
+      "order_current_status",
+      "order_stock",
+      "invoice_no",
+      "order_price",
+      "offer_no",
+      "offer_discount",
+      "delivery_paid_by",
+      "delivery_company_value",
+    ];
+
+    const metadataRows = [
+      [
+        language === "ar" ? "وقت إنشاء التقرير" : "Generated At",
+        new Date().toLocaleString(language === "ar" ? "ar-SY" : "en-US"),
+      ],
+      [language === "ar" ? "اللغة" : "Language", language === "ar" ? "العربية" : "English"],
+      [language === "ar" ? "البحث" : "Search", searchQuery || (language === "ar" ? "الكل" : "All")],
+      [
+        language === "ar" ? "الحالة" : "Status",
+        statusFilter === "all"
+          ? language === "ar"
+            ? "الكل"
+            : "All"
+          : getStatusLabel(statusFilter),
+      ],
+      [
+        language === "ar" ? "فلتر التاريخ السريع" : "Quick Date Filter",
+        dateFilter === "all"
+          ? language === "ar"
+            ? "الكل"
+            : "All"
+          : dateFilter,
+      ],
+      [language === "ar" ? "من تاريخ" : "Date From", dateFrom || "-"],
+      [language === "ar" ? "إلى تاريخ" : "Date To", dateTo || "-"],
+      [language === "ar" ? "عدد النتائج" : "Result Count", String(filteredOrders.length)],
+    ];
+
+    const tableRows = exportedRows
+      .map((row, index) => {
+        const bg = index % 2 === 0 ? "#ffffff" : "#f8fbff";
+        return `
+          <tr style="background:${bg}">
+            ${headers
+              .map((header) => {
+                const rawValue = (row as Record<string, unknown>)[header];
+                const value =
+                  header === "order_stock"
+                    ? escapeHtml(toExcelNumber(rawValue))
+                    : header === "order_price" ||
+                      header === "offer_discount" ||
+                      header === "delivery_company_value"
+                    ? escapeHtml(`$${Number(rawValue || 0).toLocaleString("en-US")}`)
+                    : escapeHtml(rawValue);
+                const isMoney =
+                  header === "order_price" ||
+                  header === "offer_discount" ||
+                  header === "delivery_company_value";
+                const isStatus = header === "order_current_status";
+                const isOffer = header === "offer_no";
+                const isStock = header === "order_stock";
+                const style = [
+                  "padding:12px 14px",
+                  "border:1px solid #d8e1ec",
+                  "vertical-align:middle",
+                  "font-size:14pt",
+                  "font-family:Calibri, Arial, sans-serif",
+                  isMoney
+                    ? 'font-weight:700;color:#0f766e;background:#ecfdf5;mso-number-format:"\\0024#,##0.00"'
+                    : "",
+                  isStatus ? "font-weight:700;color:#1d4ed8;background:#eff6ff" : "",
+                  isOffer ? "color:#7c3aed;background:#f5f3ff" : "",
+                  isStock
+                    ? 'font-family:Calibri, Arial, sans-serif;background:#fff7ed;color:#9a3412;mso-number-format:"0"'
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(";");
+                return `<td style="${style}">${value}</td>`;
+              })
+              .join("")}
+          </tr>
+        `;
+      })
+      .join("");
+
+    const metadataHtml = metadataRows
+      .map(
+        ([label, value], index) => `
+          <tr>
+            <td style="padding:10px 12px;border:1px solid #d8e1ec;background:${
+              index % 2 === 0 ? "#f8fafc" : "#ffffff"
+            };font-weight:700;color:#334155;width:220px;font-size:14pt;font-family:Calibri, Arial, sans-serif;">${escapeHtml(label)}</td>
+            <td style="padding:10px 12px;border:1px solid #d8e1ec;background:${
+              index % 2 === 0 ? "#f8fafc" : "#ffffff"
+            };color:#0f172a;font-size:14pt;font-family:Calibri, Arial, sans-serif;">${escapeHtml(value)}</td>
+          </tr>
+        `,
+      )
+      .join("");
+
+    const reportHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:x="urn:schemas-microsoft-com:office:excel"
+            xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="UTF-8" />
+          <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Orders Report</x:Name>
+                  <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+        </head>
+        <body style="font-family:Calibri, Arial, sans-serif; background:#f8fafc; margin:24px; font-size:14pt;" dir="${
+          language === "ar" ? "rtl" : "ltr"
+        }">
+          <table style="border-collapse:collapse; width:100%; max-width:1600px; background:white; font-family:Calibri, Arial, sans-serif; font-size:14pt;">
+            <tr>
+              <td colspan="${headers.length}" style="padding:20px 22px; background:linear-gradient(90deg,#009FE3,#007BC7); color:white; font-size:24pt; font-weight:700; border:1px solid #0b7fc6; font-family:Calibri, Arial, sans-serif;">
+                ${escapeHtml(language === "ar" ? "تقرير الطلبات" : "Orders Report")}
+              </td>
+            </tr>
+            <tr>
+              <td colspan="${headers.length}" style="padding:16px 0 8px 0; border:none;"></td>
+            </tr>
+            <tr>
+              <td colspan="4" style="vertical-align:top; border:none; padding:0 0 16px 0; font-family:Calibri, Arial, sans-serif; font-size:14pt;">
+                <table style="border-collapse:collapse; width:100%; font-family:Calibri, Arial, sans-serif; font-size:14pt;">
+                  ${metadataHtml}
+                </table>
+              </td>
+            
+            </tr>
+            <tr>
+              ${headerLabels
+                .map(
+                  (label) => `<th style="padding:14px 12px; border:1px solid #cbd5e1; background:#0f172a; color:#ffffff; font-size:15pt; font-weight:700; text-transform:uppercase; letter-spacing:.3px; font-family:Calibri, Arial, sans-serif;">
+                    ${escapeHtml(label)}
+                  </th>`,
+                )
+                .join("")}
+            </tr>
+            ${tableRows || `<tr><td colspan="${headers.length}" style="padding:16px; border:1px solid #d8e1ec; text-align:center; color:#64748b; font-size:14pt; font-family:Calibri, Arial, sans-serif;">${
+              language === "ar" ? "لا توجد نتائج" : "No results"
+            }</td></tr>`}
+          </table>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob(["\uFEFF", reportHtml], {
+      type: "application/vnd.ms-excel;charset=utf-8",
+    });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `orders-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `orders-report-${new Date().toISOString().split("T")[0]}.xls`;
     a.click();
+    window.URL.revokeObjectURL(url);
   };
+
+  useEffect(() => {
+    if (dateFilter === "all") return;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (dateFilter === "today") {
+      const value = formatDateForInput(today);
+      setDateFrom(value);
+      setDateTo(value);
+      return;
+    }
+
+    if (dateFilter === "week") {
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      setDateFrom(formatDateForInput(weekAgo));
+      setDateTo(formatDateForInput(today));
+      return;
+    }
+
+    if (dateFilter === "month") {
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      setDateFrom(formatDateForInput(monthAgo));
+      setDateTo(formatDateForInput(today));
+    }
+  }, [dateFilter]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50  pb-8">
@@ -366,12 +665,45 @@ export function AdminOrderManagement() {
                 </select>
                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
+
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col">
+                  <label className="mb-1 text-xs font-semibold text-gray-500">
+                    {language === "ar" ? "من" : "From"}
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      setDateFrom(e.target.value);
+                      setDateFilter("all");
+                    }}
+                    className="rounded-xl border-2 border-gray-200 px-4 py-3 font-semibold text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#009FE3]"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="mb-1 text-xs font-semibold text-gray-500">
+                    {language === "ar" ? "إلى" : "To"}
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => {
+                      setDateTo(e.target.value);
+                      setDateFilter("all");
+                    }}
+                    className="rounded-xl border-2 border-gray-200 px-4 py-3 font-semibold text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#009FE3]"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Active Filters Info */}
             {(searchQuery ||
               statusFilter !== "all" ||
-              dateFilter !== "all") && (
+              dateFilter !== "all" ||
+              dateFrom ||
+              dateTo) && (
               <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
                 <span className="font-semibold">
                   {language === "ar" ? "عرض" : "Showing"}{" "}

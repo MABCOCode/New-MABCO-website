@@ -34,13 +34,19 @@ export function OfferDetailsCard({
   const renderDirectDiscount = (offer: any) => (
     <div
       key="direct-discount"
-      className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6 border-2 border-red-200 animate-fadeIn"
+      className="mx-auto w-full max-w-4xl bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6 border-2 border-red-200 animate-fadeIn"
     >
-      <div className="flex items-start gap-4">
-        <div className="bg-gradient-to-br from-red-500 to-pink-600 p-3 rounded-xl shadow-lg">
-          <Tag className="w-6 h-6 text-white" />
+      <div className="flex flex-col gap-4">
+        <div
+          className={`flex w-full justify-center lg:justify-start ${
+            language === "ar" ? "lg:justify-end" : ""
+          }`}
+        >
+          <div className="bg-gradient-to-br from-red-500 to-pink-600 p-3 rounded-xl shadow-lg">
+            <Tag className="w-6 h-6 text-white" />
+          </div>
         </div>
-        <div className="flex-1">
+        <div className="w-full flex-1">
           <h3 className="text-xl font-bold text-red-700 mb-2">
             {language === "ar" ? offer.titleAr : offer.titleEn}
           </h3>
@@ -95,13 +101,19 @@ export function OfferDetailsCard({
   const renderCouponOffer = (offer: any) => (
     <div
       key="coupon-offer"
-      className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200 animate-fadeIn"
+      className="mx-auto w-full max-w-4xl bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200 animate-fadeIn"
     >
-      <div className="flex items-start gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
-          <Ticket className="w-6 h-6 text-white" />
+      <div className="flex flex-col gap-4">
+        <div
+          className={`flex w-full justify-center lg:justify-start ${
+            language === "ar" ? "lg:justify-end" : ""
+          }`}
+        >
+          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
+            <Ticket className="w-6 h-6 text-white" />
+          </div>
         </div>
-        <div className="flex-1">
+        <div className="w-full flex-1">
           <h3 className="text-xl font-bold text-blue-700 mb-2">
             {language === "ar" ? offer.titleAr : offer.titleEn}
           </h3>
@@ -168,13 +180,19 @@ export function OfferDetailsCard({
   const renderFreeProduct = (offer: any) => (
     <div
       key="free-product"
-      className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-200 animate-fadeIn"
+      className="mx-auto w-full max-w-4xl bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-200 animate-fadeIn"
     >
-      <div className="flex items-start gap-4">
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-xl shadow-lg">
-          <Gift className="w-6 h-6 text-white" />
+      <div className="flex flex-col gap-4">
+        <div
+          className={`flex w-full justify-center lg:justify-start ${
+            language === "ar" ? "lg:justify-end" : ""
+          }`}
+        >
+          <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-xl shadow-lg">
+            <Gift className="w-6 h-6 text-white" />
+          </div>
         </div>
-        <div className="flex-1">
+        <div className="w-full flex-1">
           <h3 className="text-xl font-bold text-green-700 mb-2">
             {language === "ar" ? offer.titleAr : offer.titleEn}
           </h3>
@@ -233,13 +251,19 @@ export function OfferDetailsCard({
   const renderBundleDiscount = (offer: any) => (
     <div
       key="bundle-discount"
-      className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-6 border-2 border-purple-200 animate-fadeIn"
+      className="mx-auto w-full max-w-4xl bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-6 border-2 border-purple-200 animate-fadeIn"
     >
-      <div className="flex items-start gap-4">
-        <div className="bg-gradient-to-br from-purple-500 to-violet-600 p-3 rounded-xl shadow-lg">
-          <Package className="w-6 h-6 text-white" />
+      <div className="flex flex-col gap-4">
+        <div
+          className={`flex w-full justify-center lg:justify-start ${
+            language === "ar" ? "lg:justify-end" : ""
+          }`}
+        >
+          <div className="bg-gradient-to-br from-purple-500 to-violet-600 p-3 rounded-xl shadow-lg">
+            <Package className="w-6 h-6 text-white" />
+          </div>
         </div>
-        <div className="flex-1">
+        <div className="w-full flex-1">
           <h3 className="text-xl font-bold text-purple-700 mb-2">
             {language === "ar" ? offer.titleAr : offer.titleEn}
           </h3>
