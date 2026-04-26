@@ -103,6 +103,7 @@ const HomePage: React.FC = () => {
   const { t, language, navigateToSection } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
+  const servicesSectionRef = useRef<HTMLDivElement>(null);
   const openCategoryCode = new URLSearchParams(location.search).get('openCategory');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const compareItems = useCompareStore((s: any) => s.items) as string[];
@@ -134,24 +135,34 @@ const HomePage: React.FC = () => {
     navigate(`/offers/${offerType}`);
   };
 
-  // Handle hash navigation when page loads
+  // Improved section navigation for hash and state (mobile precision)
   useEffect(() => {
-    if (location.hash) {
-      const sectionId = location.hash.replace("#", "");
+    let section = location.state?.scrollTo || (location.hash ? location.hash.replace('#', '') : null);
+    if (section === 'services') {
       setTimeout(() => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-          const nav = document.querySelector("nav");
-          const navHeight = nav?.getBoundingClientRect().height ?? 0;
-          const top = Math.max(
-            0,
-            element.getBoundingClientRect().top + window.scrollY - navHeight - 8,
-          );
-          window.scrollTo({ top, behavior: "smooth" });
+        const el = servicesSectionRef.current || document.getElementById('services');
+        if (el) {
+          const yOffset = window.innerWidth < 768 ? 70 : 100;
+          const y = el.getBoundingClientRect().top + window.pageYOffset - yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }, 100);
+    } else if (section) {
+      setTimeout(() => {
+        const el = document.getElementById(section);
+        if (el) {
+          const yOffset = window.innerWidth < 768 ? 70 : 100;
+          const y = el.getBoundingClientRect().top + window.pageYOffset - yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
         }
       }, 100);
     }
-  }, [location]);
+    // Clear state after scroll
+    if (location.state?.scrollTo) {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line
+  }, [location.state, location.hash]);
 
   useEffect(() => {
     const title =
@@ -528,7 +539,7 @@ const HomePage: React.FC = () => {
         )}
 
         {/* Services Section */}
-        <section id="services" className="container mx-auto px-4 py-16">
+        <section id="services" ref={servicesSectionRef} className="container mx-auto px-4 py-16">
           {mountServices ? (
             <Suspense fallback={<ServicesSkeleton />}>
               <ServicesGrid

@@ -451,7 +451,7 @@ footer li {
   }
 }
 
-.shimmer-surface {
+.shimmer-surface:not([style*=".png"]) {
   background: linear-gradient(
     90deg,
     #e5e7eb 0%,

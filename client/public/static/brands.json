@@ -285,27 +285,28 @@
         "uiTint":  "blue",
         "order":  33
     },
+     {
+        "brand_code":  "81",
+        "name":  "ديي",
+        "englishName":  "Deye",
+        "image":  "https://mabcoonline.com/images/brands/deye.png",
+        "category_code":  "09",
+        "order":  34
+    },
     {
         "brand_code":  "12",
         "name":  "إيكوفلو",
         "englishName":  "EcoFlow",
         "image":  "https://mabcoonline.com/images/brands/ecoflowbrand.png",
         "category_code":  "09",
-        "order":  34
-    },
-    {
-        "brand_code":  "81",
-        "name":  "ديي",
-        "englishName":  "Deye",
-        "image":  "https://mabcoonline.com/images/brands/deye.png",
-        "category_code":  "09",
         "order":  35
     },
+   
     {
         "brand_code":  "83",
         "name":  "اكسسوار ايكو فلو",
         "englishName":  "Ecoflow Accessories",
-        "image":  "https://mabcoonline.com/images/brands/ecoflowbrand.png",
+        "image":  "https://mabcoonline.com/images/brands/ecoflowAccbrand.png",
         "category_code":  "09",
         "order":  36
     },
