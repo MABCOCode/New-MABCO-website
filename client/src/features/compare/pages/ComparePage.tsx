@@ -442,7 +442,7 @@ export function ComparePage(props: ComparePageProps) {
     <div
       className="fixed inset-0 bg-black/50 z-50 overflow-y-auto"
       dir={language === "ar" ? "rtl" : "ltr"}
-       style={{ zIndex: 2000 }}
+      style={{ zIndex: 2000, overscrollBehavior: "contain" }}
     >
       <div className="min-h-screen p-4 md:p-8">
         <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">

@@ -192,8 +192,8 @@
     },
     {
         "cat_code":  "09",
-        "name":  "وحدة كهرباء",
-        "nameEn":  "POWER STATION",
+        "name":  "بطاريات و إنفرترات",
+        "nameEn":  "Batteries & Inverters",
         "image":  "https://mabcoonline.com/images/09.png",
         "brands":  [
                        {
@@ -202,10 +202,15 @@
                            "englishName":  "EcoFlow"
                        },
                        {
-                           "brand_code":  "81",
-                           "name":  "ديي",
-                           "englishName":  "Deye"
+                           "brand_code":  "84",
+                        "name":  "إنفرترات ديي",
+                         "englishName":  "Deye Inverters "
                        },
+                        {
+                          "brand_code": "88",
+                          "name": "بطاريات ديي",
+                          "englishName": "Deye Batteries "
+                        },
                        {
                            "brand_code":  "83",
                            "name":  "اكسسوار ايكو فلو",

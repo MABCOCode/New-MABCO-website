@@ -176,8 +176,8 @@ const SEOSection: React.FC<SEOSectionProps> = ({ language }) => {
         <h2>{language === 'ar' ? 'كلمات مفتاحية' : 'Keywords'}</h2>
         <p>
           {language === 'ar'
-            ? 'شراء أجهزة إلكترونية في سوريا، هواتف ذكية دمشق، لابتوبات للبيع، تلفزيونات LED، أجهزة منزلية كهربائية، ألعاب إلكترونية، ضمان معتمد، صيانة أجهزة، متجر إلكتروني موثوق، أسعار تنافسية، توصيل مجاني، فروع في 6 مدن'
-            : 'Buy electronics in Syria, smartphones Damascus, laptops for sale, LED TVs, home electrical appliances, electronic games, certified warranty, device maintenance, trusted electronic store, competitive prices, free delivery, branches in 6 cities'}
+            ? 'شراء أجهزة إلكترونية في سوريا، هواتف ذكية دمشق، لابتوبات للبيع، تلفزيونات LED، أجهزة منزلية كهربائية، ألعاب إلكترونية، ضمان معتمد، صيانة أجهزة، متجر إلكتروني موثوق، أسعار تنافسية، توصيل مجاني، فروع في 6 مدن، بطاريات وإنفرترات، بطاريات وانفرترات، إنفرترات، انفرترات، إنفرتر، انفرتر، بطاريات ليثيوم، بطاريات شمسية، بطاريات منزلية، عاكس كهربائي، عاكس طاقة، تخزين الطاقة، محطة طاقة، محطة طاقة متنقلة'
+            : 'Buy electronics in Syria, smartphones Damascus, laptops for sale, LED TVs, home electrical appliances, electronic games, certified warranty, device maintenance, trusted electronic store, competitive prices, free delivery, branches in 6 cities, batteries and inverters, battery inverter, inverter, inverters, batteries, battery, power station, portable power station, solar battery, lithium battery, home battery, backup power, energy storage'}
         </p>
         
         <h3>{language === 'ar' ? 'علامات تجارية نبيعها' : 'Brands We Sell'}</h3>
@@ -221,8 +221,8 @@ const SEOSection: React.FC<SEOSectionProps> = ({ language }) => {
         <h3>{language === 'ar' ? 'أقسام المنتجات' : 'Product Categories'}</h3>
         <p>
           {language === 'ar'
-            ? 'هواتف ذكية، لابتوبات وأجهزة كمبيوتر، تلفزيونات وشاشات، سماعات وأجهزة صوت، أجهزة منزلية، ألعاب إلكترونية، كاميرات وتصوير، أجهزة طاقة وشحن، إكسسوارات إلكترونية'
-            : 'Smartphones, laptops and computers, TVs and screens, headphones and audio devices, home appliances, electronic games, cameras and photography, power and charging devices, electronic accessories'}
+            ? 'هواتف ذكية، لابتوبات وأجهزة كمبيوتر، تلفزيونات وشاشات، سماعات وأجهزة صوت، أجهزة منزلية، ألعاب إلكترونية، كاميرات وتصوير، أجهزة طاقة وشحن، إكسسوارات إلكترونية، بطاريات وإنفرترات، بطاريات طاقة، إنفرترات شمسية، بطاريات منزلية، محطات طاقة'
+            : 'Smartphones, laptops and computers, TVs and screens, headphones and audio devices, home appliances, electronic games, cameras and photography, power and charging devices, electronic accessories, batteries and inverters, solar inverters, home batteries, power stations'}
         </p>
         
         <h3>{language === 'ar' ? 'مدن التغطية' : 'Cities We Cover'}</h3>

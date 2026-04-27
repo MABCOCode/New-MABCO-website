@@ -296,14 +296,7 @@ export function AppliedOffersSection({
                 </div>
               </div>
             </div>
-            {appliedOffer.applied && (
-              <button
-                onClick={() => onClearOffer?.(appliedOffer.productId)}
-                className="mt-3 text-xs text-gray-600 underline"
-              >
-                {language === "ar" ? "إزالة العرض" : "Remove offer"}
-              </button>
-            )}
+            
           </div>
         </div>
       </div>

@@ -1767,7 +1767,8 @@ export function CheckoutPage() {
                               <div className={`flex-1 ${isArabic ? "text-right" : "text-left"}`}>
                                 <h3 className="font-bold text-gray-900 mb-1 truncate">{showroom.name}</h3>
                                 <p className="text-xs text-gray-500 mb-2 truncate">{showroom.city}</p>
-                                {typeof showroom.distanceKm === "number" && (
+                                {nearestShowroom?.id === showroom.id &&
+                                  typeof showroom.distanceKm === "number" && (
                                   <p className="mb-2 text-xs font-semibold text-[#009FE3]">
                                     {language === "ar"
                                       ? `الأقرب: ${showroom.distanceKm.toFixed(1)} كم`
@@ -1969,11 +1970,11 @@ export function CheckoutPage() {
                                 <span className="text-sm text-gray-400 line-through">
                                   {formatPrice(oldPrice)} {t.currency}
                                 </span>
-                                {discountBadge && (
+                                {/* {discountBadge && (
                                   <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
                                     {discountBadge}
                                   </span>
-                                )}
+                                )} */}
                                
                               </div>
                               <p className="text-sm font-bold text-[#009FE3]">

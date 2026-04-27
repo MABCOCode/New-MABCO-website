@@ -286,20 +286,28 @@
         "order":  33
     },
      {
-        "brand_code":  "81",
-        "name":  "ديي",
-        "englishName":  "Deye",
-        "image":  "https://mabcoonline.com/images/brands/deye.png",
+        "brand_code":  "84",
+        "name":  "إنفرترات ديي",
+        "englishName":  "Deye Inverters ",
+        "image":  "https://mabcoonline.com/images/deye-inverters.png",
         "category_code":  "09",
         "order":  34
     },
+     {
+       "brand_code": "88",
+       "name": "بطاريات ديي",
+       "englishName": "Deye Batteries ",
+       "image": "https://mabcoonline.com/images/deye-batteries.png",
+       "category_code": "09",
+       "order": 35
+     },
     {
         "brand_code":  "12",
         "name":  "إيكوفلو",
         "englishName":  "EcoFlow",
         "image":  "https://mabcoonline.com/images/brands/ecoflowbrand.png",
         "category_code":  "09",
-        "order":  35
+        "order":  36
     },
    
     {
@@ -308,7 +316,7 @@
         "englishName":  "Ecoflow Accessories",
         "image":  "https://mabcoonline.com/images/brands/ecoflowAccbrand.png",
         "category_code":  "09",
-        "order":  36
+        "order":  37
     },
     {
         "brand_code":  "19",

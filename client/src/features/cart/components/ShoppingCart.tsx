@@ -1,11 +1,11 @@
+import { ArrowRight, Gift, Minus, Plus, RefreshCw, ShoppingBag, Sparkles, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, RefreshCw, Gift, Sparkles } from "lucide-react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
-import translations from "../../../i18n/translations";
-import { CartOfferDisplay } from "../../offer/components/CartOfferDisplay";
-import { getProductOffers } from "../../../data/products";
 import { useCart } from "../../../context/CartContext";
+import { getProductOffers } from "../../../data/products";
+import translations from "../../../i18n/translations";
 import { applyOfferDiscount, formatOfferDiscountLabel, resolveOfferDiscountType, resolveOfferDiscountValue } from "../../../utils/offerPricing";
+import { CartOfferDisplay } from "../../offer/components/CartOfferDisplay";
 
 interface CartItem {
   id: number | string;
@@ -324,11 +324,11 @@ export function ShoppingCart({
                                 <span className="text-sm text-gray-400 line-through">
                                   {formatPrice(parsePrice(item.oldPrice))} {t.currency}
                                 </span>
-                                {getItemDiscountBadge(item) && (
+                                {/* {getItemDiscountBadge(item) && (
                                   <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
                                     {getItemDiscountBadge(item)}
                                   </span>
-                                )}
+                                )} */}
                               </div>
                             )}
                             <p className="text-lg font-bold text-[#009FE3] price">

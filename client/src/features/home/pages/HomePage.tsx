@@ -173,12 +173,17 @@ const HomePage: React.FC = () => {
       language === 'ar'
         ? 'مرحباً بكم في مابكو، مكانك الأفضل لشراء الهواتف الذكية، الإكسسوارات والإلكترونيات في سوريا.'
         : 'Welcome to MABCO, your destination for mobile phones, accessories, and electronics in Syria.';
+    const keywords =
+      language === 'ar'
+        ? 'مابكو, إلكترونيات سوريا, هواتف, إكسسوارات, بطاريات وإنفرترات, بطاريات وانفرترات, إنفرترات, انفرترات, بطاريات طاقة, بطاريات ليثيوم, بطاريات منزلية, بطاريات شمسية, انفرتر, إنفرتر, عاكس كهربائي, عاكس طاقة, power station, inverter, inverters, battery, batteries, solar battery, lithium battery, home battery, energy storage, backup power, Deye, EcoFlow'
+        : 'MABCO, electronics Syria, mobile phones, accessories, batteries and inverters, battery inverter, inverters, inverter, power station, power stations, solar battery, solar batteries, lithium battery, lithium batteries, home battery, home batteries, backup power, energy storage, portable power station, Deye inverter, Deye battery, EcoFlow';
 
     setSeo({
       title,
       description,
       url: window.location.href,
       image: 'https://mabcoonline.com/images/giphy.gif',
+      keywords,
     });
   }, [language]);
 
@@ -479,7 +484,7 @@ const HomePage: React.FC = () => {
             <Suspense fallback={<OffersSkeleton />}>
               <>
                 <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center">
-                  {t("specialOffers") || "Special Offers"}
+                  {t("specialOffers") || "Offers"}
                 </h2>
                 <OfferTypeSlider
                   language={language}

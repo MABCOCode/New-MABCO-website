@@ -124,6 +124,74 @@ const CategoryPage: React.FC = () => {
     ? (fallbackCategory.cat_code || fallbackCategory.nameEn || fallbackCategory.name)
     : term;
 
+  const categoryKeywords = useMemo(() => {
+    const catCode = String(fallbackCategory?.cat_code || '').trim();
+    const nameAr = String(fallbackCategory?.name || '').trim();
+    const nameEn = String(fallbackCategory?.nameEn || '').trim();
+    const baseKeywords =
+      language === 'ar'
+        ? [displayCategoryName, nameAr, nameEn, 'مابكو', 'سوريا']
+        : [displayCategoryName, nameEn, nameAr, 'MABCO', 'Syria'];
+
+    const isBatteryInverterCategory =
+      catCode === '09' ||
+      /بطاريات|انفرترات|إنفرترات/i.test(nameAr) ||
+      /power station|battery|inverter/i.test(nameEn);
+
+    if (!isBatteryInverterCategory) {
+      return baseKeywords.filter(Boolean).join(', ');
+    }
+
+    const extraKeywords =
+      language === 'ar'
+        ? [
+            'بطاريات وإنفرترات',
+            'بطاريات وانفرترات',
+            'إنفرترات',
+            'انفرترات',
+            'إنفرتر',
+            'انفرتر',
+            'عاكس كهربائي',
+            'عاكس طاقة',
+            'بطاريات ليثيوم',
+            'بطاريات شمسية',
+            'بطاريات منزلية',
+            'بطاريات احتياطية',
+            'تخزين الطاقة',
+            'محطة طاقة',
+            'محطة طاقة متنقلة',
+            'Deye',
+            'EcoFlow',
+            'power station',
+            'inverter',
+            'battery',
+            'energy storage',
+          ]
+        : [
+            'batteries and inverters',
+            'battery inverter',
+            'inverter',
+            'inverters',
+            'battery',
+            'batteries',
+            'power station',
+            'power stations',
+            'portable power station',
+            'solar battery',
+            'solar batteries',
+            'lithium battery',
+            'lithium batteries',
+            'home battery',
+            'backup power',
+            'energy storage',
+            'Deye inverter',
+            'Deye battery',
+            'EcoFlow',
+          ];
+
+    return Array.from(new Set([...baseKeywords, ...extraKeywords].filter(Boolean))).join(', ');
+  }, [displayCategoryName, fallbackCategory?.cat_code, fallbackCategory?.name, fallbackCategory?.nameEn, language]);
+
   useEffect(() => {
     if (!displayCategoryName) return;
 
@@ -142,8 +210,9 @@ const CategoryPage: React.FC = () => {
       description,
       url: window.location.href,
       image: 'https://mabcoonline.com/images/giphy.gif',
+      keywords: categoryKeywords,
     });
-  }, [displayCategoryName, language]);
+  }, [categoryKeywords, displayCategoryName, language]);
 
   const compareItems = useCompareStore((s: any) => s.items) as string[];
   const toggleCompareStore = useCompareStore((s: any) => s.toggleCompare) as (id: string) => void;

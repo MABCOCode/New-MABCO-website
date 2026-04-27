@@ -39,6 +39,53 @@ const SearchPage = lazy(() => import('./features/search/pages/SearchPage'));
 import './styles/enhanced-ux.css';
 import './styles/globals.css';
 
+const lockPageScroll = () => {
+  const body = document.body;
+  const currentCount = Number(body.dataset.scrollLockCount || '0');
+  if (currentCount === 0) {
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    body.dataset.scrollLockOverflow = body.style.overflow || '';
+    body.dataset.scrollLockPosition = body.style.position || '';
+    body.dataset.scrollLockTop = body.style.top || '';
+    body.dataset.scrollLockWidth = body.style.width || '';
+    body.dataset.scrollLockTouchAction = body.style.touchAction || '';
+    body.dataset.scrollLockOverscroll = body.style.overscrollBehavior || '';
+    body.dataset.scrollLockScrollY = String(scrollY);
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.width = '100%';
+    body.style.touchAction = 'none';
+    body.style.overscrollBehavior = 'none';
+  }
+  body.dataset.scrollLockCount = String(currentCount + 1);
+};
+
+const unlockPageScroll = () => {
+  const body = document.body;
+  const currentCount = Number(body.dataset.scrollLockCount || '0');
+  if (currentCount <= 1) {
+    const scrollY = Number(body.dataset.scrollLockScrollY || '0');
+    body.style.overflow = body.dataset.scrollLockOverflow || '';
+    body.style.position = body.dataset.scrollLockPosition || '';
+    body.style.top = body.dataset.scrollLockTop || '';
+    body.style.width = body.dataset.scrollLockWidth || '';
+    body.style.touchAction = body.dataset.scrollLockTouchAction || '';
+    body.style.overscrollBehavior = body.dataset.scrollLockOverscroll || '';
+    delete body.dataset.scrollLockCount;
+    delete body.dataset.scrollLockOverflow;
+    delete body.dataset.scrollLockPosition;
+    delete body.dataset.scrollLockTop;
+    delete body.dataset.scrollLockWidth;
+    delete body.dataset.scrollLockTouchAction;
+    delete body.dataset.scrollLockOverscroll;
+    delete body.dataset.scrollLockScrollY;
+    window.scrollTo(0, scrollY);
+    return;
+  }
+  body.dataset.scrollLockCount = String(currentCount - 1);
+};
+
 // Create a wrapper component that can use the LanguageContext
 const AppContent: React.FC = () => {
   const MainSkeleton = () => (
@@ -248,6 +295,12 @@ const AppContent: React.FC = () => {
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!compareMode) return;
+    lockPageScroll();
+    return () => unlockPageScroll();
+  }, [compareMode]);
 
 
   return (

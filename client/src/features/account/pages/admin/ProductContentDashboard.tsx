@@ -1,38 +1,38 @@
 import {
-    AlertCircle,
-    AlertTriangle,
-    Battery,
-    Camera,
-    CheckCircle2,
-    ChevronDown,
-    Cpu,
-    Edit3,
-    Eye,
-    EyeOff,
-    FileText,
-    Gamepad2,
-    HardDrive,
-    Headphones,
-    Image as ImageIcon,
-    Info,
-    Laptop,
-    MemoryStick,
-    Monitor,
-    Package,
-    Palette,
-    Plus,
-    Search,
-    Settings as SettingsIcon,
-    Shield,
-    Smartphone,
-    Speaker,
-    Tag,
-    Trash2,
-    Upload,
-    Watch,
-    Wifi,
-    X,
-    Zap
+  AlertCircle,
+  AlertTriangle,
+  Battery,
+  Camera,
+  CheckCircle2,
+  ChevronDown,
+  Cpu,
+  Edit3,
+  Eye,
+  EyeOff,
+  FileText,
+  Gamepad2,
+  HardDrive,
+  Headphones,
+  Image as ImageIcon,
+  Info,
+  Laptop,
+  MemoryStick,
+  Monitor,
+  Package,
+  Palette,
+  Plus,
+  Search,
+  Settings as SettingsIcon,
+  Shield,
+  Smartphone,
+  Speaker,
+  Tag,
+  Trash2,
+  Upload,
+  Watch,
+  Wifi,
+  X,
+  Zap
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../context/LanguageContext";
@@ -641,8 +641,8 @@ export function ProductContentDashboard({ onClose, adminMeta }: ProductContentDa
           ? [thumbnailImage]
           : [];
     const shouldHideAvailabilityBadge =
-      String(product?.cat_code || product?.category_code || product?.catCode || "") === "09" &&
-      String(product?.brand_code || product?.brandCode || "") === "81";
+      String(product?.cat_code || product?.category_code || product?.catCode || "") === "09" &&(
+      String(product?.brand_code || product?.brandCode || "") === "84" ||(String(product?.brand_code || product?.brandCode || "") === "88"));
 
     const missing = product._missing || {};
     const validation = product._validation || {};

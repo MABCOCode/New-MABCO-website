@@ -71,7 +71,15 @@ export const formatOfferDiscountLabel = (
     resolveOfferDiscountType(offer) === "percentage"
       ? `${value}%`
       : `${value.toLocaleString("en-US")} ${currencyLabel}`;
-  return suffix ? `${base} ${suffix}` : base;
+  const normalizedSuffix =
+    offer?.type === "bundle_discount" &&
+    suffix &&
+    ["off", "discount", "خصم", "حسم"].includes(String(suffix).trim().toLowerCase())
+      ? language === "ar"
+        ? "خصم على المنتجات المرتبطة"
+        : "Discount on related products"
+      : suffix;
+  return normalizedSuffix ? `${base} ${normalizedSuffix}` : base;
 };
 
 export const applyOfferDiscount = (basePrice: number, offer: any): number => {

@@ -149,7 +149,7 @@ router.get('/', asyncHandler(async (req, res) => {
   if (shouldFilterAvailability) {
     const availabilityOr = [
       { 'availability.isAvailable': { $ne: false } },
-      { cat_code: '09', brand_code: '81' },
+      { cat_code: '09', $or: [{ brand_code: '84' }, { brand_code: '88' }] },
     ];
     if (query.$or) {
       query.$and = [...(query.$and || []), { $or: query.$or }, { $or: availabilityOr }];

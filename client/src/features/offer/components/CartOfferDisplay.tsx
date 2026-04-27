@@ -1,29 +1,23 @@
 import {
-  Tag,
-  Gift,
-  Ticket,
-  Sparkles,
-  TrendingDown,
   AlertCircle,
   CheckCircle,
-  ShoppingBag,
-  Plus,
+  Gift,
+  Sparkles,
+  Tag,
+  Ticket,
+  TrendingDown,
 } from "lucide-react";
-import translations from "../../../i18n/translations";
-import { CURRENCY_LABEL } from "../../../utils/currency";
 import { getProductOffers, products } from "../../../data/products";
-import {
-  applyOfferDiscount,
-  formatOfferDiscountLabel,
-  getOfferSavings,
-} from "../../../utils/offerPricing";
+import translations from "../../../i18n/translations";
 import type {
-  ProductOffer,
-  DirectDiscountOffer,
-  CouponOffer,
-  FreeProductOffer,
   BundleDiscountOffer,
+  CouponOffer,
+  DirectDiscountOffer,
+  FreeProductOffer,
+  ProductOffer,
 } from "../../../types/product";
+import { CURRENCY_LABEL } from "../../../utils/currency";
+import { formatOfferDiscountLabel, getOfferSavings } from "../../../utils/offerPricing";
 
 interface CartOfferDisplayProps {
   productId: number;
@@ -47,7 +41,6 @@ export function CartOfferDisplay({
   basePrice,
   appliedCoupons = new Map(),
   bundleItems = new Map(),
-  onAddBundleItem,
 }: CartOfferDisplayProps) {
   const offers = offersOverride?.length
     ? getProductOffers({ offers: offersOverride } as any)
@@ -103,15 +96,15 @@ export function CartOfferDisplay({
   const getCardClasses = (type: string) => {
     switch (type) {
       case "direct_discount":
-        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-pink-50 p-6";
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-pink-50 p-4";
       case "coupon":
-        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-6";
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4";
       case "free_product":
-        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-6";
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-4";
       case "bundle_discount":
-        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-violet-50 p-6";
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-violet-50 p-4";
       default:
-        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-gray-200 bg-white p-6";
+        return "mx-auto w-full max-w-4xl rounded-2xl border-2 border-gray-200 bg-white p-4";
     }
   };
 
@@ -144,16 +137,16 @@ export function CartOfferDisplay({
               <h4 className="text-lg font-bold text-red-700">
                 {language === "ar" ? offer.titleAr : offer.titleEn}
               </h4>
-              <div className="inline-flex items-center gap-1 self-start rounded-full bg-green-100 px-3 py-1">
+              {/* <div className="inline-flex items-center gap-1 self-start rounded-full bg-green-100 px-3 py-1">
                 <CheckCircle className="h-3 w-3 text-green-600" />
                 <span className="text-xs font-bold text-green-700">
                   {translation.cart_offer_auto_applied}
                 </span>
-              </div>
+              </div> */}
             </div>
-            <p className="mb-4 text-sm text-gray-700">
+            {/* <p className="mb-4 text-sm text-gray-700">
               {language === "ar" ? offer.descriptionAr : offer.descriptionEn}
-            </p>
+            </p> */}
             <div className="rounded-xl border border-red-200 bg-white p-4">
               <div className="inline-flex items-center rounded-lg bg-green-500 px-3 py-2 text-sm font-bold text-white">
                 {translation.cart_offer_savings}: {formatPrice(savingsAmount)}{" "}
@@ -271,81 +264,36 @@ export function CartOfferDisplay({
         <div className="flex flex-col gap-4">
           {renderIcon("bundle_discount")}
           <div className="w-full min-w-0">
+            <div className="inline-flex self-start rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
+              {formatOfferDiscountLabel(
+                offer,
+                language,
+                displayCurrency,
+                language === "ar"
+                  ? "خصم على المنتجات المرتبطة"
+                  : "Discount on related products",
+              )}
+            </div>
             <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <h4 className="text-lg font-bold text-purple-700">
                 {language === "ar" ? offer.titleAr : offer.titleEn}
               </h4>
-              <div className="inline-flex self-start rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
-                {formatOfferDiscountLabel(
-                  offer,
-                  language,
-                  displayCurrency,
-                  language === "ar" ? "ط®طµظ…" : "OFF",
-                )}
-              </div>
             </div>
-            <p className="mb-4 text-sm text-gray-700">
+            {/* <p className="mb-4 text-sm text-gray-700">
               {language === "ar" ? offer.descriptionAr : offer.descriptionEn}
             </p>
-            <div className="mb-3 flex items-center gap-2 text-sm text-purple-600">
-              <ShoppingBag className="h-4 w-4" />
-              <span className="font-medium">
-                {translation.cart_offer_choose_products}
-              </span>
-            </div>
-
-            <div className="space-y-3 rounded-xl border border-purple-200 bg-white p-4">
-              {offer.relatedProductIds.slice(0, 3).map((relatedId) => {
-                const relatedProduct = products.find((p) => p.id === relatedId);
-                if (!relatedProduct) return null;
-                const isAdded = appliedBundleItems.includes(relatedId);
-
-                const discountedPrice = applyOfferDiscount(
-                  numericPrice(relatedProduct.price),
-                  offer,
-                );
-
-                return (
-                  <div
-                    key={relatedId}
-                    className="flex items-center gap-3 rounded-xl border border-purple-100 bg-purple-50/40 p-3"
-                  >
-                    <img
-                      src={relatedProduct.image}
-                      alt={relatedProduct.name}
-                      className="h-10 w-10 rounded-lg object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-gray-900">
-                        {language === "ar" && relatedProduct.nameAr
-                          ? relatedProduct.nameAr
-                          : relatedProduct.name}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-purple-600">
-                          {formatPrice(discountedPrice)} {displayCurrency}
-                        </span>
-                        <span className="text-xs text-gray-400 line-through">
-                          {formatPrice(numericPrice(relatedProduct.price))}
-                        </span>
-                      </div>
-                    </div>
-                    {isAdded ? (
-                      <div className="flex-shrink-0 rounded bg-green-100 px-2 py-1 text-xs font-bold text-green-700">
-                        {translation.cart_offer_applied}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => onAddBundleItem?.(productId, relatedId)}
-                        className="flex-shrink-0 rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 p-2 text-white transition-transform hover:scale-105"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <p className="text-xs font-medium text-purple-700">
+              {language === "ar"
+                ? "يتم تطبيق هذا الخصم فقط على المنتجات المرتبطة بالعرض."
+                : "This discount applies only to the offer's related products."}
+            </p> */}
+            {appliedBundleItems.length > 0 && (
+              <div className="mt-3 inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
+                {language === "ar"
+                  ? `تمت إضافة ${appliedBundleItems.length} من المنتجات المرتبطة`
+                  : `${appliedBundleItems.length} related product(s) added`}
+              </div>
+            )}
           </div>
         </div>
       </div>

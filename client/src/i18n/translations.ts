@@ -523,7 +523,7 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     cart: "Shopping Cart",
     compare: "Compare",
     addToCart: "Add to Cart",
-    specialOffers: "Special Offers",
+    specialOffers: "Offers",
     mostSold: "Most Sold",
     newProducts: "New Products",
     productCategories: "Product Categories",
@@ -881,7 +881,7 @@ export const translations: Record<Lang, Record<string, string | string[]>> = {
     account_navbar_welcome: "Welcome",
 
     // Showrooms
-    showrooms_title: "Our Showrooms",
+    showrooms_title: "Showrooms",
     showrooms_subtitle: "Find MABCO at your service across Syria",
     showrooms_address: "Address",
     showrooms_phone: "Phone",

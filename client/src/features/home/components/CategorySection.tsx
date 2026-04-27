@@ -493,7 +493,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                         >
                           <div className="flex flex-col items-center text-center">
                             <div
-                              className={`w-full h-32 sm:h-36 md:h-40 rounded-2xl flex items-center justify-center mb-3 md:mb-4 p-3 sm:p-4 md:p-6 transition-colors ${
+                              className={`w-full h-32 sm:h-36 md:h-40 rounded-2xl flex items-center justify-center mb-3 md:mb-4  transition-colors ${
                                 isBlueTint
                                   ? ""
                                   : "bg-gray-50 group-hover:bg-gray-100"

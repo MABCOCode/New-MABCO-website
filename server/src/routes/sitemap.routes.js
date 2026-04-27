@@ -187,7 +187,7 @@ router.get('/', asyncHandler(async (req, res) => {
     'status.isActive': { $ne: false },
     $or: [
       { 'availability.isAvailable': { $ne: false } },
-      { cat_code: '09', brand_code: '81' },
+      { cat_code: '09', $or: [{ brand_code: '84' }, { brand_code: '88' }] },
     ],
   };
 
