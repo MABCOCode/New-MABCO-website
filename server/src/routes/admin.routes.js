@@ -1509,6 +1509,7 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
       delete incoming._id;
       incoming.updatedAt = now;
       if (incoming.price !== undefined) incoming.price = toFiniteNumber(incoming.price);
+      if (Array.isArray(incoming.offers)) incoming.offers = normalizeOffersArray(incoming.offers);
       if (incoming.availability !== undefined) incoming.availability = normalizeAvailabilityPayload(incoming.availability);
       if (incoming.audit !== undefined) incoming.audit = normalizeAuditObject(incoming.audit, now);
       if (Array.isArray(incoming.colorVariants)) incoming.colorVariants = normalizeColorVariantsArray(incoming.colorVariants);
@@ -1691,6 +1692,7 @@ router.put('/products/json/bulk', requireAdminToken, asyncHandler(async (req, re
           updatedAt: now,
         };
         if (incoming.price !== undefined) writeUpdates.price = incoming.price;
+        if (Array.isArray(incoming.offers)) writeUpdates.offers = incoming.offers;
         if (Object.keys(sanitizedAvailability).length > 0) writeUpdates.availability = sanitizedAvailability;
         if (Array.isArray(mergedColorVariants)) writeUpdates.colorVariants = mergedColorVariants;
         if (Array.isArray(mergedChargeOptions)) writeUpdates.chargeOptions = mergedChargeOptions;
