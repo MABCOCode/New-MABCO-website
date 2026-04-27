@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Product } from "../types/product";
+import { applyOfferDiscount } from "../utils/offerPricing";
 
 type CartItem = {
-  isCouponItem: any;
+  isCouponItem?: boolean;
   id: number | string;
   productId?: number | string;
   stkCode?: string | null;
@@ -48,6 +49,7 @@ type AddToCartFn = (
     chargeOptionPrice?: number | null;
     appliedOffers?: any[] | null;
     availableOffers?: any[] | null;
+    isCouponItem?: boolean;
     isFreeGift?: boolean;
     isBundleItem?: boolean;
     linkedToProductId?: number | string;
@@ -95,6 +97,37 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const apiBase =
     (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
 
+  const toNumber = (val: any) => {
+    const n = typeof val === "number" ? val : Number(String(val).replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const formatPrice = (val: number | null) =>
+    val === null ? undefined : val.toLocaleString("en-US");
+
+  const resolveSourcePrice = (item: CartItem, product: any) => {
+    const base = toNumber(product?.price);
+    let nextPrice = base;
+
+    if (item.variantSku && Array.isArray(product?.colorVariants)) {
+      const variant = product.colorVariants.find(
+        (v: any) => String(v.stk_code || v.stkCode) === String(item.variantSku),
+      );
+      const variantPrice = toNumber(variant?.price);
+      if (variantPrice !== null) nextPrice = variantPrice;
+    }
+
+    if (item.chargeOptionSku && Array.isArray(product?.chargeOptions)) {
+      const option = product.chargeOptions.find(
+        (o: any) => String(o.stk_code || o.stkCode) === String(item.chargeOptionSku),
+      );
+      const optionPrice = toNumber(option?.price);
+      if (optionPrice !== null) nextPrice = optionPrice;
+    }
+
+    return nextPrice;
+  };
+
   useEffect(() => {
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
@@ -107,13 +140,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     let mounted = true;
     const ids = cartItems.map((item) => item.stkCode || item.productId || item.id).filter(Boolean);
     if (ids.length === 0) return;
-
-    const toNumber = (val: any) => {
-      const n = typeof val === "number" ? val : Number(String(val).replace(/[^0-9.-]/g, ""));
-      return Number.isFinite(n) ? n : null;
-    };
-    const formatPrice = (val: number | null) =>
-      val === null ? undefined : val.toLocaleString("en-US");
 
     Promise.all(
       ids.map((id) =>
@@ -137,23 +163,58 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const product = byKey.get(key);
           if (!product) return item;
 
-          const base = toNumber(product.price);
-          let nextPrice = base;
+          const sourcePrice = resolveSourcePrice(item, product);
+          const directDiscountOffer = Array.isArray(item.appliedOffers)
+            ? item.appliedOffers.find((offer: any) => offer?.type === "direct_discount")
+            : null;
+          const linkedPrimaryItem = item.linkedToProductId
+            ? prev.find((candidate) => {
+                const candidateId = String(candidate.productId ?? candidate.id ?? "");
+                return (
+                  candidateId === String(item.linkedToProductId) &&
+                  !candidate.isBundleItem &&
+                  !candidate.isFreeGift
+                );
+              })
+            : null;
+          const couponOffer = Array.isArray(linkedPrimaryItem?.appliedOffers)
+            ? linkedPrimaryItem.appliedOffers.find((offer: any) => offer?.type === "coupon")
+            : null;
 
-          if (item.variantSku && Array.isArray(product.colorVariants)) {
-            const variant = product.colorVariants.find(
-              (v: any) => String(v.stk_code || v.stkCode) === String(item.variantSku),
-            );
-            const vPrice = toNumber(variant?.price);
-            if (vPrice !== null) nextPrice = vPrice;
-          }
+          let nextPrice = sourcePrice;
+          let nextOldPrice = item.oldPrice;
 
-          if (item.chargeOptionSku && Array.isArray(product.chargeOptions)) {
-            const option = product.chargeOptions.find(
-              (o: any) => String(o.stk_code || o.stkCode) === String(item.chargeOptionSku),
-            );
-            const oPrice = toNumber(option?.price);
-            if (oPrice !== null) nextPrice = oPrice;
+          if (item.isFreeGift) {
+            nextPrice = 0;
+            nextOldPrice = formatPrice(sourcePrice);
+          } else if (item.isBundleItem && typeof item.bundleDiscount === "number") {
+            nextPrice =
+              sourcePrice === null
+                ? sourcePrice
+                : Math.round(
+                    applyOfferDiscount(sourcePrice, {
+                      type: "bundle_discount",
+                      discountValue: item.bundleDiscount,
+                      discountType: item.bundleDiscountType ?? "percentage",
+                    }),
+                  );
+            nextOldPrice = formatPrice(sourcePrice);
+          } else if (directDiscountOffer) {
+            nextPrice =
+              sourcePrice === null
+                ? sourcePrice
+                : Math.round(applyOfferDiscount(sourcePrice, directDiscountOffer));
+            nextOldPrice = formatPrice(sourcePrice);
+          } else if (
+            couponOffer &&
+            item.linkedToProductId &&
+            (item.isCouponItem || (item.oldPrice !== undefined && item.oldPrice !== null))
+          ) {
+            nextPrice =
+              sourcePrice === null
+                ? sourcePrice
+                : Math.round(applyOfferDiscount(sourcePrice, couponOffer));
+            nextOldPrice = formatPrice(sourcePrice);
           }
 
           return {
@@ -161,7 +222,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             name: product.name || item.name,
             nameAr: product.nameAr || item.nameAr,
             image: item.image || product.image || product.thumbnail,
-            basePrice: base,
+            basePrice: sourcePrice,
+            oldPrice: nextOldPrice,
             price: formatPrice(nextPrice),
           };
         }),
@@ -259,6 +321,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           appliedOffers: options?.appliedOffers ?? null,
           availableOffers: options?.availableOffers ?? null,
           chargeOption: chargeOptionId ? { optionId: chargeOptionId, value: chargeOptionLabel ?? chargeOptionId } : null,
+          isCouponItem: options?.isCouponItem,
           isFreeGift: options?.isFreeGift,
           isBundleItem: options?.isBundleItem,
           linkedToProductId: options?.linkedToProductId,
