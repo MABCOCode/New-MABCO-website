@@ -1,17 +1,18 @@
 // components/layout/ModernFooter.tsx
 import {
-  Briefcase,
-  Building2,
-  Download,
-  Mail,
-  MapPin,
-  Phone,
-  Shield,
-  Wrench
+    Briefcase,
+    Building2,
+    Download,
+    Mail,
+    MapPin,
+    Phone,
+    Shield,
+    Wrench
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { translations } from '../../i18n/translations';
 import { loadSession } from '../../utils/accountSession';
+import { getCompanyProfileDownloadsLeft, triggerCompanyProfileDownload } from '../../utils/companyProfileDownload';
 
 interface ModernFooterProps {
   language: 'ar' | 'en';
@@ -57,11 +58,30 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
   const [categoriesData, setCategoriesData] = useState<StaticCategory[]>([]);
   const [brandsData, setBrandsData] = useState<StaticBrand[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean((loadSession() as any)?.user));
+  const [companyProfileDownloadsLeft, setCompanyProfileDownloadsLeft] = useState<number>(() => {
+    const session = loadSession() as any;
+    const userId = session?.user?.id || session?.user?._id || session?.user?.email || 'guest';
+    return getCompanyProfileDownloadsLeft(userId);
+  });
+
+  const handleCompanyProfileDownload = () => {
+    const session = loadSession() as any;
+    const userId = session?.user?.id || session?.user?._id || session?.user?.email || 'guest';
+
+    if (!triggerCompanyProfileDownload(userId)) {
+      alert(t.downloadProfileLimitReached);
+      return;
+    }
+
+    setCompanyProfileDownloadsLeft(getCompanyProfileDownloadsLeft(userId));
+  };
 
   useEffect(() => {
     const readSession = () => {
       const session = loadSession() as any;
       setIsLoggedIn(Boolean(session?.user));
+      const userId = session?.user?.id || session?.user?._id || session?.user?.email || 'guest';
+      setCompanyProfileDownloadsLeft(getCompanyProfileDownloadsLeft(userId));
     };
 
     readSession();
@@ -189,6 +209,7 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
     { label: t.warranty, icon: Shield, action: onWarrantyClick },
     { label: t.maintenanceService, icon: Wrench, action: onMaintenanceClick },
     { label: t.downloadApp, icon: Download, action: () => (window.location.href = '/apps-download') },
+    { label: t.downloadCompanyProfile, icon: Download, action: handleCompanyProfileDownload },
     { label: t.aboutCompany, icon: Building2, action: onAboutClick },
     { label: t.careers, icon: Briefcase, action: onCareerClick }
   ];
@@ -381,10 +402,10 @@ const ModernFooter: React.FC<ModernFooterProps> = ({
             </div>
             
             <div className={`flex flex-wrap gap-6 ${isRTL ? 'justify-end' : 'justify-center'}`}>
-              <a href="/#warranty-section" className="text-gray-400 hover:text-white transition-colors text-sm">
+              <a href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors text-sm">
                 {t.privacyPolicy}
               </a>
-              <a href="/#warranty-section" className="text-gray-400 hover:text-white transition-colors text-sm">
+              <a href="/terms-of-service" className="text-gray-400 hover:text-white transition-colors text-sm">
                 {t.termsOfService}
               </a>
               <a href="/#warranty-section" className="text-gray-400 hover:text-white transition-colors text-sm">

@@ -3,6 +3,7 @@ import {
   Briefcase,
   Building2,
   CheckCircle,
+  Download,
   Globe,
   Headphones,
   Laptop,
@@ -13,11 +14,13 @@ import {
   Smartphone,
   Wrench
 } from "lucide-react";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MotionStagger, MotionStaggerItem, MotionWrapper } from "../../../components/motion/MotionWrapper";
 import { useLanguage } from "../../../context/LanguageContext";
 import { setSeo } from "../../../services/seo";
+import { loadSession } from "../../../utils/accountSession";
+import { getCompanyProfileDownloadsLeft, triggerCompanyProfileDownload } from "../../../utils/companyProfileDownload";
 
 interface AboutUsPageProps {
   language: "ar" | "en";
@@ -26,6 +29,23 @@ interface AboutUsPageProps {
 
 export function AboutUsPage({ language, onClose }: AboutUsPageProps) {
   const isArabic = language === "ar";
+  const [companyProfileDownloadsLeft, setCompanyProfileDownloadsLeft] = useState<number>(() => {
+    const session = loadSession() as any;
+    const userId = session?.user?.id || session?.user?._id || session?.user?.email || 'guest';
+    return getCompanyProfileDownloadsLeft(userId);
+  });
+
+  const handleCompanyProfileDownload = () => {
+    const session = loadSession() as any;
+    const userId = session?.user?.id || session?.user?._id || session?.user?.email || 'guest';
+
+    if (!triggerCompanyProfileDownload(userId)) {
+      setCompanyProfileDownloadsLeft(getCompanyProfileDownloadsLeft(userId));
+      return;
+    }
+
+    setCompanyProfileDownloadsLeft(getCompanyProfileDownloadsLeft(userId));
+  };
 
   useEffect(() => {
     const title = isArabic ? 'من نحن - مابكو' : 'About Us - MABCO';
@@ -154,7 +174,7 @@ const content = {
     regionalText:
       "We have a strong presence across multiple cities, with a network of branches that ensures accessibility and efficient customer service.",
 
-    whyChoose: "Why Choose MABCO?",
+    whyChoose: "Why Choose MABCO",
     reasons: [
       "Reliable services",
       "High-quality customer experience",
@@ -429,7 +449,7 @@ const content = {
               <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-2xl mb-6 icon-hover">
                 <Shield className="w-8 h-8 text-white" />
               </div>
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">{t.whyChoose}</h2>
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">?{t.whyChoose} </h2>
               <div className="w-24 h-1 bg-gradient-to-r from-[#009FE3] to-[#007BC7] mx-auto rounded-full"></div>
             </div>
           </MotionWrapper>
@@ -534,12 +554,33 @@ const content = {
         </div>
       </MotionWrapper>
 
-      <div className="fixed bottom-8 z-50" style={{ left: isArabic ? 'auto' : '2rem', right: isArabic ? '2rem' : 'auto' }}>
+      <div
+        className="fixed bottom-4 md:bottom-8 z-50 flex flex-row md:flex-col items-center gap-3"
+        style={{ left: isArabic ? 'auto' : '2rem', right: isArabic ? '2rem' : 'auto' }}
+      >
+        <button
+          onClick={handleCompanyProfileDownload}
+          disabled={companyProfileDownloadsLeft <= 0}
+          className="inline-flex flex-col items-center justify-center gap-1 rounded-full bg-[#009FE3] text-white px-5 py-4 shadow-2xl transition-all duration-300 hover:shadow-[#009FE3]/50 disabled:cursor-not-allowed disabled:opacity-60 border-2 border-white/20 backdrop-blur-sm w-full min-w-[12rem] md:min-w-auto"
+        >
+          <span className="flex items-center gap-2 font-semibold text-sm md:text-base">
+            <Download className="w-4 h-4" />
+            {isArabic ? 'تحميل ملف الشركة' : 'Download Profile'}
+          </span>
+          {/* <span className="text-[11px] text-white/80">
+            {companyProfileDownloadsLeft > 0
+              ? `${companyProfileDownloadsLeft}/3`
+              : isArabic
+                ? 'الحد اليومي وصل'
+                : 'Daily limit reached'}
+          </span> */}
+        </button>
+
         <button
           onClick={onClose}
-          className="bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white px-8 py-4 rounded-full shadow-2xl hover:shadow-[#009FE3]/50 btn-press transition-all duration-300 flex items-center gap-3 font-semibold text-lg border-2 border-white/20 backdrop-blur-sm hover:scale-105"
+          className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#009FE3] to-[#007BC7] text-white px-10 p-3 shadow-2xl hover:shadow-[#009FE3]/50 btn-press transition-all duration-300 gap-3 font-semibold text-base border-2 border-white/20 backdrop-blur-sm"
         >
-          <span>{isArabic ? "العودة للرئيسية" : "Back to Home"}</span>
+          <span className="flex items-center gap-2 font-semibold text-sm md:text-base">{isArabic ? 'العودة للرئيسية' : 'Back to Home'}</span>
         </button>
       </div>
     </div>

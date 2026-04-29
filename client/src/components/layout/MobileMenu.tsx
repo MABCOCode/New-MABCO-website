@@ -1,19 +1,18 @@
-import React from 'react';
 import {
-  MapPin,
-  Building2,
-  Briefcase,
-  Home,
-  Package,
-  Tag,
-  Phone,
-  LogIn,
-  LogOut,
-  User,
-  Edit3,
-  Package2,
-  Crown,
+    Briefcase,
+    Building2,
+    Crown,
+    Edit3,
+    Home,
+    LogIn,
+    LogOut,
+    MapPin,
+    Package,
+    Package2,
+    Tag,
+    User
 } from 'lucide-react';
+import React from 'react';
 
 interface MobileMenuProps {
   menuOpen: boolean;

@@ -6,7 +6,7 @@ const FloatingSocialLinks: React.FC = () => {
 
   return (
     <div
-      className={`hidden lg:flex fixed ${language === "ar" ? "left-6" : "right-6"} bottom-6 z-40 flex-col gap-3`}
+      className={`flex flex-row md:flex-col fixed ${language === "ar" ? "left-4 lg:left-6" : "right-4 lg:right-6"} bottom-0 lg:bottom-6 z-40 gap-2 lg:gap-3`}
     >
       <a
         href="https://www.facebook.com/mabcosyria"
