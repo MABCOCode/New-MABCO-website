@@ -3,16 +3,19 @@ import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import ModernFooter from './components/layout/Footer'; // Make sure this is the correct import
 import Navbar from './components/layout/Navbar';
+import ScrollToTop from './components/ui/ScrollToTop';
+import { CartProvider, useCart } from './context/CartContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import AboutPage from './features/about/pages/AboutPage';
 import CareerPage from './features/career/pages/CareerPage';
+import { useCompareStore } from "./features/compare/state";
 import ShowroomsPage from './features/showrooms/pages/ShowroomsPage';
 import { setSeo } from './services/seo';
+import './styles/enhanced-ux.css';
+import './styles/globals.css';
 
 const FloatingCompare = lazy(() => import('./components/layout/FloatingCompare'));
 const FloatingSocialLinks = lazy(() => import('./components/layout/FloatingSocialLinks'));
-import ScrollToTop from './components/ui/ScrollToTop';
-import { CartProvider, useCart } from './context/CartContext';
 const AccountRoutes = lazy(() => import('./features/account/AccountRoutes'));
 const ShoppingCart = lazy(() =>
   import('./features/cart/components/ShoppingCart').then((m) => ({ default: m.ShoppingCart })),
@@ -23,7 +26,6 @@ const CheckoutPage = lazy(() =>
 const ComparePage = lazy(() =>
   import('./features/compare/pages/ComparePage').then((m) => ({ default: m.ComparePage })),
 );
-import { useCompareStore } from "./features/compare/state";
 const HomePage = lazy(() => import('./features/home/pages/HomePage'));
 const OfferTypeRoute = lazy(() =>
   import('./features/offer/pages/OfferTypePage').then((m) => ({ default: m.OfferTypeRoute })),
@@ -31,13 +33,13 @@ const OfferTypeRoute = lazy(() =>
 const FaqPage = lazy(() => import('./features/faq/pages/FaqPage'));
 const AppDownloadPage = lazy(() => import('./features/apps/pages/AppDownloadPage'));
 const SitemapPage = lazy(() => import('./features/seo/pages/SitemapPage'));
+const PrivacyPolicyPage = lazy(() => import('./features/legal/pages/PrivacyPolicyPage'));
+const TermsOfServicePage = lazy(() => import('./features/legal/pages/TermsOfServicePage'));
 const BrandPage = lazy(() => import('./features/products/pages/BrandPage'));
 const CategoryPage = lazy(() => import('./features/products/pages/CategoryPage'));
 const ProductDetailPage = lazy(() => import('./features/products/pages/ProductDetailPage'));
 const SearchResultsPage = lazy(() => import('./features/products/pages/SearchResultsPage'));
 const SearchPage = lazy(() => import('./features/search/pages/SearchPage'));
-import './styles/enhanced-ux.css';
-import './styles/globals.css';
 
 const lockPageScroll = () => {
   const body = document.body;
@@ -361,6 +363,8 @@ const AppContent: React.FC = () => {
               <Route path="/faq" element={<FaqPage />} />
               <Route path="/apps-download" element={<AppDownloadPage />} />
               <Route path="/sitemap" element={<SitemapPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms-of-service" element={<TermsOfServicePage />} />
               <Route path="/account/*" element={<AccountRoutes />} />
               <Route path="/login" element={<Navigate to="/account/login" replace />} />
               <Route path="/register" element={<Navigate to="/account/signup" replace />} />
