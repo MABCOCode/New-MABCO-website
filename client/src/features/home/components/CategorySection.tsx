@@ -1,8 +1,11 @@
 // components/CategorySection.tsx
 import { ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { iconsMap } from '../../../utils/iconMap';
 import { loadStaticCatalogData } from '../../../utils/staticCatalogData';
+import { useInView } from '../../../hooks/useInView';
+import { MotionStagger, MotionStaggerItem } from '../../../components/motion/MotionWrapper';
 
 // We'll fetch categories from the public static JSON at runtime. This keeps
 // low-change data in static files and avoids bundling large testdata.
@@ -38,6 +41,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [centerItems, setCenterItems] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [brandsRef, brandsInView] = useInView<HTMLDivElement>();
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     let mounted = true;
@@ -333,57 +338,65 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                 </div>
               </div>
             ))}
-          {!isLoading && categories.filter((cat: any) => cat.showInSlider !== false).map((category, index) => {
-            const IconComponent = category.icon;
-            const isSelected = selectedCategory === index;
-            
-            return (
-              <div
-                key={index}
-                ref={(node) => {
-                  categoryCardRefs.current[index] = node;
-                }}
-                onClick={() => selectCategory(index)}
-                className={`flex-shrink-0 w-32 sm:w-36 md:w-40 bg-white rounded-lg p-4 md:p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-2 group cursor-pointer snap-start ${
-                  isSelected
-                    ? "border-[#009FE3] bg-blue-50"
-                    : "border-gray-100 hover:border-[#009FE3]/30"
-                }`}
-              >
-                <div className="flex flex-col items-center text-center">
-                  <div
-                    className={`w-12 h-12 md:w-16 md:h-16 rounded-lg flex items-center justify-center mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-300 overflow-hidden ${
-                      isSelected
-                        ? "bg-gradient-to-br from-[#009FE3] to-[#007BC7] scale-110"
-                        : "bg-gradient-to-br from-[#009FE3] to-[#007BC7]"
-                    }`}
-                  >
-                    {category.image ? (
-                      <img 
-                        src={category.image} 
-                        alt={language === 'ar' ? category.name : category.nameEn}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <IconComponent className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                    )}
-                  </div>
-                  <h3
-                    className={`text-xs md:text-sm font-semibold transition-colors ${
-                      isSelected
-                        ? "text-[#009FE3]"
-                        : "text-gray-900"
-                    }`}
-                  >
-                    {language === 'ar' ? category.name : category.nameEn}
-                  </h3>
-                  {isSelected && (
-                    <ChevronUp className="w-5 h-5 text-[#009FE3] mt-2" />
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {!isLoading && (
+            <MotionStagger 
+              className="flex gap-4 w-full"
+              staggerDelay={0.08}
+            >
+              {categories.filter((cat: any) => cat.showInSlider !== false).map((category, index) => {
+                const IconComponent = category.icon;
+                const isSelected = selectedCategory === index;
+                
+                return (
+                  <MotionStaggerItem key={index}>
+                    <div
+                      ref={(node) => {
+                        categoryCardRefs.current[index] = node;
+                      }}
+                      onClick={() => selectCategory(index)}
+                      className={`flex-shrink-0 w-32 sm:w-36 md:w-40 bg-white rounded-lg p-4 md:p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-2 group cursor-pointer snap-start ${
+                        isSelected
+                          ? "border-[#009FE3] bg-blue-50"
+                          : "border-gray-100 hover:border-[#009FE3]/30"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        <div
+                          className={`w-12 h-12 md:w-16 md:h-16 rounded-lg flex items-center justify-center mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-300 overflow-hidden ${
+                            isSelected
+                              ? "bg-gradient-to-br from-[#009FE3] to-[#007BC7] scale-110"
+                              : "bg-gradient-to-br from-[#009FE3] to-[#007BC7]"
+                          }`}
+                        >
+                          {category.image ? (
+                            <img 
+                              src={category.image} 
+                              alt={language === 'ar' ? category.name : category.nameEn}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <IconComponent className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                          )}
+                        </div>
+                        <h3
+                          className={`text-xs md:text-sm font-semibold transition-colors ${
+                            isSelected
+                              ? "text-[#009FE3]"
+                              : "text-gray-900"
+                          }`}
+                        >
+                          {language === 'ar' ? category.name : category.nameEn}
+                        </h3>
+                      {isSelected && (
+                        <ChevronUp className="w-5 h-5 text-[#009FE3] mt-2" />
+                      )}
+                      </div>
+                    </div>
+                  </MotionStaggerItem>
+                );
+              })}
+            </MotionStagger>
+          )}
         </div>
 
         {/* Right Scroll Button */}
@@ -473,13 +486,17 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                 }
 
                 return (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-5 w-full">
+                  <div ref={brandsRef} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-5 w-full">
                     {visibleBrands.map((brand: any, idx: number) => {
                       const brandObj = typeof brand === "string" ? { name: brand } : brand;
                       const isBlueTint = brandObj.uiTint === "blue";
                       return (
-                        <div
+                        <motion.div
                           key={brandObj.brand_code || idx}
+                          initial={shouldReduceMotion ? undefined : { opacity: 0, y: -24 }}
+                          animate={brandsInView || shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -24 }}
+                          transition={{ duration: 0.42, delay: idx * 0.05, ease: [0.25, 0.1, 0.25, 1] }}
+                          whileHover={shouldReduceMotion ? undefined : { y: -4 }}
                           className="bg-white rounded-2xl p-3 sm:p-4 md:p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group min-w-0"
                           onClick={() => {
                             if (onBrandClick) {
@@ -530,7 +547,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                               </h4>
                             )}
                           </div>
-                        </div>
+                        </motion.div>
                       );
                     })}
                   </div>

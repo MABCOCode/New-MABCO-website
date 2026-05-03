@@ -1,5 +1,5 @@
 import { ArrowRight, BadgePercent, Gift, Package, Sparkles, Tag, Ticket } from "lucide-react";
-import { useRef } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   Carousel,
   CarouselContent,
@@ -7,6 +7,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "../../../components/ui/carousel";
+import { useInView } from "../../../hooks/useInView";
 
 interface OfferType {
   id: string;
@@ -78,7 +79,11 @@ const offerTypes: OfferType[] = [
 ];
 
 export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderProps) {
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const [sectionRef, isSectionInView] = useInView<HTMLDivElement>({
+    rootMargin: "0px 0px -140px 0px",
+    threshold: 0.45,
+  });
+  const shouldReduceMotion = useReducedMotion();
 
   const getOfferIcon = (type: string) => {
     switch (type) {
@@ -137,23 +142,44 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
 
   return (
     <div ref={sectionRef} className="relative">
-      <Carousel
-        opts={{
-          align: "start",
-          loop: true,
-          direction: language === "ar" ? "rtl" : "ltr",
-        }}
-        className="w-full"
-      >
+      <div>
+        <Carousel
+          opts={{
+            align: "start",
+            loop: true,
+            direction: language === "ar" ? "rtl" : "ltr",
+          }}
+          className="w-full"
+        >
         <CarouselContent className="-ml-2 md:-ml-4">
           {offerTypes.map((offer, index) => {
             const Icon = getOfferIcon(offer.type);
 
             return (
               <CarouselItem key={offer.id} className="pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
-                <div
-                  onClick={() => onOfferTypeClick?.(offer.type)}
+                <motion.div
+                  initial={shouldReduceMotion ? false : { opacity: 1, scale: 0.94, rotateY: language === "ar" ? -80 : 80, y: 20 }}
+                  animate={
+                    shouldReduceMotion || isSectionInView
+                      ? { opacity: 1, scale: 1, rotateY: 0, y: 0 }
+                      : { opacity: 1, scale: 0.94, rotateY: language === "ar" ? -80 : 80, y: 20 }
+                  }
+                  whileHover={shouldReduceMotion ? undefined : { y: -6, rotateY: language === "ar" ? -12 : 12 }}
+                  transition={{
+                    duration: 0.55,
+                    delay: index * 0.08,
+                    ease: [0.25, 0.1, 0.25, 1],
+                  }}
                   className="relative h-[450px] sm:h-[500px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl"
+                  style={{
+                    perspective: "1200px",
+                    transformStyle: "preserve-3d",
+                    backfaceVisibility: "hidden",
+                    transformOrigin: "center center",
+                    backgroundColor: "transparent",
+                    willChange: "transform, opacity",
+                  }}
+                  onClick={() => onOfferTypeClick?.(offer.type)}
                 >
                   {/* Gradient Background */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${offer.gradient}`}></div>
@@ -228,19 +254,20 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
                   {/* Decorative Gradient Orbs */}
                   <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
                   <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-white/10 rounded-full blur-3xl"></div>
-                </div>
+                </motion.div>
               </CarouselItem>
             );
           })}
         </CarouselContent>
 
-          <CarouselPrevious
+                  <CarouselPrevious
                     className={`${language === "ar" ? "translate-x-1/2" : "-translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
                   />
                   <CarouselNext
                     className={`${language === "ar" ? "-translate-x-1/2" : "translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
                   />
-      </Carousel>
+        </Carousel>
+      </div>
     </div>
   );
 }

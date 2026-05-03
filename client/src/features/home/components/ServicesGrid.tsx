@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { servicesData } from "../../../data/servicesData";
+import { MotionStagger, MotionStaggerItem } from "../../../components/motion/MotionWrapper";
 
 interface ServicesGridProps {
   language?: "ar" | "en";
@@ -49,61 +50,56 @@ export function ServicesGrid({ language, onServiceClick }: ServicesGridProps) {
         </div>
 
         {/* Services Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {servicesData.map((service, index) => {
+        <MotionStagger className="flex flex-wrap justify-center gap-4 md:gap-6" staggerDelay={0.05}>
+          {servicesData.map((service) => {
             const IconComponent = iconMap[service.icon];
             return (
-              <div
-                key={service.id}
-                className="group relative bg-white rounded-2xl border-2 border-gray-200 hover:border-transparent hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer"
-                onClick={() => onServiceClick(service.path)}
-                style={{
-                  animationDelay: `${index * 100}ms`,
-                  
-                }}
-        
-                
-              >
-                {/* Gradient Background on Hover */}
+              <MotionStaggerItem key={service.id}>
                 <div
-                  className={`absolute inset-0 bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
-                ></div>
+                  className="group relative bg-white rounded-lg border-2 border-gray-200 hover:border-transparent hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer w-32 sm:w-36 md:w-40 flex-shrink-0"
+                  onClick={() => onServiceClick(service.path)}
+                >
+                  {/* Gradient Background on Hover */}
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+                  ></div>
 
-                {/* Content */}
-                <div className="relative p-8" style={{ textAlign: "center" }}>
-                  {/* Icon */}
-                  <div className="mb-6">
-                    <div
-                      className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br ${service.gradient} group-hover:bg-white group-hover:shadow-xl transition-all duration-500`}
-                    >
-                      <IconComponent className="w-8 h-8 text-white group-hover:text-gray-900 transition-colors duration-500" />
+                  {/* Content */}
+                  <div className="relative p-4 md:p-6" style={{ textAlign: "center" }}>
+                    {/* Icon */}
+                    <div className="mb-2 md:mb-3">
+                      <div
+                        className={`inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-lg bg-gradient-to-br ${service.gradient} group-hover:bg-white group-hover:shadow-xl transition-all duration-500`}
+                      >
+                        <IconComponent className="w-6 h-6 md:w-8 md:h-8 text-white group-hover:text-gray-900 transition-colors duration-500" />
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="text-sm md:text-base font-bold text-gray-900 group-hover:text-white transition-colors duration-500">
+                      {activeLang === "ar" ? service.nameAr : service.nameEn}
+                    </h3>
+
+                    {/* Description - Commented Out */}
+                    {/* <p className="text-gray-600 group-hover:text-white/90 mb-6 transition-colors duration-500 leading-relaxed">
+                      {activeLang === "ar" ? service.descriptionAr : service.descriptionEn}
+                    </p> */}
+
+                    {/* CTA Button */}
+                    <div className="hidden group-hover:flex items-center gap-1 justify-center text-white font-bold transition-colors duration-500 mt-2 text-xs">
+                      <span>{t("exploreService")}</span>
+                      <ArrowRight className="w-3 h-3 transform" />
                     </div>
                   </div>
 
-                  {/* Title */}
-                  <h3 className="text-2xl font-bold text-gray-900 group-hover:text-white mb-3 transition-colors duration-500">
-                    {activeLang === "ar" ? service.nameAr : service.nameEn}
-                  </h3>
-
-                  {/* Description */}
-                  <p className="text-gray-600 group-hover:text-white/90 mb-6 transition-colors duration-500 leading-relaxed">
-                    {activeLang === "ar" ? service.descriptionAr : service.descriptionEn}
-                  </p>
-
-                  {/* CTA Button */}
-                  <div className="flex items-center gap-2 justify-center text-[#009FE3] group-hover:text-white font-bold transition-colors duration-500">
-                    <span>{t("exploreService")}</span>
-                    <ArrowRight className="w-5 h-5 transform group-hover:translate-x-2 transition-transform duration-500" />
-                  </div>
+                  {/* Decorative Elements */}
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-white/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                  <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-white/20 to-transparent rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
                 </div>
-
-                {/* Decorative Elements */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/20 to-transparent rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-white/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-              </div>
+              </MotionStaggerItem>
             );
           })}
-        </div>
+        </MotionStagger>
 
         {/* JSON-LD SEO for services */}
         <script type="application/ld+json">
