@@ -80,8 +80,8 @@ const offerTypes: OfferType[] = [
 
 export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderProps) {
   const [sectionRef, isSectionInView] = useInView<HTMLDivElement>({
-    rootMargin: "0px 0px -140px 0px",
-    threshold: 0.45,
+    rootMargin: "0px 0px -100px 0px",
+    threshold: 0.1,
   });
   const shouldReduceMotion = useReducedMotion();
 
@@ -142,6 +142,29 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
 
   return (
     <div ref={sectionRef} className="relative">
+      <style>
+        {`
+          /* Pre-render gradient styles to avoid flash */
+          .card-gradient-direct_discount { background: linear-gradient(135deg, #ef4444, #ec4899, #e11d48); }
+          .card-gradient-coupon { background: linear-gradient(135deg, #3b82f6, #6366f1, #9333ea); }
+          .card-gradient-free_product { background: linear-gradient(135deg, #22c55e, #10b981, #0d9488); }
+          .card-gradient-bundle_discount { background: linear-gradient(135deg, #a855f7, #8b5cf6, #d946ef); }
+          
+          /* Force hardware acceleration and prevent flickering */
+          .offer-card {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            perspective: 1200px;
+            transform-style: preserve-3d;
+          }
+          
+          .offer-card > * {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+          }
+        `}
+      </style>
       <div>
         <Carousel
           opts={{
@@ -151,121 +174,101 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
           }}
           className="w-full"
         >
-        <CarouselContent className="-ml-2 md:-ml-4">
-          {offerTypes.map((offer, index) => {
-            const Icon = getOfferIcon(offer.type);
+          <CarouselContent className="-ml-2 md:-ml-4">
+            {offerTypes.map((offer, index) => {
+              const Icon = getOfferIcon(offer.type);
 
-            return (
-              <CarouselItem key={offer.id} className="pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
-                <motion.div
-                  initial={shouldReduceMotion ? false : { opacity: 1, scale: 0.94, rotateY: language === "ar" ? -80 : 80, y: 20 }}
-                  animate={
-                    shouldReduceMotion || isSectionInView
-                      ? { opacity: 1, scale: 1, rotateY: 0, y: 0 }
-                      : { opacity: 1, scale: 0.94, rotateY: language === "ar" ? -80 : 80, y: 20 }
-                  }
-                  whileHover={shouldReduceMotion ? undefined : { y: -6, rotateY: language === "ar" ? -12 : 12 }}
-                  transition={{
-                    duration: 0.55,
-                    delay: index * 0.08,
-                    ease: [0.25, 0.1, 0.25, 1],
-                  }}
-                  className="relative h-[450px] sm:h-[500px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl"
-                  style={{
-                    perspective: "1200px",
-                    transformStyle: "preserve-3d",
-                    backfaceVisibility: "hidden",
-                    transformOrigin: "center center",
-                    backgroundColor: "transparent",
-                    willChange: "transform, opacity",
-                  }}
-                  onClick={() => onOfferTypeClick?.(offer.type)}
-                >
-                  {/* Gradient Background */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${offer.gradient}`}></div>
+              return (
+                <CarouselItem key={offer.id} className="pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+                  <motion.div
+                    initial={shouldReduceMotion ? false : { rotateY: language === "ar" ? -90 : 90, y: 20 }}
+                    animate={isSectionInView || shouldReduceMotion ? { rotateY: 0, y: 0 } : { rotateY: language === "ar" ? -90 : 90, y: 20 }}
+                    whileHover={shouldReduceMotion ? undefined : { y: -6, rotateY: language === "ar" ? -12 : 12 }}
+                    transition={{
+                      duration: 0.55,
+                      delay: index * 0.08,
+                      ease: [0.25, 0.1, 0.25, 1],
+                    }}
+                    className="offer-card relative h-[450px] sm:h-[500px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl"
+                    onClick={() => onOfferTypeClick?.(offer.type)}
+                  >
+                    {/* Solid background color as fallback - prevents white flash */}
+                    <div className="absolute inset-0 bg-gray-900"></div>
+                    
+                    {/* Gradient Background - Using inline style for immediate rendering */}
+                    <div 
+                      className={`absolute inset-0 bg-gradient-to-br ${offer.gradient}`}
+                      style={{
+                        // Force gradient to render immediately
+                        willChange: 'transform',
+                        transform: 'translateZ(0)',
+                      }}
+                    ></div>
 
-                  {/* Animated Pattern Elements */}
-                  <div className="absolute inset-0 overflow-hidden opacity-60">
-                    {getPatternElements(offer.pattern)}
-                  </div>
+                    {/* Animated Pattern Elements */}
+                    <div className="absolute inset-0 overflow-hidden opacity-60">
+                      {getPatternElements(offer.pattern)}
+                    </div>
 
-                  {/* Overlay for depth */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/20 to-transparent"></div>
+                    {/* Overlay for depth */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/20 to-transparent"></div>
 
-                  {/* Content - Vertical Layout */}
-                  <div className="relative h-full flex flex-col justify-between p-6">
-                    {/* Top Section - Icon & Type */}
-                    <div className="space-y-4">
-                      {/* Icon Badge */}
-                      <div className="inline-flex items-center gap-2 bg-white/25 backdrop-blur-md border-2 border-white/40 rounded-xl px-4 py-2">
-                        <Icon className="w-6 h-6 text-white" />
-                        <span className="text-white font-bold text-sm">
-                          {language === "ar" ? "عرض خاص" : "Special Offer"}
-                        </span>
+                    {/* Content - All pre-rendered */}
+                    <div className="relative h-full flex flex-col justify-between p-6">
+                      {/* Top Section - Icon & Type */}
+                      <div className="space-y-4">
+                        {/* Icon Badge */}
+                        <div className="inline-flex items-center gap-2 bg-white/25 backdrop-blur-md border-2 border-white/40 rounded-xl px-4 py-2">
+                          <Icon className="w-6 h-6 text-white" />
+                          <span className="text-white font-bold text-sm">
+                            {language === "ar" ? "عرض خاص" : "Special Offer"}
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow-2xl">
+                          {language === "ar" ? offer.titleAr : offer.titleEn}
+                        </h3>
                       </div>
 
-                      {/* Title */}
-                      <h3 className="text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow-2xl">
-                        {language === "ar" ? offer.titleAr : offer.titleEn}
-                      </h3>
-                    </div>
+                      {/* Middle Section - Description */}
+                      <div className="flex-1 flex items-center">
+                        <p className="text-base md:text-lg text-white/95 leading-relaxed">
+                          {language === "ar" ? offer.descriptionAr : offer.descriptionEn}
+                        </p>
+                      </div>
 
-                    {/* Middle Section - Description */}
-                    <div className="flex-1 flex items-center">
-                      <p className="text-base md:text-lg text-white/95 leading-relaxed">
-                        {language === "ar" ? offer.descriptionAr : offer.descriptionEn}
-                      </p>
-                    </div>
-
-                    {/* Bottom Section - Highlight & CTA */}
-                    <div className="space-y-4">
-                      {/* Highlight Box */}
-                      {/* <div className="bg-white rounded-xl px-5 py-4 shadow-xl group-hover:scale-105 transition-transform duration-300">
-                        <div className="flex items-center gap-3">
-                          <Zap className="w-7 h-7 text-yellow-500 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-xs text-gray-500 mb-1">
-                              {language === "ar" ? "وفّر الآن" : "Save Now"}
-                            </p>
-                            <p
-                              className={`text-xl md:text-2xl font-bold bg-gradient-to-r ${offer.gradient} bg-clip-text text-transparent`}
-                            >
-                              {language === "ar" ? offer.highlightAr : offer.highlightEn}
-                            </p>
+                      {/* Bottom Section - CTA */}
+                      <div className="space-y-4">
+                        {/* CTA Button */}
+                        <button className="w-full group/btn bg-white/20 backdrop-blur-sm border-2 border-white/40 text-white px-6 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-3 transition-all duration-200 hover:bg-white/30 hover:scale-105">
+                          <span>{language === "ar" ? "استكشف العروض" : "Explore Offers"}</span>
+                          <div className="relative">
+                            <ArrowRight
+                              className={`w-5 h-5 transition-transform duration-200 group-hover/btn:translate-x-1 ${
+                                language === "ar" ? "rotate-180 group-hover/btn:-translate-x-1" : ""
+                              }`}
+                            />
                           </div>
-                        </div>
-                      </div> */}
-
-                      {/* CTA Button */}
-                      <button className="w-full group/btn bg-white/20 backdrop-blur-sm border-2 border-white/40 text-white px-6 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-3">
-                        <span>{language === "ar" ? "استكشف العروض" : "Explore Offers"}</span>
-                        <div className="relative">
-                          <ArrowRight
-                            className={`w-5 h-5 ${
-                              language === "ar" ? "rotate-180" : ""
-                            }`}
-                          />
-                          {/* <Sparkles className="w-3 h-3 text-yellow-300 absolute -top-1 -right-1 animate-pulse" /> */}
-                        </div>
-                      </button>
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Decorative Gradient Orbs */}
-                  <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-                  <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-white/10 rounded-full blur-3xl"></div>
-                </motion.div>
-              </CarouselItem>
-            );
-          })}
-        </CarouselContent>
+                    {/* Decorative Gradient Orbs */}
+                    <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-xl opacity-50"></div>
+                    <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-white/10 rounded-full blur-xl opacity-50"></div>
+                  </motion.div>
+                </CarouselItem>
+              );
+            })}
+          </CarouselContent>
 
-                  <CarouselPrevious
-                    className={`${language === "ar" ? "translate-x-1/2" : "-translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
-                  />
-                  <CarouselNext
-                    className={`${language === "ar" ? "-translate-x-1/2" : "translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
-                  />
+          <CarouselPrevious
+            className={`${language === "ar" ? "translate-x-1/2" : "-translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
+          />
+          <CarouselNext
+            className={`${language === "ar" ? "-translate-x-1/2" : "translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
+          />
         </Carousel>
       </div>
     </div>
