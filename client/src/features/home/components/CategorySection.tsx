@@ -7,9 +7,6 @@ import { loadStaticCatalogData } from '../../../utils/staticCatalogData';
 import { useInView } from '../../../hooks/useInView';
 import { MotionStagger, MotionStaggerItem } from '../../../components/motion/MotionWrapper';
 
-// We'll fetch categories from the public static JSON at runtime. This keeps
-// low-change data in static files and avoids bundling large testdata.
-
 interface CategorySectionProps {
   language: 'ar' | 'en';
   onBrandClick?: (brandCode: string, categoryCode: string, categoryNameEn: string) => void;
@@ -29,7 +26,6 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const brandsPanelRef = useRef<HTMLDivElement>(null);
   const categoryCardRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const animationTimerRef = useRef<number | null>(null);
   const lastAppliedCategoryCodeRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
   const dragMovedRef = useRef(false);
@@ -41,7 +37,11 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [centerItems, setCenterItems] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [brandsRef, brandsInView] = useInView<HTMLDivElement>();
+  const [brandsRef, brandsInView] = useInView<HTMLDivElement>({
+    rootMargin: "0px 0px -50px 0px",
+    threshold: 0.05,
+    triggerOnce: true,
+  });
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -123,7 +123,6 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         setCategories(orderedCategories);
         setIsLoading(false);
       } catch (e) {
-        // Keep shimmer visible and retry on network/timeouts.
         console.warn('Failed to load categories.json', e);
         if (mounted) {
           retryTimer = setTimeout(load, 3000);
@@ -139,24 +138,11 @@ const CategorySection: React.FC<CategorySectionProps> = ({
     };
   }, []);
 
-  const triggerAnimation = () => {
-    // Animation removed to prevent lag
-  };
-
-  useEffect(() => {
-    // Animation removed to prevent lag
-  }, [isLoading]);
-
-  useEffect(() => {
-    // Animation removed to prevent lag
-  }, []);
-
   // Determine whether items fit within the container and should be centered
   useEffect(() => {
     const updateCentering = () => {
       const container = categoriesScrollRef.current;
       if (!container) return;
-      // Add a small tolerance
       const fits = container.scrollWidth <= container.clientWidth + 1;
       setCenterItems(fits);
     };
@@ -193,18 +179,12 @@ const CategorySection: React.FC<CategorySectionProps> = ({
     const container = categoriesScrollRef.current;
     
     if (activeCategoryCard && container) {
-      // Manually scroll the container to center the card without affecting page scroll
       const cardRect = activeCategoryCard.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
-      
-      // Calculate the offset needed to center the card within the container
       const cardCenterOffset = cardRect.left - containerRect.left + cardRect.width / 2;
       const containerCenterOffset = containerRect.width / 2;
-      
-      // Calculate the scroll position
       const scrollLeft = container.scrollLeft + (cardCenterOffset - containerCenterOffset);
       
-      // Smoothly scroll to the calculated position
       container.scrollTo({
         left: scrollLeft,
         behavior: 'auto'
@@ -221,14 +201,10 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         target.getBoundingClientRect().top + window.scrollY - navHeight - 8,
       );
       window.scrollTo({ top, behavior: 'auto' });
-    }, 180);
+    }, 100); // Reduced from 180ms to 100ms
 
     return () => window.clearTimeout(timer);
   }, [selectedCategory]);
-  
-  // `categories` state is loaded from public/static/categories.json
-
-  // Native horizontal scrolling gives smoother sliding on touch devices.
 
   const scrollCategories = (direction: 'left' | 'right') => {
     if (categoriesScrollRef.current) {
@@ -297,7 +273,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         {/* Left Scroll Button */}
         <button
           onClick={() => scrollCategories('left')}
-          className={`absolute ${language === 'ar' ? 'right-2' : 'left-2'} top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white shadow-2xl border-2 border-gray-300 hover:border-[#009FE3] rounded-full p-2 transition-all duration-200`}
+          className={`absolute ${language === 'ar' ? 'right-2' : 'left-2'} top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white shadow-2xl border-2 border-gray-300 hover:border-[#009FE3] rounded-full p-2 transition-all duration-150`}
         >
           {language === 'ar' ? (
             <ChevronRight className="w-5 h-5 text-gray-700" />
@@ -341,7 +317,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
           {!isLoading && (
             <MotionStagger 
               className="flex gap-4 w-full"
-              staggerDelay={0.08}
+              staggerDelay={0.03} // Reduced from 0.08 to 0.03 for faster animation
             >
               {categories.filter((cat: any) => cat.showInSlider !== false).map((category, index) => {
                 const IconComponent = category.icon;
@@ -354,7 +330,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                         categoryCardRefs.current[index] = node;
                       }}
                       onClick={() => selectCategory(index)}
-                      className={`flex-shrink-0 w-32 sm:w-36 md:w-40 bg-white rounded-lg p-4 md:p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-2 group cursor-pointer snap-start ${
+                      className={`flex-shrink-0 w-32 sm:w-36 md:w-40 bg-white rounded-lg p-4 md:p-6 shadow-lg hover:shadow-xl transition-all duration-200 border-2 group cursor-pointer snap-start ${
                         isSelected
                           ? "border-[#009FE3] bg-blue-50"
                           : "border-gray-100 hover:border-[#009FE3]/30"
@@ -362,7 +338,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                     >
                       <div className="flex flex-col items-center text-center">
                         <div
-                          className={`w-12 h-12 md:w-16 md:h-16 rounded-lg flex items-center justify-center mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-300 overflow-hidden ${
+                          className={`w-12 h-12 md:w-16 md:h-16 rounded-lg flex items-center justify-center mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-200 overflow-hidden ${
                             isSelected
                               ? "bg-gradient-to-br from-[#009FE3] to-[#007BC7] scale-110"
                               : "bg-gradient-to-br from-[#009FE3] to-[#007BC7]"
@@ -373,13 +349,14 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                               src={category.image} 
                               alt={language === 'ar' ? category.name : category.nameEn}
                               className="w-full h-full object-cover"
+                              loading="eager" // Added eager loading for faster display
                             />
                           ) : (
                             <IconComponent className="w-6 h-6 md:w-8 md:h-8 text-white" />
                           )}
                         </div>
                         <h3
-                          className={`text-xs md:text-sm font-semibold transition-colors ${
+                          className={`text-xs md:text-sm font-semibold transition-colors duration-150 ${
                             isSelected
                               ? "text-[#009FE3]"
                               : "text-gray-900"
@@ -402,7 +379,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         {/* Right Scroll Button */}
         <button
           onClick={() => scrollCategories('right')}
-          className={`absolute ${language === 'ar' ? 'left-2' : 'right-2'} top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white shadow-2xl border-2 border-gray-300 hover:border-[#009FE3] rounded-full p-2 transition-all duration-200`}
+          className={`absolute ${language === 'ar' ? 'left-2' : 'right-2'} top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white shadow-2xl border-2 border-gray-300 hover:border-[#009FE3] rounded-full p-2 transition-all duration-150`}
         >
           {language === 'ar' ? (
             <ChevronLeft className="w-5 h-5 text-gray-700" />
@@ -415,7 +392,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
       {/* Brands Section - Toggle visibility */}
       <div
         ref={brandsPanelRef}
-        className={`overflow-hidden transition-all duration-500 ease-in-out ${
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
           selectedCategory !== null
             ? "max-h-[2000px] opacity-100 mt-8"
             : "max-h-0 opacity-0"
@@ -432,7 +409,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
               {onSelectCategory && (
                 <button
                   onClick={() => onSelectCategory(null)}
-                  className="absolute right-0 text-gray-500 hover:text-[#009FE3] transition-colors"
+                  className="absolute right-0 text-gray-500 hover:text-[#009FE3] transition-colors duration-150"
                 >
                   <ChevronUp className="w-6 h-6" />
                 </button>
@@ -490,14 +467,19 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                     {visibleBrands.map((brand: any, idx: number) => {
                       const brandObj = typeof brand === "string" ? { name: brand } : brand;
                       const isBlueTint = brandObj.uiTint === "blue";
+                      const shouldAnimate = shouldReduceMotion ? false : (brandsInView || idx < 6); // Show first 6 immediately
                       return (
                         <motion.div
                           key={brandObj.brand_code || idx}
-                          initial={shouldReduceMotion ? undefined : { opacity: 0, y: -24 }}
-                          animate={brandsInView || shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -24 }}
-                          transition={{ duration: 0.42, delay: idx * 0.05, ease: [0.25, 0.1, 0.25, 1] }}
-                          whileHover={shouldReduceMotion ? undefined : { y: -4 }}
-                          className="bg-white rounded-2xl p-3 sm:p-4 md:p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group min-w-0"
+                          initial={shouldAnimate ? { opacity: 0, y: -12 } : false}
+                          animate={shouldAnimate ? { opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
+                          transition={{ 
+                            duration: 0.25, // Reduced from 0.42 to 0.25
+                            delay: Math.min(idx * 0.02, 0.2), // Reduced and capped max delay
+                            ease: [0.25, 0.1, 0.25, 1] 
+                          }}
+                          whileHover={shouldReduceMotion ? undefined : { y: -3 }} // Reduced from -4 to -3
+                          className="bg-white rounded-2xl p-3 sm:p-4 md:p-6 shadow-md hover:shadow-xl transition-all duration-200 border border-gray-100 hover:border-[#009FE3]/30 cursor-pointer group min-w-0"
                           onClick={() => {
                             if (onBrandClick) {
                               onBrandClick(
@@ -510,7 +492,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                         >
                           <div className="flex flex-col items-center text-center">
                             <div
-                              className={`w-full h-32 sm:h-36 md:h-40 rounded-2xl flex items-center justify-center mb-3 md:mb-4  transition-colors ${
+                              className={`w-full h-32 sm:h-36 md:h-40 rounded-2xl flex items-center justify-center mb-3 md:mb-4 transition-colors duration-150 ${
                                 isBlueTint
                                   ? ""
                                   : "bg-gray-50 group-hover:bg-gray-100"
@@ -525,14 +507,16 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                                     ? { display: "none" }
                                     : undefined
                                 }
+                                loading="eager" // Added eager loading
                               />
                               {isBlueTint && (
-                                <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 bg-gradient-to-br from-[#009FE3] to-[#007BC7]">
+                                <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200 bg-gradient-to-br from-[#009FE3] to-[#007BC7]">
                                   <img
                                     src={brandObj.image || "https://via.placeholder.com/150"}
                                     alt={`${brandObj.name} Logo`}
                                     className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain object-center"
                                     style={{ filter: "brightness(0) saturate(100%) invert(100%)" }}
+                                    loading="eager"
                                   />
                                 </div>
                               )}

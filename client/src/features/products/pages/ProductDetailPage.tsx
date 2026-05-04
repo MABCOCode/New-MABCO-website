@@ -31,6 +31,7 @@ import {
     X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
     Carousel,
@@ -1547,6 +1548,34 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
     return itemProductId === prod.id && !item.isBundleItem && !item.isFreeGift;
   });
 
+  const products: any[] = [];
+  const shouldReduceMotion = useReducedMotion();
+  const defaultEase = [0.22, 0.61, 0.36, 1] as const;
+  const motionTransition = (delay = 0) => ({
+    duration: shouldReduceMotion ? 0 : 0.32,
+    ease: defaultEase,
+    delay: shouldReduceMotion ? 0 : delay,
+  });
+
+  const pageVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { when: "beforeChildren", staggerChildren: 0.08 } },
+  };
+
+  const fadeUpVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
+
+  const imageVariants = {
+    hidden: { opacity: 0, y: 18, scale: 0.96 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: { duration: shouldReduceMotion ? 0 : 0.34, ease: defaultEase },
+    },
+  };
 
   // Carousel effect - update when carousel changes
   useEffect(() => {
@@ -1841,9 +1870,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   }
 
   return (
-    <section
+    <motion.section
       dir={language === "ar" ? "rtl" : "ltr"}
       className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50"
+      initial={shouldReduceMotion ? "visible" : "hidden"}
+      animate="visible"
+      variants={pageVariants}
     >
         {/* Editable Badge removed from fixed position; rendered below breadcrumb */}
         {/* Improved Breadcrumb */}
@@ -1928,7 +1960,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           <div className="lg:col-span-5">
             <div className="sticky top-32">
-              <div className="relative group">
+              <motion.div
+            className="relative group"
+            initial="hidden"
+            animate="visible"
+            variants={imageVariants}
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+          >
                 {/* Carousel for Images - Fixed width constraint */}
                 <Carousel
                   key={`${prod?.id}-${displayColor}`}
@@ -2189,13 +2227,20 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
+            </motion.div>
+          </div>
+
           </div>
 
           <div className="lg:col-span-7">
             {/* Product Name - Editable */}
-            <div className="mb-4 sm:mb-6">
+            <motion.div
+              className="mb-4 sm:mb-6"
+              initial="hidden"
+              animate="visible"
+              variants={fadeUpVariants}
+              transition={motionTransition(0.08)}
+            >
               {userPermissions.canEditContent ? (
                 isEditingProductName ? (
                   <div className="space-y-3 animate-fadeIn">
@@ -2295,9 +2340,15 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 </div>
               )}
 
-            </div>
+            </motion.div>
 
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50/50 rounded-2xl p-6 mb-6 border-2 border-[#009FE3]/20">
+            <motion.div
+              className="bg-gradient-to-br from-blue-50 to-indigo-50/50 rounded-2xl p-6 mb-6 border-2 border-[#009FE3]/20"
+              initial="hidden"
+              animate="visible"
+              variants={fadeUpVariants}
+              transition={motionTransition(0.16)}
+            >
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div className="flex-1">
                   <div className="text-sm font-semibold text-gray-500 mb-2">
@@ -2345,7 +2396,13 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                 </div>
               </div>
 
-              <div className="space-y-2 sm:space-y-3">
+              <motion.div
+                className="space-y-2 sm:space-y-3"
+                initial="hidden"
+                animate="visible"
+                variants={fadeUpVariants}
+                transition={motionTransition(0.24)}
+              >
                 <div className="flex items-stretch gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
                   {/* Quantity Selector */}
                   <div className="flex items-center bg-white rounded-lg sm:rounded-xl border-2 border-gray-200 overflow-hidden">
@@ -2406,8 +2463,9 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
                         : "Compare"}
                   </span>
                 </button>
-              </div>
-            </div>
+              
+            </motion.div>
+          </motion.div>
 
             {/* Description 
             {prod?.description && (
@@ -3227,9 +3285,12 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
           </div>
         </div>
       )}
-    </section>
+    </motion.section>
+    
   );
+
 }
+
 
 export default ProductDetailPage;
 

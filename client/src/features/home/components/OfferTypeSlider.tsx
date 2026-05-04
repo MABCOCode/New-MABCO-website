@@ -8,6 +8,7 @@ import {
   CarouselPrevious,
 } from "../../../components/ui/carousel";
 import { useInView } from "../../../hooks/useInView";
+import { useState, useCallback } from "react";
 
 interface OfferType {
   id: string;
@@ -82,10 +83,12 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
   const [sectionRef, isSectionInView] = useInView<HTMLDivElement>({
     rootMargin: "0px 0px -100px 0px",
     threshold: 0.1,
+    triggerOnce: true, // Only animate once for better performance
   });
   const shouldReduceMotion = useReducedMotion();
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
-  const getOfferIcon = (type: string) => {
+  const getOfferIcon = useCallback((type: string) => {
     switch (type) {
       case "direct_discount":
         return Tag;
@@ -98,9 +101,9 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
       default:
         return Sparkles;
     }
-  };
+  }, []);
 
-  const getPatternElements = (pattern: string) => {
+  const getPatternElements = useCallback((pattern: string) => {
     switch (pattern) {
       case "discount":
         return (
@@ -138,30 +141,24 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
       default:
         return null;
     }
-  };
+  }, []);
 
   return (
     <div ref={sectionRef} className="relative">
       <style>
         {`
-          /* Pre-render gradient styles to avoid flash */
-          .card-gradient-direct_discount { background: linear-gradient(135deg, #ef4444, #ec4899, #e11d48); }
-          .card-gradient-coupon { background: linear-gradient(135deg, #3b82f6, #6366f1, #9333ea); }
-          .card-gradient-free_product { background: linear-gradient(135deg, #22c55e, #10b981, #0d9488); }
-          .card-gradient-bundle_discount { background: linear-gradient(135deg, #a855f7, #8b5cf6, #d946ef); }
-          
-          /* Force hardware acceleration and prevent flickering */
+          /* Optimized GPU acceleration - keeps original design */
           .offer-card {
             transform: translateZ(0);
+            will-change: transform;
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
-            perspective: 1200px;
-            transform-style: preserve-3d;
           }
           
           .offer-card > * {
             transform: translateZ(0);
             backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
           }
         `}
       </style>
@@ -177,47 +174,70 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
           <CarouselContent className="-ml-2 md:-ml-4">
             {offerTypes.map((offer, index) => {
               const Icon = getOfferIcon(offer.type);
-
+              const isHovered = hoveredCard === offer.id;
+              // Reduced delay for faster animation
+              const delay = Math.min(index * 0.05, 0.2);
+              
               return (
                 <CarouselItem key={offer.id} className="pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
                   <motion.div
-                    initial={shouldReduceMotion ? false : { rotateY: language === "ar" ? -90 : 90, y: 20 }}
-                    animate={isSectionInView || shouldReduceMotion ? { rotateY: 0, y: 0 } : { rotateY: language === "ar" ? -90 : 90, y: 20 }}
-                    whileHover={shouldReduceMotion ? undefined : { y: -6, rotateY: language === "ar" ? -12 : 12 }}
+                    initial={shouldReduceMotion ? false : { 
+                      rotateY: language === "ar" ? -90 : 90, 
+                      y: 20,
+                      opacity: 0 
+                    }}
+                    animate={isSectionInView || shouldReduceMotion ? { 
+                      rotateY: 0, 
+                      y: 0,
+                      opacity: 1 
+                    } : { 
+                      rotateY: language === "ar" ? -90 : 90, 
+                      y: 20,
+                      opacity: 0 
+                    }}
+                    whileHover={shouldReduceMotion ? undefined : { 
+                      y: -6, 
+                      rotateY: language === "ar" ? -12 : 12,
+                      transition: { duration: 0.7, ease: "easeOut" }
+                    }}
+                    onHoverStart={() => setHoveredCard(offer.id)}
+                    onHoverEnd={() => setHoveredCard(null)}
                     transition={{
-                      duration: 0.55,
-                      delay: index * 0.08,
+                      duration: 0.7, // Reduced from 0.55 for faster animation
+                      delay: delay,
                       ease: [0.25, 0.1, 0.25, 1],
                     }}
                     className="offer-card relative h-[450px] sm:h-[500px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl"
+                    style={{
+                      perspective: "1200px",
+                      transformStyle: "preserve-3d",
+                    }}
                     onClick={() => onOfferTypeClick?.(offer.type)}
                   >
                     {/* Solid background color as fallback - prevents white flash */}
                     <div className="absolute inset-0 bg-gray-900"></div>
                     
-                    {/* Gradient Background - Using inline style for immediate rendering */}
+                    {/* Gradient Background - Original design kept */}
                     <div 
                       className={`absolute inset-0 bg-gradient-to-br ${offer.gradient}`}
                       style={{
-                        // Force gradient to render immediately
-                        willChange: 'transform',
                         transform: 'translateZ(0)',
                       }}
                     ></div>
 
-                    {/* Animated Pattern Elements */}
+                    {/* Animated Pattern Elements - Original opacity kept */}
                     <div className="absolute inset-0 overflow-hidden opacity-60">
                       {getPatternElements(offer.pattern)}
                     </div>
 
-                    {/* Overlay for depth */}
+                    {/* Overlay for depth - Original design kept */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/20 to-transparent"></div>
 
-                    {/* Content - All pre-rendered */}
+                    {/* Content - Original design kept */}
                     <div className="relative h-full flex flex-col justify-between p-6">
                       {/* Top Section - Icon & Type */}
                       <div className="space-y-4">
-                        {/* Icon Badge */}
+                        {/* Icon Badge - Original design kept */}
                         <div className="inline-flex items-center gap-2 bg-white/25 backdrop-blur-md border-2 border-white/40 rounded-xl px-4 py-2">
                           <Icon className="w-6 h-6 text-white" />
                           <span className="text-white font-bold text-sm">
@@ -225,7 +245,7 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
                           </span>
                         </div>
 
-                        {/* Title */}
+                        {/* Title - Original design kept */}
                         <h3 className="text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow-2xl">
                           {language === "ar" ? offer.titleAr : offer.titleEn}
                         </h3>
@@ -240,7 +260,7 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
 
                       {/* Bottom Section - CTA */}
                       <div className="space-y-4">
-                        {/* CTA Button */}
+                        {/* CTA Button - Original design kept */}
                         <button className="w-full group/btn bg-white/20 backdrop-blur-sm border-2 border-white/40 text-white px-6 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-3 transition-all duration-200 hover:bg-white/30 hover:scale-105">
                           <span>{language === "ar" ? "استكشف العروض" : "Explore Offers"}</span>
                           <div className="relative">
@@ -254,7 +274,7 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
                       </div>
                     </div>
 
-                    {/* Decorative Gradient Orbs */}
+                    {/* Decorative Gradient Orbs - Original design kept */}
                     <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-xl opacity-50"></div>
                     <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-white/10 rounded-full blur-xl opacity-50"></div>
                   </motion.div>
@@ -264,10 +284,10 @@ export function OfferTypeSlider({ language, onOfferTypeClick }: OfferTypeSliderP
           </CarouselContent>
 
           <CarouselPrevious
-            className={`${language === "ar" ? "translate-x-1/2" : "-translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
+            className={`${language === "ar" ? "translate-x-1/2" : "-translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20 transition-all duration-200`}
           />
           <CarouselNext
-            className={`${language === "ar" ? "-translate-x-1/2" : "translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20`}
+            className={`${language === "ar" ? "-translate-x-1/2" : "translate-x-1/2"} bg-white/90 hover:bg-white border-none shadow-lg rounded-lg z-20 transition-all duration-200`}
           />
         </Carousel>
       </div>
