@@ -1552,14 +1552,14 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
   const shouldReduceMotion = useReducedMotion();
   const defaultEase = [0.22, 0.61, 0.36, 1] as const;
   const motionTransition = (delay = 0) => ({
-    duration: shouldReduceMotion ? 0 : 0.32,
+    duration: shouldReduceMotion ? 0 : 0.6,
     ease: defaultEase,
     delay: shouldReduceMotion ? 0 : delay,
   });
 
   const pageVariants = {
     hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { when: "beforeChildren", staggerChildren: 0.08 } },
+    visible: { opacity: 1, transition: { when: "beforeChildren", staggerChildren: 0.15 } },
   };
 
   const fadeUpVariants = {
@@ -1573,7 +1573,7 @@ export function ProductDetailPage(props: ProductDetailPageProps) {
       opacity: 1,
       y: 0,
       scale: 1,
-      transition: { duration: shouldReduceMotion ? 0 : 0.34, ease: defaultEase },
+      transition: { duration: shouldReduceMotion ? 0 : 0.6, ease: defaultEase },
     },
   };
 

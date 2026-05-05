@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -243,12 +243,40 @@ const BrandPage: React.FC = () => {
     }
   };
 
+  const backHref = displayCategoryName
+    ? isServiceBrand
+      ? servicesHref
+      : `/?openCategory=${encodeURIComponent(categoryRouteName)}#categories`
+    : '/';
+
+  const handleNavigateBack = () => {
+    navigate(backHref);
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      navigate(backHref, { replace: true });
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [backHref, navigate]);
+
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50/50 mb-40">
       <div className="sticky top-[72px] z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <h2 className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
-              <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'}`} />
+            <button
+              onClick={handleNavigateBack}
+              className="p-1.5 text-gray-500 hover:text-[#009FE3] hover:bg-gray-100 rounded-full transition-all duration-200 flex-shrink-0"
+              aria-label="Go back"
+            >
+              <ArrowLeft className={`w-4 h-4 ${language === 'ar' ? 'rotate-180' : ''}`} />
+            </button>
+
+            <ChevronRight className={`w-4 h-4 ${language === 'ar' ? '' : 'rotate-180'}`} />
 
             <button
               onClick={() => navigate('/')}
