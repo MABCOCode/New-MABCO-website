@@ -490,30 +490,29 @@ export function BannerSliderManagement({
             <Eye className="w-5 h-5 text-green-500" />
             {t[language].activeSlides} ({activeSlides.length})
           </h2>
-          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-hide">
+          <div className="space-y-4">
             {activeSlides.length === 0 ? (
-              <div className="w-full text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-500">
                 <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>{t[language].noSlides}</p>
               </div>
             ) : (
               activeSlides.map((slide, index) => (
-                <div key={slide.id} className="snap-start w-[85vw] md:w-[600px] flex-shrink-0">
-                  <SlideCard
-                    slide={slide}
-                    language={language}
-                    isEditing={editingSlide?.id === slide.id}
-                    editingSlide={editingSlide}
-                    onEdit={() => setEditingSlide(slide)}
-                    onSave={handleUpdateSlide}
-                    onCancel={() => setEditingSlide(null)}
-                    onDelete={() => handleDeleteSlide(slide.id)}
-                    onToggleActive={() => handleToggleActive(slide.id)}
-                    onMoveUp={index > 0 ? () => handleMoveUp(slides.indexOf(slide)) : undefined}
-                    onMoveDown={index < activeSlides.length - 1 ? () => handleMoveDown(slides.indexOf(slide)) : undefined}
-                    onEditingChange={setEditingSlide}
-                  />
-                </div>
+                <SlideCard
+                  key={slide.id}
+                  slide={slide}
+                  language={language}
+                  isEditing={editingSlide?.id === slide.id}
+                  editingSlide={editingSlide}
+                  onEdit={() => setEditingSlide(slide)}
+                  onSave={handleUpdateSlide}
+                  onCancel={() => setEditingSlide(null)}
+                  onDelete={() => handleDeleteSlide(slide.id)}
+                  onToggleActive={() => handleToggleActive(slide.id)}
+                  onMoveUp={index > 0 ? () => handleMoveUp(slides.indexOf(slide)) : undefined}
+                  onMoveDown={index < activeSlides.length - 1 ? () => handleMoveDown(slides.indexOf(slide)) : undefined}
+                  onEditingChange={setEditingSlide}
+                />
               ))
             )}
           </div>
@@ -526,22 +525,21 @@ export function BannerSliderManagement({
               <EyeOff className="w-5 h-5 text-gray-400" />
               {t[language].inactiveSlides} ({inactiveSlides.length})
             </h2>
-            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-hide opacity-60">
+            <div className="space-y-4 opacity-60">
               {inactiveSlides.map((slide) => (
-                <div key={slide.id} className="snap-start w-[85vw] md:w-[600px] flex-shrink-0">
-                  <SlideCard
-                    slide={slide}
-                    language={language}
-                    isEditing={editingSlide?.id === slide.id}
-                    editingSlide={editingSlide}
-                    onEdit={() => setEditingSlide(slide)}
-                    onSave={handleUpdateSlide}
-                    onCancel={() => setEditingSlide(null)}
-                    onDelete={() => handleDeleteSlide(slide.id)}
-                    onToggleActive={() => handleToggleActive(slide.id)}
-                    onEditingChange={setEditingSlide}
-                  />
-                </div>
+                <SlideCard
+                  key={slide.id}
+                  slide={slide}
+                  language={language}
+                  isEditing={editingSlide?.id === slide.id}
+                  editingSlide={editingSlide}
+                  onEdit={() => setEditingSlide(slide)}
+                  onSave={handleUpdateSlide}
+                  onCancel={() => setEditingSlide(null)}
+                  onDelete={() => handleDeleteSlide(slide.id)}
+                  onToggleActive={() => handleToggleActive(slide.id)}
+                  onEditingChange={setEditingSlide}
+                />
               ))}
             </div>
           </div>
@@ -728,12 +726,12 @@ function SlideCard({
         </div>
       ) : (
         // View Mode
-        <div className="flex flex-col md:flex-row gap-0">
-          <div className="w-full md:w-72 lg:w-80 flex-shrink-0 relative min-h-[200px] md:min-h-[200px]">
+        <div className="flex flex-col md:flex-row">
+          <div className="md:w-1/3 relative h-48 md:h-auto">
             <ImageWithFallback
               src={slide.image}
               alt={slide.titleEn}
-              className="w-full h-full object-cover absolute inset-0"
+              className="w-full h-full object-cover"
             />
             <div className="absolute top-2 right-2">
               {slide.isActive ? (
@@ -749,7 +747,7 @@ function SlideCard({
               )}
             </div>
           </div>
-          <div className="flex-1 p-6">
+          <div className="md:w-2/3 p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-gray-900 mb-1">
