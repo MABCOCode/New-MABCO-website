@@ -339,24 +339,6 @@ export function ShowroomsManagement({
   };
 
   const showSuccess = (message: string) => {
-
-      if (!res.ok) {
-        throw new Error(result?.message || 'Failed to toggle showroom state');
-      }
-      await loadShowrooms();
-    } catch (err: any) {
-      console.warn('Toggle showroom active state failed', err);
-      showError(err?.message || (language === 'ar' ? 'فشل تحديث حالة الصالة.' : 'Failed to update showroom state.'));rs: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !showroom.isActive }),
-      });
-      if (!res.ok) throw new Error("Failed to toggle");
-      await loadShowrooms();
-    } catch {
-      await loadShowrooms();
-    }
-  };
-
-  const showSuccess = (message: string) => {
     setSuccessMessage(message);
     setErrorMessage("");
     setTimeout(() => setSuccessMessage(""), 3000);
