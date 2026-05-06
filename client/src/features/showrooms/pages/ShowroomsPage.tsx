@@ -220,33 +220,34 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
 
     const loadShowrooms = async () => {
       try {
-        // Try to load from static JSON first
-        const staticRes = await fetch('/static/showrooms.json');
-        if (staticRes.ok) {
-          const staticJson = await staticRes.json();
-          const normalized = normalizeData(staticJson?.data ?? staticJson);
+        // Load updated showrooms from API first so admin edits show immediately.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const apiRes = await fetch(`${apiBase}/showrooms`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (apiRes.ok) {
+          const apiJson = await apiRes.json();
+          const normalized = normalizeData(apiJson?.data ?? apiJson);
           if (normalized.length > 0) {
             return normalized;
           }
         }
       } catch (err) {
-        console.warn('Static showrooms load failed', err);
+        console.warn('API showrooms load failed', err);
       }
 
       try {
-        // Fallback to API
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const apiRes = await fetch(`${apiBase}/showrooms`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!apiRes.ok) throw new Error('API fetch failed');
-        const apiJson = await apiRes.json();
-        const normalized = normalizeData(apiJson?.data ?? apiJson);
-        return normalized;
+        // Fallback to local static JSON only when the API is unavailable.
+        const staticRes = await fetch('/static/showrooms.json');
+        if (staticRes.ok) {
+          const staticJson = await staticRes.json();
+          return normalizeData(staticJson?.data ?? staticJson);
+        }
       } catch (err) {
-        console.warn('API showrooms load failed', err);
-        return [];
+        console.warn('Static showrooms load failed', err);
       }
+
+      return [];
     };
 
     (async () => {
