@@ -23,6 +23,7 @@ interface AdminMeta {
   isSuspended: boolean;
   canManageOrders: boolean;
   canManageBanners: boolean;
+  canManageShowrooms: boolean;
 }
 
 interface User {
@@ -63,6 +64,7 @@ export function AdminPrivilegesEditor({ user, language, onClose, onSave }: Admin
     isSuspended: user.adminMeta?.isSuspended || false,
     canManageOrders: user.adminMeta?.canManageOrders || false,
     canManageBanners: user.adminMeta?.canManageBanners || false,
+    canManageShowrooms: user.adminMeta?.canManageShowrooms || false,
   };
 
   const [meta, setMeta] = useState<AdminMeta>(initialMeta);
@@ -318,6 +320,19 @@ export function AdminPrivilegesEditor({ user, language, onClose, onSave }: Admin
               />
               <label htmlFor="perm-banners">
                 {isRTL ? "تغيير بانر الصفحة الرئيسية" : "Manage Home Banner Images"}
+              </label>
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              <input
+                type="checkbox"
+                id="perm-showrooms"
+                checked={meta.canManageShowrooms}
+                onChange={(e) =>
+                  setMeta((p) => ({ ...p, canManageShowrooms: e.target.checked }))
+                }
+              />
+              <label htmlFor="perm-showrooms">
+                {isRTL ? "إدارة صالات العرض" : "Manage Showrooms"}
               </label>
             </div>
           </div>

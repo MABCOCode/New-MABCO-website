@@ -3,12 +3,14 @@ import {
     Building2,
     Crown,
     Edit3,
+    Globe,
     Home,
     LogIn,
     LogOut,
     MapPin,
     Package,
     Package2,
+    Store,
     Tag,
     User
 } from 'lucide-react';
@@ -29,6 +31,7 @@ interface MobileMenuProps {
   canManageStore: boolean;
   canManageBanners: boolean;
   canManageOrders: boolean;
+  canManageShowrooms: boolean;
   isSuperAdmin: boolean;
   onLogout: () => void;
   categories: any[];
@@ -44,12 +47,14 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
   navigateTo,
   navigateToSection,
   t,
+  cartCount,
   compareCount,
   openCompareModal,
   isLoggedIn,
   canManageStore,
   canManageBanners,
   canManageOrders,
+  canManageShowrooms,
   isSuperAdmin,
   onLogout,
   categories,
@@ -80,7 +85,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
               onClick={toggleLanguage}
               className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-gray-100 hover:bg-[#009FE3] hover:text-white transition-all duration-300 shadow-md"
             >
-              <MapPin className="w-5 h-5" />
+              <Globe className="w-5 h-5" />
               <span className="font-medium">
                 {language === 'ar' ? 'English' : 'العربية'}
               </span>
@@ -178,7 +183,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
               </button>
             )}
 
-            {(canManageStore || canManageBanners || canManageOrders || isSuperAdmin) && (
+            {(canManageStore || canManageBanners || canManageOrders || canManageShowrooms || isSuperAdmin) && (
               <div className="space-y-2 mt-2">
                 {canManageStore && (
                   <button
@@ -236,6 +241,26 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                     </div>
                     <span className="text-gray-700 group-hover:text-blue-600 font-medium">
                       {language === 'ar' ? 'إدارة الطلبات' : 'Order Management'}
+                    </span>
+                  </button>
+                )}
+
+                {canManageShowrooms && (
+                  <button
+                    onClick={() => {
+                      navigateTo('/account/admin/showrooms');
+                      setMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-teal-50 transition-all duration-200 group ${
+                      menuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                    }`}
+                    style={{ transitionDelay: '248ms' }}
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Store className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-gray-700 group-hover:text-teal-600 font-medium">
+                      {language === 'ar' ? 'إدارة الصالات' : 'Showrooms'}
                     </span>
                   </button>
                 )}
@@ -333,7 +358,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
               style={{ transitionDelay: '255ms' }}
             >
               <div className="w-10 h-10 bg-gradient-to-br from-[#009FE3] to-[#007BC7] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                <MapPin className="w-5 h-5 text-white" />
+                <Store className="w-5 h-5 text-white" />
               </div>
               <span className="text-gray-700 group-hover:text-[#009FE3] font-medium">{t('showrooms')}</span>
             </button>

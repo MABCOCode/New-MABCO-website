@@ -523,6 +523,7 @@ router.get('/users/:id/permissions', asyncHandler(async (req, res) => {
         isSuspended: Boolean(adminMeta.isSuspended),
         canManageOrders: Boolean(adminMeta.canManageOrders),
         canManageBanners: Boolean(adminMeta.canManageBanners),
+        canManageShowrooms: Boolean(adminMeta.canManageShowrooms),
       },
     },
   });
@@ -548,6 +549,7 @@ router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
     const isSuspended = req.body.isSuspended === undefined ? undefined : Boolean(req.body.isSuspended);
     const canManageOrders = Boolean(req.body.canManageOrders);
     const canManageBanners = Boolean(req.body.canManageBanners);
+    const canManageShowrooms = Boolean(req.body.canManageShowrooms);
 
     const setDoc = {
       'adminMeta.allowAllCategories': allowAllCategories,
@@ -560,6 +562,7 @@ router.put('/users/:id/permissions', asyncHandler(async (req, res) => {
     }
     setDoc['adminMeta.canManageOrders'] = canManageOrders;
     setDoc['adminMeta.canManageBanners'] = canManageBanners;
+    setDoc['adminMeta.canManageShowrooms'] = canManageShowrooms;
 
     const result = await db.collection('users').updateOne(
       { _id: new ObjectId(id) },
@@ -620,6 +623,7 @@ router.put('/users/:id', asyncHandler(async (req, res) => {
     }
     updates['adminMeta.canManageOrders'] = Boolean(adminMeta.canManageOrders);
     updates['adminMeta.canManageBanners'] = Boolean(adminMeta.canManageBanners);
+    updates['adminMeta.canManageShowrooms'] = Boolean(adminMeta.canManageShowrooms);
   }
 
   if (Object.keys(updates).length == 0) {

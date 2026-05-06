@@ -8,6 +8,7 @@ import {
   Search,
   Globe,
   MapPin,
+  Store,
   Building2,
   User,
   LogIn,
@@ -249,13 +250,13 @@ const Navbar: React.FC = () => {
             </button>
             <button
               onClick={() => navigateTo("/showrooms")}
-              className={`text-gray-700 hover:text-[#009FE3] transition-colors flex items-center gap-1 ${
+              className={`group flex items-center gap-1 text-gray-700 hover:text-[#009FE3] transition-colors ${
                 location.pathname === "/showrooms"
                   ? "text-[#009FE3] font-semibold"
                   : ""
               }`}
             >
-              <MapPin className="w-4 h-4" />
+              {/* <Store className="w-4 h-4 transition-colors group-hover:text-[#009FE3]" /> */}
               {t("showrooms")}
             </button>
             <button
@@ -368,6 +369,20 @@ const Navbar: React.FC = () => {
                               (language === "ar"
                                 ? "إدارة الطلبات"
                                 : "Order Management")}
+                          </span>
+                        </button>
+                      )}
+
+                      {access.canManageShowrooms && (
+                        <button
+                          onClick={() =>
+                            closeUserMenuAndNavigate("/account/admin/showrooms")
+                          }
+                          className="w-full px-4 py-3 text-left hover:bg-teal-50 transition-colors flex items-center gap-3 group"
+                        >
+                          <Store className="w-5 h-5 text-gray-600 group-hover:text-teal-600 transition-colors" />
+                          <span className="text-gray-700 group-hover:text-teal-600 font-medium whitespace-nowrap">
+                            {language === "ar" ? "إدارة الصالات" : "Showrooms"}
                           </span>
                         </button>
                       )}
@@ -486,6 +501,7 @@ const Navbar: React.FC = () => {
         canManageStore={access.canManageStore}
         canManageBanners={access.canManageBanners}
         canManageOrders={access.canManageOrders}
+        canManageShowrooms={access.canManageShowrooms}
         isSuperAdmin={access.isSuperAdmin}
         onLogout={handleLogout}
         categories={categories}

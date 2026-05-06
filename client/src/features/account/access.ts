@@ -7,6 +7,7 @@ export type AccountAccess = {
   canManageStore: boolean;
   canManageBanners: boolean;
   canManageOrders: boolean;
+  canManageShowrooms: boolean;
   hasAnyAdminAccess: boolean;
 };
 
@@ -27,12 +28,14 @@ export function getAccountAccess(user: any): AccountAccess {
       canManageStore: true,
       canManageBanners: true,
       canManageOrders: true,
+      canManageShowrooms: true,
       hasAnyAdminAccess: true,
     };
   }
 
   const canManageOrders = Boolean(adminMeta?.canManageOrders);
   const canManageBanners = Boolean(adminMeta?.canManageBanners);
+  const canManageShowrooms = Boolean(adminMeta?.canManageShowrooms);
   const canManageStore =
     isAdminRole &&
     (Boolean(adminMeta?.allowAllCategories) ||
@@ -51,6 +54,7 @@ export function getAccountAccess(user: any): AccountAccess {
     canManageStore,
     canManageBanners,
     canManageOrders,
-    hasAnyAdminAccess: Boolean(canManageStore || canManageBanners || canManageOrders),
+    canManageShowrooms,
+    hasAnyAdminAccess: Boolean(canManageStore || canManageBanners || canManageOrders || canManageShowrooms),
   };
 }

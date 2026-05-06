@@ -1,5 +1,5 @@
 import { Calendar, ChevronRight, Clock, Home, Locate, MapPin, Phone, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import translations from "../../../i18n/translations";
@@ -19,6 +19,29 @@ interface Showroom {
   Latitude: string;
   Image_Link: string;
   week_end: string;
+  isActive?: boolean;
+}
+
+interface ShowroomRaw {
+  Loc_code: string;
+  City_name: string;
+  City_name_ar: string;
+  Loc_name: string;
+  Loc_name_ar: string;
+  Phone: string;
+  Address: string;
+  Address_ar: string;
+  Winter_from_date: string;
+  Winter_from_date_ar: string;
+  Winter_to_date: string;
+  Winter_to_date_ar: string;
+  warranty_type?: string;
+  Longitude: string;
+  Latitude: string;
+  Image_Link: string;
+  week_end: string;
+  week_end_ar: string;
+  isActive?: boolean;
 }
 
 interface ShowroomsPageProps {
@@ -36,6 +59,36 @@ interface Coordinates {
 
 import { useLanguage } from '../../../context/LanguageContext';
 
+interface ShowroomWithDistance extends Showroom {
+  distanceKm: number | null;
+}
+
+let cachedOrderedShowrooms: { showrooms: ShowroomWithDistance[]; position: Coordinates; timestamp: number } | null = null;
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+const getCachedPosition = (): { position: Coordinates; timestamp: number } | null => {
+  try {
+    const stored = localStorage.getItem('mabco_user_location');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.position && parsed.timestamp) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
+const setCachedPosition = (position: Coordinates) => {
+  try {
+    localStorage.setItem('mabco_user_location', JSON.stringify({ position, timestamp: Date.now() }));
+  } catch {
+    // ignore
+  }
+};
+
 export function ShowroomsPage(_: ShowroomsPageProps) {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -43,8 +96,14 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMap, setSelectedMap] = useState<{ lat: string; lng: string; name: string } | null>(null);
   const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
-  const [showroomsData, setShowroomsData] = useState<Showroom[]>([]);
-  const [currentUserPosition, setCurrentUserPosition] = useState<Coordinates | null>(null);
+  const [showroomsData, setShowroomsData] = useState<ShowroomRaw[]>([]);
+  const [currentUserPosition, setCurrentUserPosition] = useState<Coordinates | null>(() => {
+    const cached = getCachedPosition();
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION_MS) {
+      return cached.position;
+    }
+    return null;
+  });
   const [nearestShowroomCode, setNearestShowroomCode] = useState<string | null>(null);
   const [nearestLoading, setNearestLoading] = useState(false);
   const [nearestError, setNearestError] = useState<string | null>(null);
@@ -108,49 +167,115 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
     }
   }, [selectedImage, language]);
 
-  // Load showrooms from public/static/showrooms.json
+  // Load showrooms from API (with fallback to static JSON) - optimized for speed
   useEffect(() => {
     let mounted = true;
+    setIsLoading(true);
+
+    const normalizeFromDb = (item: any): ShowroomRaw => {
+      const loc = item.location || {};
+      const isGeoPoint = loc.type === 'Point' && Array.isArray(loc.coordinates);
+      return {
+        Loc_code: String(item.Loc_code || item.code || ''),
+        City_name: String(item.City_name || item.city?.en || ''),
+        City_name_ar: String(item.City_name_ar || item.city?.ar || item.City_name || ''),
+        Loc_name: String(item.Loc_name || item.name?.en || ''),
+        Loc_name_ar: String(item.Loc_name_ar || item.name?.ar || item.Loc_name || ''),
+        Phone: String(item.Phone || item.phone || ''),
+        Address: String(item.Address || item.address?.en || item.address || ''),
+        Address_ar: String(item.Address_ar || item.address?.ar || item.Address || ''),
+        Winter_from_date: String(item.Winter_from_date || item.hours?.from?.en || item.hours?.from || ''),
+        Winter_from_date_ar: String(item.Winter_from_date_ar || item.hours?.from?.ar || item.Winter_from_date || ''),
+        Winter_to_date: String(item.Winter_to_date || item.hours?.to?.en || item.hours?.to || ''),
+        Winter_to_date_ar: String(item.Winter_to_date_ar || item.hours?.to?.ar || item.Winter_to_date || ''),
+        warranty_type: String(item.warranty_type || ''),
+        Longitude: isGeoPoint ? String(loc.coordinates[0] || '') : String(item.Longitude || loc.longitude || ''),
+        Latitude: isGeoPoint ? String(loc.coordinates[1] || '') : String(item.Latitude || loc.latitude || ''),
+        Image_Link: String(item.Image_Link || item.image_link || ''),
+        week_end: String(item.week_end || item.week_end?.en || ''),
+        week_end_ar: String(item.week_end_ar || item.week_end?.ar || item.week_end || ''),
+        isActive: item.isActive !== undefined ? Boolean(item.isActive) : true,
+      };
+    };
+
+    const resolveList = (data: any, lang: "ar" | "en") => {
+      if (Array.isArray(data)) {
+        const directList = data.find((item) => item && Array.isArray(item?.[lang]));
+        if (directList) return directList[lang];
+        if (data.length > 0 && Array.isArray(data[0]?.[lang])) return data[0][lang];
+        return [];
+      }
+      if (data && Array.isArray(data[lang])) return data[lang];
+      return [];
+    };
+
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5000/api';
+
     (async () => {
       try {
-        setIsLoading(true);
-        const res = await fetch('/static/showrooms.json');
-        if (!res.ok) return;
-        const json = await res.json();
-        if (!mounted) return;
-        const resolveList = (data: any, lang: "ar" | "en") => {
+        // Try API first with short timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+        try {
+          const res = await fetch(`${apiBase}/showrooms`, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (!res.ok) throw new Error('API failed');
+          const json = await res.json();
+          const data = json?.data || json;
           if (Array.isArray(data)) {
-            const directList = data.find((item) => item && Array.isArray(item?.[lang]));
-            if (directList) return directList[lang];
-            if (data.length > 0 && Array.isArray(data[0]?.[lang])) return data[0][lang];
-            return [];
+            const isNested = data.length > 0 && data.some((item: any) => item?.ar && Array.isArray(item.ar));
+            if (isNested) {
+              const rawList = resolveList(data, language) as any[];
+              setShowroomsData(rawList.map((item: any) => ({
+                ...item,
+                City_name_ar: item.City_name,
+                Loc_name_ar: item.Loc_name,
+                Address_ar: item.Address,
+                Winter_from_date_ar: item.Winter_from_date,
+                Winter_to_date_ar: item.Winter_to_date,
+                week_end_ar: item.week_end,
+                isActive: true,
+              })));
+            } else {
+              setShowroomsData(data.map(normalizeFromDb).filter((s: ShowroomRaw) => s.isActive !== false));
+            }
           }
-          if (data && Array.isArray(data[lang])) return data[lang];
-          return [];
-        };
-        const list = resolveList(json, language);
-        setShowroomsData(list);
-      } catch (err) {
-        console.warn('Failed to load showrooms.json', err);
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
+        } catch {
+          clearTimeout(timeoutId);
+          // API failed, load from static JSON
+          const res = await fetch('/static/showrooms.json');
+          if (!res.ok) return;
+          const json = await res.json();
+          const data = json?.data || json;
+          if (Array.isArray(data)) {
+            const isNested = data.length > 0 && data.some((item: any) => item?.ar && Array.isArray(item.ar));
+            if (isNested) {
+              const rawList = resolveList(data, language) as any[];
+              setShowroomsData(rawList.map((item: any) => ({
+                ...item,
+                City_name_ar: item.City_name,
+                Loc_name_ar: item.Loc_name,
+                Address_ar: item.Address,
+                Winter_from_date_ar: item.Winter_from_date,
+                Winter_to_date_ar: item.Winter_to_date,
+                week_end_ar: item.week_end,
+                isActive: true,
+              })));
+            } else {
+              setShowroomsData(data.map(normalizeFromDb).filter((s: ShowroomRaw) => s.isActive !== false));
+            }
+          }
         }
+      } catch (err) {
+        console.warn('Failed to load showrooms', err);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
     })();
+
     return () => { mounted = false; };
   }, [language]);
-
-  // Group showrooms by city
-  const showroomsByCity = showroomsData.reduce((acc, showroom) => {
-    if (!acc[showroom.City_name]) {
-      acc[showroom.City_name] = [];
-    }
-    acc[showroom.City_name].push(showroom);
-    return acc;
-  }, {} as Record<string, Showroom[]>);
-
-  const cities = Object.keys(showroomsByCity);
 
   const openMapDialog = (lat: string, lng: string, name: string) => {
     setSelectedMap({ lat, lng, name });
@@ -176,24 +301,55 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
     return earthRadiusKm * c;
   };
 
-  const showroomsWithDistance = showroomsData.map((showroom) => {
-    const latitude = Number(showroom.Latitude);
-    const longitude = Number(showroom.Longitude);
-    if (
-      !currentUserPosition ||
-      !Number.isFinite(latitude) ||
-      !Number.isFinite(longitude)
-    ) {
-      return { ...showroom, distanceKm: null as number | null };
+  const showroomsWithDistance = useMemo(() => {
+    const position = currentUserPosition || getCachedPosition()?.position;
+    if (position) {
+      if (cachedOrderedShowrooms && cachedOrderedShowrooms.position.lat === position.lat && cachedOrderedShowrooms.position.lng === position.lng) {
+        const age = Date.now() - cachedOrderedShowrooms.timestamp;
+        if (age < CACHE_DURATION_MS) {
+          return cachedOrderedShowrooms.showrooms;
+        }
+      }
+
+      const withDistance = showroomsData.map((showroom) => {
+        const latitude = Number(showroom.Latitude);
+        const longitude = Number(showroom.Longitude);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          return { ...showroom, distanceKm: null as number | null };
+        }
+        return {
+          ...showroom,
+          distanceKm: calculateDistanceKm(position, { lat: latitude, lng: longitude }),
+        };
+      });
+
+      cachedOrderedShowrooms = {
+        showrooms: withDistance,
+        position,
+        timestamp: Date.now(),
+      };
+
+      return withDistance;
     }
 
-    return {
-      ...showroom,
-      distanceKm: calculateDistanceKm(currentUserPosition, {
-        lat: latitude,
-        lng: longitude,
-      }),
-    };
+    return showroomsData.map((showroom) => ({ ...showroom, distanceKm: null as number | null }));
+  }, [currentUserPosition, showroomsData]);
+
+  const showroomsByCity = showroomsWithDistance.reduce((acc, showroom) => {
+    const cityKey = isRTL ? showroom.City_name_ar : showroom.City_name;
+    if (!acc[cityKey]) {
+      acc[cityKey] = [];
+    }
+    acc[cityKey].push(showroom);
+    return acc;
+  }, {} as Record<string, ShowroomWithDistance[]>);
+
+  const sortedCities = Object.keys(showroomsByCity).sort((a, b) => {
+    const aNearest = showroomsByCity[a].find((s) => typeof s.distanceKm === 'number');
+    const bNearest = showroomsByCity[b].find((s) => typeof s.distanceKm === 'number');
+    const aDist = aNearest?.distanceKm ?? Number.MAX_SAFE_INTEGER;
+    const bDist = bNearest?.distanceKm ?? Number.MAX_SAFE_INTEGER;
+    return aDist - bDist;
   });
 
   const nearestShowroom = showroomsWithDistance
@@ -214,10 +370,12 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
     setNearestError(null);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setCurrentUserPosition({
+        const pos = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        });
+        };
+        setCurrentUserPosition(pos);
+        setCachedPosition(pos);
         setNearestLoading(false);
       },
       () => {
@@ -241,6 +399,29 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
       setNearestShowroomCode(nearestShowroom.Loc_code);
     }
   }, [nearestShowroom?.Loc_code]);
+
+  // Auto-request location on page load for closest ordering
+  useEffect(() => {
+    if (!navigator.geolocation || currentUserPosition) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const pos = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setCurrentUserPosition(pos);
+        setCachedPosition(pos);
+      },
+      () => {
+        // User denied or unavailable - showrooms will display without distance sorting
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 300000,
+      },
+    );
+  }, []);
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-gray-50">
@@ -303,10 +484,10 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                     {language === "ar" ? "أقرب معرض" : "Nearest Showroom"}
                   </p>
                   <h3 className="mt-1 text-lg font-bold text-gray-900">
-                    {nearestShowroom.Loc_name}
+                    {isRTL ? nearestShowroom.Loc_name_ar : nearestShowroom.Loc_name}
                   </h3>
                   <p className="mt-1 text-sm text-gray-600">
-                    {nearestShowroom.City_name}
+                    {isRTL ? nearestShowroom.City_name_ar : nearestShowroom.City_name}
                     {typeof nearestShowroom.distanceKm === "number" &&
                       ` • ${nearestShowroom.distanceKm.toFixed(1)} ${
                         language === "ar" ? "كم" : "km"
@@ -318,7 +499,7 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                     openMapDialog(
                       nearestShowroom.Latitude,
                       nearestShowroom.Longitude,
-                      nearestShowroom.Loc_name,
+                      isRTL ? nearestShowroom.Loc_name_ar : nearestShowroom.Loc_name,
                     )
                   }
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#009FE3] px-4 py-2 font-semibold text-[#009FE3] transition-colors hover:bg-[#009FE3] hover:text-white"
@@ -353,26 +534,37 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
           </div>
         )}
 
-        {!isLoading && cities.length === 0 && (
+        {!isLoading && sortedCities.length === 0 && (
           <div className="text-center py-20 text-gray-500">
             {language === "ar" ? "لا توجد صالات عرض متاحة حالياً" : "No showrooms available right now"}
           </div>
         )}
 
-        {!isLoading && cities.map((city) => (
+        {!isLoading && sortedCities.map((city) => {
+          const cityShowrooms = showroomsByCity[city]
+            .sort((a, b) => (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER));
+          const city_ar = cityShowrooms[0]?.City_name_ar || city;
+          return (
           <div key={city} className="mb-16">
             <div className="flex items-center gap-3 mb-6">
               <MapPin className="w-8 h-8 text-[#009FE3]" />
               <h2 className="text-3xl text-gray-800">
-                {city}
+                {isRTL ? city_ar : city}
                 <span className={`text-lg text-gray-500 ${isRTL ? 'mr-3' : 'ml-3'}`}>
-                  ({showroomsByCity[city].length} {t.showrooms_count_label})
+                  ({cityShowrooms.length} {t.showrooms_count_label})
                 </span>
               </h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {showroomsByCity[city].map((showroom) => (
+              {cityShowrooms.map((showroom) => {
+                const locName = isRTL ? showroom.Loc_name_ar : showroom.Loc_name;
+                const cityName = isRTL ? showroom.City_name_ar : showroom.City_name;
+                const address = isRTL ? showroom.Address_ar : showroom.Address;
+                const hoursFrom = isRTL ? showroom.Winter_from_date_ar : showroom.Winter_from_date;
+                const hoursTo = isRTL ? showroom.Winter_to_date_ar : showroom.Winter_to_date;
+                const weekEnd = isRTL ? showroom.week_end_ar : showroom.week_end;
+                return (
                 <div
                   key={showroom.Loc_code}
                   className={`bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border ${
@@ -381,27 +573,30 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                       : "border-gray-100"
                   }`}
                 >
-                  {/* Showroom Image */}
                   <div 
                     className="relative h-48 bg-gray-200 overflow-hidden cursor-pointer group"
-                    onClick={() => openImageDialog(showroom.Image_Link, showroom.Loc_name)}
+                    onClick={() => openImageDialog(showroom.Image_Link, locName)}
                   >
                     <ImageWithFallback
                       src={`https://${showroom.Image_Link}`}
-                      alt={showroom.Loc_name}
+                      alt={locName}
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                     />
                     <div className="absolute top-4 left-4 right-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-xl text-white drop-shadow-lg inline-block bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">{showroom.Loc_name}</h3>
+                        <h3 className="text-xl text-white drop-shadow-lg inline-block bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">{locName}</h3>
                         {nearestShowroomCode === showroom.Loc_code && (
                           <span className="inline-flex items-center rounded-lg bg-[#009FE3] px-3 py-1 text-xs font-bold text-white">
                             {language === "ar" ? "الأقرب إليك" : "Nearest to You"}
                           </span>
                         )}
+                        {typeof showroom.distanceKm === 'number' && nearestShowroomCode !== showroom.Loc_code && (
+                          <span className="inline-flex items-center rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1 text-xs font-bold text-white">
+                            {showroom.distanceKm.toFixed(1)} {language === "ar" ? "كم" : "km"}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    {/* Hover overlay to indicate clickable */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/90 backdrop-blur-sm rounded-full p-3">
                         <svg className="w-6 h-6 text-[#009FE3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -411,18 +606,15 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                     </div>
                   </div>
 
-                  {/* Showroom Details */}
                   <div className="p-5 space-y-4">
-                    {/* Address */}
                     <div className="flex gap-3">
                       <MapPin className="w-5 h-5 text-[#009FE3] flex-shrink-0 mt-1" />
                       <div>
                         <p className="text-sm text-gray-500 mb-1">{t.showrooms_address}</p>
-                        <p className="text-gray-800">{showroom.Address}</p>
+                        <p className="text-gray-800">{address}</p>
                       </div>
                     </div>
 
-                    {/* Phone */}
                     <div className="flex gap-3">
                       <Phone className="w-5 h-5 text-[#009FE3] flex-shrink-0 mt-1" />
                       <div>
@@ -437,34 +629,27 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                       </div>
                     </div>
 
-                    {/* Working Hours */}
                     <div className="flex gap-3">
                       <Clock className="w-5 h-5 text-[#009FE3] flex-shrink-0 mt-1" />
                       <div>
                         <p className="text-sm text-gray-500 mb-1">{t.showrooms_working_hours}</p>
-                        <p className="text-gray-800 text-sm">
-                          {showroom.Winter_from_date}
-                        </p>
-                        <p className="text-gray-800 text-sm">
-                          {showroom.Winter_to_date}
-                        </p>
+                        <p className="text-gray-800 text-sm">{hoursFrom}</p>
+                        <p className="text-gray-800 text-sm">{hoursTo}</p>
                       </div>
                     </div>
 
-                    {/* Weekend */}
-                    {showroom.week_end && (
+                    {weekEnd && (
                       <div className="flex gap-3">
                         <Calendar className="w-5 h-5 text-[#009FE3] flex-shrink-0 mt-1" />
                         <div>
                           <p className="text-sm text-gray-500 mb-1">{t.showrooms_weekend}</p>
-                          <p className="text-gray-800">{showroom.week_end}</p>
+                          <p className="text-gray-800">{weekEnd}</p>
                         </div>
                       </div>
                     )}
 
-                    {/* View on Map Button */}
                     <button
-                      onClick={() => openMapDialog(showroom.Latitude, showroom.Longitude, showroom.Loc_name)}
+                      onClick={() => openMapDialog(showroom.Latitude, showroom.Longitude, locName)}
                       className="w-full mt-4 bg-[#009FE3] text-white py-2.5 rounded-lg hover:bg-[#0080b8] transition-colors flex items-center justify-center gap-2"
                     >
                       <MapPin className="w-4 h-4" />
@@ -472,10 +657,12 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Map Dialog */}

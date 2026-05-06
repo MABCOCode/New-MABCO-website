@@ -22,6 +22,9 @@ const AdminOrderManagement = lazy(() =>
 const BannerSliderManagement = lazy(() =>
   import("./pages/admin/BannerSliderManagement").then((m) => ({ default: m.BannerSliderManagement })),
 );
+const ShowroomsManagement = lazy(() =>
+  import("./pages/admin/ShowroomsManagement").then((m) => ({ default: m.ShowroomsManagement })),
+);
 const SuperAdminDashboard = lazy(() =>
   import("./pages/superadmin/SuperAdminDashboard").then((m) => ({ default: m.SuperAdminDashboard })),
 );
@@ -105,6 +108,7 @@ export const AccountRoutes = () => {
     isSuperAdmin,
     canManageOrders,
     canManageBanners,
+    canManageShowrooms,
     canManageStore,
     hasAnyAdminAccess,
     permissionsResolved,
@@ -193,6 +197,14 @@ export const AccountRoutes = () => {
                   className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/orders' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
                 >
                   {t('admin.orders.title')}
+                </button>
+              )}
+              {canManageShowrooms && (
+                <button
+                  onClick={() => navigate('/account/admin/showrooms')}
+                  className={`px-3 py-2 rounded-lg font-semibold ${location.pathname === '/account/admin/showrooms' ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {language === 'ar' ? 'إدارة الصالات' : 'Showrooms'}
                 </button>
               )}
             </div>
@@ -345,6 +357,16 @@ export const AccountRoutes = () => {
         element={
           permissionsPending ? null : canManageOrders ? (
             <AdminOrderManagement />
+          ) : (
+            <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
+          )
+        }
+      />
+      <Route
+        path="/admin/showrooms"
+        element={
+          permissionsPending ? null : canManageShowrooms ? (
+            <ShowroomsManagement language={language} onClose={() => navigate('/account/dashboard')} />
           ) : (
             <Navigate to={isAuthed ? "/account/dashboard" : "/account/login"} replace />
           )
