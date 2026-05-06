@@ -120,6 +120,7 @@ export function ShowroomsManagement({
   const [editingShowroom, setEditingShowroom] = useState<Showroom | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
 
@@ -236,65 +237,85 @@ export function ShowroomsManagement({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error("Failed to add");
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result?.message || 'Failed to add showroom');
+      }
       await loadShowrooms();
       setIsAddingNew(false);
       setNewShowroom(emptyShowroom());
       showSuccess(t[language].savedSuccess);
-    } catch {
-      showSuccess(t[language].savedSuccess);
+    } catch (err: any) {
+      console.warn('Add showroom failed', err);
+      showError(err?.message || (language === 'ar' ? 'فشل إضافة الصالة.' : 'Failed to add showroom.'));
     }
   };
 
   const handleUpdateShowroom = async () => {
-    if (editingShowroom) {
-      try {
-        const body = {
-          code: editingShowroom.code,
-          nameEn: editingShowroom.name.en,
-          nameAr: editingShowroom.name.ar,
-          cityEn: editingShowroom.city.en,
-          cityAr: editingShowroom.city.ar,
-          addressEn: editingShowroom.address.en,
-          addressAr: editingShowroom.address.ar,
-          phone: editingShowroom.phone,
-          warranty_type: editingShowroom.warranty_type,
-          longitude: editingShowroom.location.longitude,
-          latitude: editingShowroom.location.latitude,
-          hoursFromEn: editingShowroom.hours.from.en,
-          hoursFromAr: editingShowroom.hours.from.ar,
-          hoursToEn: editingShowroom.hours.to.en,
-          hoursToAr: editingShowroom.hours.to.ar,
-          weekEndEn: editingShowroom.week_end.en,
-          weekEndAr: editingShowroom.week_end.ar,
-          image_link: editingShowroom.image_link,
-          isActive: editingShowroom.isActive,
-        };
-        const res = await fetch(`${apiBase}/showrooms/${editingShowroom._id || editingShowroom.code}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error("Failed to update");
-        await loadShowrooms();
-        setEditingShowroom(null);
-        showSuccess(t[language].savedSuccess);
-      } catch {
-        showSuccess(t[language].savedSuccess);
+    if (!editingShowroom) return;
+    const id = editingShowroom._id || editingShowroom.code;
+    if (!id) {
+      showError(language === 'ar' ? 'معرف الصالة غير متوفر.' : 'Missing showroom identifier.');
+      return;
+    }
+
+    try {
+      const body = {
+        code: editingShowroom.code,
+        nameEn: editingShowroom.name.en,
+        nameAr: editingShowroom.name.ar,
+        cityEn: editingShowroom.city.en,
+        cityAr: editingShowroom.city.ar,
+        addressEn: editingShowroom.address.en,
+        addressAr: editingShowroom.address.ar,
+        phone: editingShowroom.phone,
+        warranty_type: editingShowroom.warranty_type,
+        longitude: editingShowroom.location.longitude,
+        latitude: editingShowroom.location.latitude,
+        hoursFromEn: editingShowroom.hours.from.en,
+        hoursFromAr: editingShowroom.hours.from.ar,
+        hoursToEn: editingShowroom.hours.to.en,
+        hoursToAr: editingShowroom.hours.to.ar,
+        weekEndEn: editingShowroom.week_end.en,
+        weekEndAr: editingShowroom.week_end.ar,
+        image_link: editingShowroom.image_link,
+        isActive: editingShowroom.isActive,
+      };
+
+      const res = await fetch(`${apiBase}/showrooms/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result?.message || 'Failed to update showroom');
       }
+      await loadShowrooms();
+      setEditingShowroom(null);
+      showSuccess(t[language].savedSuccess);
+    } catch (err: any) {
+      console.warn('Update showroom failed', err);
+      showError(err?.message || (language === 'ar' ? 'فشل حفظ التغييرات.' : 'Failed to save changes.'));
     }
   };
 
   const handleDeleteShowroom = async (showroom: Showroom) => {
-    if (confirm(t[language].confirmDelete)) {
-      try {
-        const res = await fetch(`${apiBase}/showrooms/${showroom._id || showroom.code}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("Failed to delete");
-        await loadShowrooms();
-        showSuccess(t[language].deleteSuccess);
-      } catch {
-        showSuccess(t[language].deleteSuccess);
+    if (!confirm(t[language].confirmDelete)) return;
+
+    try {
+      const res = await fetch(`${apiBase}/showrooms/${showroom._id || showroom.code}`, {
+        method: "DELETE",
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result?.message || 'Failed to delete showroom');
       }
+      await loadShowrooms();
+      showSuccess(t[language].deleteSuccess);
+    } catch (err: any) {
+      console.warn('Delete showroom failed', err);
+      showError(err?.message || (language === 'ar' ? 'فشل الحذف.' : 'Failed to delete.'));
     }
   };
 
@@ -303,6 +324,29 @@ export function ShowroomsManagement({
       const res = await fetch(`${apiBase}/showrooms/${showroom._id || showroom.code}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !showroom.isActive }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result?.message || 'Failed to toggle showroom state');
+      }
+      await loadShowrooms();
+    } catch (err: any) {
+      console.warn('Toggle showroom active state failed', err);
+      showError(err?.message || (language === 'ar' ? 'فشل تحديث حالة الصالة.' : 'Failed to update showroom state.'));
+      await loadShowrooms();
+    }
+  };
+
+  const showSuccess = (message: string) => {
+
+      if (!res.ok) {
+        throw new Error(result?.message || 'Failed to toggle showroom state');
+      }
+      await loadShowrooms();
+    } catch (err: any) {
+      console.warn('Toggle showroom active state failed', err);
+      showError(err?.message || (language === 'ar' ? 'فشل تحديث حالة الصالة.' : 'Failed to update showroom state.'));rs: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !showroom.isActive }),
       });
       if (!res.ok) throw new Error("Failed to toggle");
@@ -314,7 +358,14 @@ export function ShowroomsManagement({
 
   const showSuccess = (message: string) => {
     setSuccessMessage(message);
+    setErrorMessage("");
     setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setSuccessMessage("");
+    setTimeout(() => setErrorMessage(""), 5000);
   };
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, setField: (val: string) => void) => {
@@ -610,6 +661,14 @@ export function ShowroomsManagement({
           <div className="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
             <CheckCircle className="w-5 h-5" />
             <span className="font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
+      {errorMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-fadeIn">
+          <div className="bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
+            <AlertCircle className="w-5 h-5" />
+            <span className="font-medium">{errorMessage}</span>
           </div>
         </div>
       )}
