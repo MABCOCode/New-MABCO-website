@@ -8,55 +8,83 @@ interface CompanyStrengthProps {
 
 export function CompanyStrength({ language }: CompanyStrengthProps) {
   const isRTL = language === "ar";
-  const [isVisible, setIsVisible] = useState(false);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const [statsVisible, setStatsVisible] = useState([false, false, false]);
+  const [valuesVisible, setValuesVisible] = useState([false, false, false, false]);
+  const [countStarted, setCountStarted] = useState(false);
+  const [countCompleted, setCountCompleted] = useState(false);
   const [counts, setCounts] = useState({
     years: 0,
     cities: 0,
     brands: 0
   });
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const statsRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const valuesRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const t = translations[language];
 
-  // Intersection Observer for scroll trigger
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !hasAnimated) {
-            setIsVisible(true);
-            setHasAnimated(true);
+          const index = Number(entry.target.getAttribute("data-index"));
+          if (!Number.isNaN(index) && entry.isIntersecting) {
+            if (index < statsVisible.length) {
+              setStatsVisible((prev) => {
+                if (prev[index]) return prev;
+                const next = [...prev];
+                next[index] = true;
+                return next;
+              });
+              if (!countStarted) {
+                setCountStarted(true);
+              }
+            }
+            if (index >= statsVisible.length) {
+              const valueIndex = index - statsVisible.length;
+              if (valueIndex < valuesVisible.length) {
+                setValuesVisible((prev) => {
+                  if (prev[valueIndex]) return prev;
+                  const next = [...prev];
+                  next[valueIndex] = true;
+                  return next;
+                });
+              }
+            }
           }
         });
       },
-      { threshold: 0.3 }
+      { threshold: 0.3, rootMargin: "0px 0px -20% 0px" }
     );
 
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
+    statsRefs.current.forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    valuesRefs.current.forEach((el) => {
+      if (el) observer.observe(el);
+    });
 
     return () => {
-      if (sectionRef.current) {
-        observer.unobserve(sectionRef.current);
-      }
+      statsRefs.current.forEach((el) => {
+        if (el) observer.unobserve(el);
+      });
+      valuesRefs.current.forEach((el) => {
+        if (el) observer.unobserve(el);
+      });
     };
-  }, [hasAnimated]);
+  }, [countStarted, statsVisible.length, valuesVisible.length]);
 
-  // Count-up animation
   useEffect(() => {
-    if (!isVisible) return;
+    if (!countStarted || countCompleted) return;
 
     const duration = 2000; // 2 seconds
     const steps = 60;
     const stepDuration = duration / steps;
 
     const targets = {
-      years: new Date().getFullYear() - 1999, // Calculate years based on current year
+      years: new Date().getFullYear() - 1999,
       cities: 7,
-      brands: 39 
-     
+      brands: 39
     };
 
     let currentStep = 0;
@@ -64,7 +92,7 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
     const interval = setInterval(() => {
       currentStep++;
       const progress = currentStep / steps;
-      const easeOutQuad = 1 - Math.pow(1 - progress, 3); // Easing function
+      const easeOutQuad = 1 - Math.pow(1 - progress, 3);
 
       setCounts({
         years: Math.floor(targets.years * easeOutQuad),
@@ -74,12 +102,13 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
 
       if (currentStep >= steps) {
         setCounts(targets);
+        setCountCompleted(true);
         clearInterval(interval);
       }
     }, stepDuration);
 
     return () => clearInterval(interval);
-  }, [isVisible]);
+  }, [countStarted, countCompleted]);
 
   const stats = [
     {
@@ -132,7 +161,7 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
   ];
 
   return (
-    <section ref={sectionRef} className="bg-gray-50 py-16" id="company-strength" data-analytics-category="company-strength">
+    <section className="bg-gray-50 py-16" id="company-strength" data-analytics-category="company-strength">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
@@ -147,8 +176,10 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
             return (
               <div
                 key={index}
-                className={`bg-white rounded-lg p-6 shadow-md hover:shadow-xl transition-all duration-300 text-center ${
-                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+                ref={(el) => (statsRefs.current[index] = el)}
+                data-index={index}
+                className={`bg-white rounded-lg p-6 shadow-md hover:shadow-xl transition-all duration-700 ease-out text-center ${
+                  statsVisible[index] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
                 }`}
                 style={{
                   transitionDelay: `${index * 100}ms`
@@ -185,11 +216,13 @@ export function CompanyStrength({ language }: CompanyStrengthProps) {
               return (
                 <div
                   key={index}
-                  className={`bg-white rounded-lg p-6 shadow-md border-l-4 border-[#009FE3] hover:shadow-lg transition-all duration-300 ${
-                    isVisible ? 'opacity-100 translate-x-0' : `opacity-0 ${isRTL ? 'translate-x-8' : '-translate-x-8'}`
+                  ref={(el) => (valuesRefs.current[index] = el)}
+                  data-index={statsVisible.length + index}
+                  className={`bg-white rounded-lg p-6 shadow-md border-l-4 border-[#009FE3] hover:shadow-lg transition-all duration-700 ease-out ${
+                    valuesVisible[index] ? 'opacity-100 translate-x-0' : `opacity-0 ${isRTL ? 'translate-x-8' : '-translate-x-8'}`
                   }`}
                   style={{
-                    transitionDelay: `${(index + 4) * 100}ms`
+                    transitionDelay: `${index * 100}ms`
                   }}
                 >
                   <div className="flex items-start gap-4">
