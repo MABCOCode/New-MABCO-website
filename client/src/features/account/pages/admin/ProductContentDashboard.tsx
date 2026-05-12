@@ -74,7 +74,7 @@ const CONTENT_REQUIREMENTS = {
   imageMaxSize: 2, // MB
 };
 
-const SPEC_INPUT_MAX_LENGTH = 120;
+const SPEC_INPUT_MAX_LENGTH = 200;
 
 // Available icons for specifications
 const AVAILABLE_ICONS = [

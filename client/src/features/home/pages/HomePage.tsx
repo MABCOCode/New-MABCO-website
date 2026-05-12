@@ -315,8 +315,8 @@ const HomePage: React.FC = () => {
       if (cancelled) return;
       setShellReady(true);
       stage(setMountHero, 40);
-      stage(setMountSearch, 60);
-      stage(setMountCategories, 120);
+      stage(setMountSearch, 200);
+      stage(setMountCategories, 200);
       stage(setMountOffers, 220);
       stage(setMountProducts, 320);
       stage(setMountServices, 460);
