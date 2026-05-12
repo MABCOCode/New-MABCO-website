@@ -115,10 +115,9 @@ interface Coordinates {
 const DEFAULT_CENTER = { lat: 33.5138, lng: 36.2765 };
 
 import { CartOfferDisplay } from "@/features/offer/components/CartOfferDisplay";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useCart } from "../../../context/CartContext";
 import { useLanguage } from "../../../context/LanguageContext";
-import { loadSession } from "../../../utils/accountSession";
 import { setSeo } from "../../../services/seo";
 import {
   applyOfferDiscount,
@@ -133,39 +132,7 @@ export function CheckoutPage() {
   const t = translations[language];
   const isArabic = language === "ar";
   const navigate = useNavigate();
-  const location = useLocation();
   const { cartItems, clearCart, addToCart, removeFromCart } = useCart();
-  const session = loadSession();
-  const isAuthenticated = Boolean(session?.user);
-  const confirmedOrder = (location.state as any)?.confirmedOrder || null;
-  const confirmedOrderId =
-    confirmedOrder?.id || confirmedOrder?._id || confirmedOrder?.orderId || confirmedOrder?.order_id || null;
-  const orderDetailsUrl = isAuthenticated
-    ? confirmedOrderId
-      ? `/account/orders/${encodeURIComponent(confirmedOrderId)}`
-      : "/account/orders"
-    : "/account/login";
-  const orderDetailsLabel = isAuthenticated
-    ? language === "ar"
-      ? "عرض الطلبات"
-      : "View Orders"
-    : language === "ar"
-    ? "سجل الدخول لعرض الطلبات"
-    : "Sign in to view orders";
-  const emptyCheckoutTitle = confirmedOrder
-    ? language === "ar"
-      ? "شكراً لطلبك!"
-      : "Thank you for your order!"
-    : language === "ar"
-    ? "سلة الطلبات فارغة"
-    : "Your checkout is empty";
-  const emptyCheckoutDescription = confirmedOrder
-    ? language === "ar"
-      ? "تم استلام طلبك بنجاح. يمكنك متابعة حالة الطلب أو تسجيل الدخول لعرض سجل الطلبات الخاص بك."
-      : "Your order has been placed successfully. Track it or sign in to view your order history."
-    : language === "ar"
-    ? "أضف منتجات إلى سلة المشتريات لتستمر في الطلب، أو سجّل الدخول لعرض طلباتك السابقة."
-    : "Add products to your cart to continue, or sign in to view your past orders.";
   const asText = (value: string | string[] | undefined) =>
     Array.isArray(value) ? value.join(" ") : value ?? "";
   const normalizeSessionPhone = (value: unknown) => {
@@ -1218,10 +1185,7 @@ export function CheckoutPage() {
         language === "ar"
           ? "سيتم التعامل مع طلبك بكل عناية، وسيتواصل معك الفريق المسؤول قريباً."
           : "Your order will be managed with care, and the responsible team will contact you soon.";
-      navigate("/checkout", {
-        replace: true,
-        state: { confirmedOrder: savedOrder, orderMessage },
-      });
+      navigate("/", { state: { confirmedOrder: savedOrder, orderMessage } });
     } catch (err: any) {
       setOrderSubmitError(
         err?.message ||
@@ -1259,39 +1223,9 @@ export function CheckoutPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {cartItems.length === 0 ? (
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-200 p-10 text-center max-w-3xl mx-auto">
-            <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-[#009FE3]/10 flex items-center justify-center text-[#009FE3] text-3xl font-bold">
-              <Sparkles className="w-10 h-10" />
-            </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">{emptyCheckoutTitle}</h2>
-            <p className="text-gray-600 mb-8 text-lg leading-relaxed">{emptyCheckoutDescription}</p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                onClick={() => navigate(orderDetailsUrl)}
-                className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#009FE3] text-white font-semibold hover:bg-[#007BC7] transition-all duration-200"
-              >
-                {orderDetailsLabel}
-              </button>
-              <button
-                onClick={() => navigate("/")}
-                className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200"
-              >
-                {language === "ar" ? "العودة للتسوق" : "Continue Shopping"}
-              </button>
-            </div>
-            {confirmedOrder && (
-              <p className="mt-8 text-sm text-gray-500">
-                {language === "ar"
-                  ? "يمكنك الدخول إلى سجل طلباتك في حسابك أو مراجعة حالة هذا الطلب بعد تسجيل الدخول."
-                  : "You can access your order history in your account or review this order after signing in."}
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Content - Left Side */}
-            <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content - Left Side */}
+          <div className="lg:col-span-2 space-y-6">
             {/* Step 1: Fulfillment Type */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-gray-100">
               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -2155,7 +2089,6 @@ export function CheckoutPage() {
           </div>
         </div>
       </div>
-    )}
 
       <style>{`
         @keyframes fadeInUp {
