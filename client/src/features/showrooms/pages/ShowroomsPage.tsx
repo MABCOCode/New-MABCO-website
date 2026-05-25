@@ -166,6 +166,8 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
   // Load showrooms from local static JSON first, then fallback to API if needed.
   useEffect(() => {
     let mounted = true;
+    let abortController: AbortController | null = null;
+    let abortTimeoutId: ReturnType<typeof setTimeout> | null = null;
     setIsLoading(true);
 
     const normalizeFromDb = (item: any): ShowroomRaw => {
@@ -220,11 +222,11 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
 
     const loadShowrooms = async () => {
       try {
-        // Load updated showrooms from API first so admin edits show immediately.
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const apiRes = await fetch(`${apiBase}/showrooms`, { signal: controller.signal });
-        clearTimeout(timeoutId);
+        abortController = new AbortController();
+        abortTimeoutId = setTimeout(() => abortController?.abort(), 5000);
+        const apiRes = await fetch(`${apiBase}/showrooms`, { signal: abortController.signal });
+        if (abortTimeoutId !== null) clearTimeout(abortTimeoutId);
+        abortTimeoutId = null;
         if (apiRes.ok) {
           const apiJson = await apiRes.json();
           const normalized = normalizeData(apiJson?.data ?? apiJson);
@@ -237,7 +239,6 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
       }
 
       try {
-        // Fallback to local static JSON only when the API is unavailable.
         const staticRes = await fetch('/static/showrooms.json');
         if (staticRes.ok) {
           const staticJson = await staticRes.json();
@@ -258,7 +259,11 @@ export function ShowroomsPage(_: ShowroomsPageProps) {
       }
     })();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      if (abortTimeoutId !== null) clearTimeout(abortTimeoutId);
+      if (abortController) abortController.abort();
+    };
   }, [language]);
 
   const openMapDialog = (lat: string, lng: string, name: string) => {
